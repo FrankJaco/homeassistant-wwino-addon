@@ -789,9 +789,7 @@ def insert_wine_data(wine_data, quantity=1):
         conn.close()
 
 # --- Flask Routes ---
-@app.route('/')
-def home():
-    return "Wine Inventory Scanner is running!"
+
 
 @app.route('/scan-wine', methods=['POST'])
 def scan_wine():
@@ -1127,10 +1125,19 @@ def delete_wine():
     finally:
         conn.close()
 
+from flask import send_from_directory
+
+@app.route("/")
+def serve_frontend():
+    return send_from_directory("frontend", "index.html")
+
+@app.route("/<path:path>")
+def serve_static(path):
+    return send_from_directory("frontend", path)
+
+
 if __name__ == '__main__':
     init_db()
     logger.info("Flask app starting on port 5000...")
     app.run(host='0.0.0.0', port=5000)
-@app.route('/')
-def index():
-    return app.send_static_file('index.html')
+
