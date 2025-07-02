@@ -1,0 +1,1136 @@
+import os
+import logging
+from flask import Flask, request, jsonify
+import sqlite3
+import requests
+from bs4 import BeautifulSoup
+import re # For regular expressions to clean strings
+import json # For parsing JSON-LD data from Vivino
+from flask_cors import CORS # Re-enabled CORS
+from urllib.parse import urlparse, parse_qs
+
+# --- Configuration (read from environment variables) ---
+HOME_ASSISTANT_URL = os.environ.get("HOME_ASSISTANT_URL")
+HA_LONG_LIVED_TOKEN = os.environ.get("HA_LONG_LIVED_TOKEN")
+TODO_LIST_ENTITY_ID = os.environ.get("TODO_LIST_ENTITY_ID")
+DB_PATH = os.environ.get("DB_PATH", "/share/wine_inventory.db") # Default to /share if not set
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "debug").upper() # Set to debug for consistent logging
+
+# --- Logging Setup ---
+logging.basicConfig(level=getattr(logging, LOG_LEVEL),
+                    format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+app = Flask(__name__, static_folder="frontend", static_url_path="")
+CORS(app) # Re-enabled CORS initialization
+
+# Dictionary for common country abbreviations for display purposes
+COUNTRY_ABBREVIATIONS = {
+    "United States": "US",
+    "Australia": "AU",
+    "France": "FR",
+    "New Zealand": "NZ",
+    "Italy": "IT",
+    "Spain": "ES",
+    "Argentina": "AR",
+    "Chile": "CL",
+    "Germany": "DE",
+    "Portugal": "PT",
+    "South Africa": "ZA",
+    "Canada": "CA",
+    "United Kingdom": "UK",
+    "Austria": "AT",
+    "Greece": "GR",
+    "Hungary": "HU",
+    "Lebanon": "LB",
+    "Mexico": "MX",
+    "Moldova": "MD",
+    "Romania": "RO",
+    "Switzerland": "CH",
+    "Turkey": "TR",
+    "Uruguay": "UY",
+}
+
+
+def format_wine_for_todo(wine: dict) -> str: # Removed quantity parameter from signature
+    name = wine.get("name") or "n/a"
+    vintage = wine.get("vintage")
+
+    # Summary line is now just name and vintage, without quantity
+    if vintage:
+        return f"{name} ({vintage})"
+    else:
+        return name # If vintage is missing
+
+# Updated sync_to_ha_todo function
+def sync_to_ha_todo(wine: dict, current_quantity: int) -> None:
+    # item_text will be just "Name (Vintage)" as per the new format_wine_for_todo
+    item_text = format_wine_for_todo(wine) # No quantity in summary
+    description = build_markdown_description(wine, current_quantity) # Quantity in description
+    entity_id = TODO_LIST_ENTITY_ID
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # Initialize resp to None to prevent UnboundLocalError
+    resp = None
+
+    # Always attempt to remove the old item first to ensure updates are reflected
+    remove_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+    remove_payload = {
+        "entity_id": entity_id,
+        "item": item_text
+    }
+    try:
+        resp = requests.post(remove_url, json=remove_payload, headers=headers, timeout=5)
+        resp.raise_for_status()
+        logger.info(f"HA To-Do removed (or attempted to remove) for update/deletion: {item_text}")
+    except Exception as e:
+        # Modified log message for clarity
+        logger.warning(
+            f"HA To-Do remove attempt failed for '{item_text}'. "
+            f"This can be ignored if adding a new wine for the first time. "
+            f"Check Home Assistant logs if this persists for existing items or indicates a network problem: "
+            f"{e} -> {getattr(resp, 'text', '<no response>')}"
+        )
+
+    if current_quantity > 0:
+        # If quantity > 0, re-add the item with the updated description
+        add_url = f"{HOME_ASSISTANT_URL}/api/services/todo/add_item"
+        add_payload = {
+            "entity_id": entity_id,
+            "item": item_text, # This now does NOT include quantity
+            "description": description # This DOES include quantity
+        }
+        try:
+            resp = requests.post(add_url, json=add_payload, headers=headers, timeout=5)
+            resp.raise_for_status()
+            logger.info(f"HA To-Do synchronized (re-added/updated) for: {item_text} with quantity {current_quantity}")
+        except Exception as e:
+            logger.error(f"HA To-Do sync failed for add/update: {e} -> {getattr(resp, 'text', '<no response>')}")
+    else:
+        logger.info(f"Wine quantity is 0. Item not re-added to HA To-Do: {item_text}")
+
+def build_markdown_description(wine: dict, current_quantity: int) -> str:
+    description_parts = []
+
+    # Line 1: Varietals (bold first, 32 char limit, 60% truncation)
+    varietal_str = wine.get("varietal")
+    
+    rendered_varietal_line_markdown = [] 
+    current_visual_length = 0 
+    
+    MAX_VISUAL_LINE_LENGTH_FOR_VARIETAL = 32 
+    TRUNCATION_THRESHOLD_PERCENT = 0.60
+    ELLIPSIS_LENGTH = 0 
+
+    if varietal_str and varietal_str != "Unknown Varietal":
+        individual_varietals = [v.strip() for v in varietal_str.split(',')]
+        
+        if individual_varietals:
+            # --- Handle the first grape (bolded) ---
+            first_grape = individual_varietals[0]
+            
+            visual_len_first_grape = len(first_grape)
+
+            if visual_len_first_grape <= MAX_VISUAL_LINE_LENGTH_FOR_VARIETAL:
+                rendered_varietal_line_markdown.append(f"**{first_grape}**")
+                current_visual_length += visual_len_first_grape
+            else:
+                chars_for_truncated_grape = MAX_VISUAL_LINE_LENGTH_FOR_VARIETAL - ELLIPSIS_LENGTH 
+                if chars_for_truncated_grape > 0:
+                    truncated_grape = first_grape[:chars_for_truncated_grape]
+                    rendered_varietal_line_markdown.append(f"**{truncated_grape}**")
+                    current_visual_length += len(truncated_grape) 
+
+            # --- Handle subsequent grapes ---
+            for i, grape in enumerate(individual_varietals[1:]): 
+                if not rendered_varietal_line_markdown and i > 0: 
+                    break
+                
+                separator_text = " " if i == 0 else ", " 
+                visual_len_grape = len(grape)
+
+                remaining_line_space = MAX_VISUAL_LINE_LENGTH_FOR_VARIETAL - current_visual_length
+                
+                if remaining_line_space >= (len(separator_text) + visual_len_grape):
+                    rendered_varietal_line_markdown.append(f"{separator_text}{grape}")
+                    current_visual_length += len(separator_text) + visual_len_grape
+                else:
+                    space_for_grape_body = remaining_line_space - len(separator_text)
+                    
+                    if space_for_grape_body > 0: 
+                        if (space_for_grape_body / visual_len_grape) >= TRUNCATION_THRESHOLD_PERCENT:
+                            truncated_grape = grape[:space_for_grape_body]
+                            rendered_varietal_line_markdown.append(f"{separator_text}{truncated_grape}")
+                            current_visual_length += len(separator_text) + len(truncated_grape) 
+                    break 
+        
+    if rendered_varietal_line_markdown:
+        description_parts.append("".join(rendered_varietal_line_markdown))
+    else:
+        description_parts.append("Unknown Varietal") 
+
+
+    # Line 2: Region, Country (bold region, un-bold country, conditional abbreviation)
+    region_str = wine.get("region")
+    country_str = wine.get("country")
+
+    MAX_VISUAL_LINE_LENGTH_FOR_REGION_COUNTRY = 32 # Same limit as varietal line
+    
+    region_country_display = []
+    current_rc_visual_length = 0
+
+    if region_str and region_str != "Unknown Region":
+        # Add region, always bolded
+        region_country_display.append(f"**{region_str}**")
+        current_rc_visual_length += len(region_str) # Only count visual chars
+
+    if country_str and country_str != "Unknown Country":
+        separator_rc = " " # Always a single space between region and country
+
+        # First, try to add the full country name
+        potential_full_country_segment = f"{separator_rc}{country_str}"
+        if (current_rc_visual_length + len(potential_full_country_segment)) <= MAX_VISUAL_LINE_LENGTH_FOR_REGION_COUNTRY:
+            region_country_display.append(potential_full_country_segment)
+        else:
+            # Full country doesn't fit. Try abbreviation.
+            abbreviated_country = COUNTRY_ABBREVIATIONS.get(country_str, country_str)
+            potential_abbr_country_segment = f"{separator_rc}{abbreviated_country}"
+
+            if (current_rc_visual_length + len(potential_abbr_country_segment)) <= MAX_VISUAL_LINE_LENGTH_FOR_REGION_COUNTRY:
+                region_country_display.append(potential_abbr_country_segment)
+            else:
+                # Even abbreviation doesn't fit, or no abbreviation. Truncate country.
+                space_for_country_body = MAX_VISUAL_LINE_LENGTH_FOR_REGION_COUNTRY - current_rc_visual_length - len(separator_rc)
+                if space_for_country_body > 0:
+                    truncated_country = country_str[:space_for_country_body]
+                    region_country_display.append(f"{separator_rc}{truncated_country}")
+                # If no space for "X", then country won't be added to this line.
+
+    if region_country_display:
+        description_parts.append("".join(region_country_display))
+    else:
+        description_parts.append("Unknown Region/Country")
+
+
+    # Line 3: Quantity and Vivino Rating (combined)
+    rating_qty_line_parts = []
+
+    # Add quantity first to the last line
+    rating_qty_line_parts.append(f"Qty: [ **{current_quantity}** ]")
+
+    if wine.get("vivino_rating") is not None and wine.get("vivino_num_ratings"):
+        rating_qty_line_parts.append(f"Rating: **{wine['vivino_rating']:.1f}** ⭐ ({wine['vivino_num_ratings']})")
+    elif wine.get("vivino_rating") is not None:
+         rating_qty_line_parts.append(f"Rating: **{wine['vivino_rating']:.1f}** ⭐")
+
+    description_parts.append("&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;".join(rating_qty_line_parts))
+
+    # Join the main parts with two spaces and a newline for proper Markdown line breaks
+    return "  \n".join(description_parts[:3]) # Ensure we only join up to the first 3 elements
+
+# --- Database Initialization ---
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS wines (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            vivino_url TEXT UNIQUE NOT NULL,
+            name TEXT NOT NULL,
+            vintage INTEGER,
+            varietal TEXT,
+            region TEXT,
+            country TEXT,
+            vivino_rating REAL,
+            vivino_num_ratings INTEGER,
+            price_usd REAL,
+            image_url TEXT,
+            quantity INTEGER DEFAULT 1, -- New column for quantity
+            added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    conn.commit()
+    conn.close()
+    logger.info(f"SQLite database initialized at {DB_PATH}")
+
+# --- Vivino Scraping Logic (Original from your provided file) ---
+def scrape_vivino_data(vivino_url):
+    """
+    Scrapes detailed wine information from a given Vivino URL.
+    Prioritizes JSON-LD data, falls back to enhanced HTML parsing.
+    Returns a dictionary of wine data or None if scraping fails.
+    """
+    user_agents = [
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36', # Desktop user agent (seems more reliable for Vivino)
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1',
+    ]
+    headers = {
+        'User-Agent': user_agents[0] # Use a desktop user agent by default
+    }
+
+    wine_data = {
+        'vivino_url': vivino_url,
+        'name': 'Unknown Wine',
+        'vintage': None,
+        'varietal': 'Unknown Varietal',
+        'region': 'Unknown Region',
+        'country': 'Unknown Country',
+        'vivino_rating': None,
+        'vivino_num_ratings': None,
+        'price_usd': None,
+        'image_url': None,
+        # Quantity is managed by the inventory system, not scraped
+    }
+
+    # Master list to collect all grape names found from any source (JSON-LD or HTML)
+    all_grape_names_collected = []
+
+    try:
+        response = requests.get(vivino_url, headers=headers, timeout=10)
+        response.raise_for_status()
+
+        soup = BeautifulSoup(response.text, 'lxml')
+
+        # --- Attempt to extract data from JSON-LD first (most reliable) ---
+        script_tags = soup.find_all('script', type='application/ld+json')
+        for script in script_tags:
+            try:
+                json_ld = json.loads(script.string)
+
+                if isinstance(json_ld, dict):
+                    # Product Schema (most common for wine pages)
+                    if json_ld.get('@type') == 'Product':
+                        if wine_data['name'] == 'Unknown Wine' and 'name' in json_ld:
+                            wine_data['name'] = json_ld['name'].strip()
+
+                        if wine_data['image_url'] is None and 'image' in json_ld:
+                            if isinstance(json_ld['image'], list) and json_ld['image']:
+                                wine_data['image_url'] = json_ld['image'][0]
+                            elif isinstance(json_ld['image'], str):
+                                wine_data['image_url'] = json_ld['image']
+
+                        offers = json_ld.get('offers')
+                        if wine_data['price_usd'] is None and offers:
+                            if isinstance(offers, dict) and offers.get('@type') == 'Offer':
+                                price_str = offers.get('price')
+                                price_currency = offers.get('priceCurrency')
+                                if price_str and price_currency == 'USD':
+                                    try: wine_data['price_usd'] = float(price_str);
+                                    except ValueError: pass
+                            elif isinstance(offers, list):
+                                for offer in offers:
+                                    if isinstance(offer, dict) and offer.get('@type') == 'Offer':
+                                        price_str = offer.get('price')
+                                        price_currency = offer.get('priceCurrency')
+                                        if price_str and price_currency == 'USD':
+                                            try: wine_data['price_usd'] = float(price_str); break
+                                            except ValueError: pass
+
+                        aggregate_rating = json_ld.get('aggregateRating')
+                        if aggregate_rating and isinstance(aggregate_rating, dict):
+                            if wine_data['vivino_rating'] is None:
+                                rating_value = aggregate_rating.get('ratingValue')
+                                if rating_value is not None:
+                                    try: wine_data['vivino_rating'] = float(str(rating_value).replace(',', '.'));
+                                    except ValueError: pass
+                            if wine_data['vivino_num_ratings'] is None:
+                                review_count = aggregate_rating.get('reviewCount')
+                                if review_count is not None:
+                                    try: wine_data['vivino_num_ratings'] = int(str(review_count).replace(',', ''));
+                                    except ValueError: pass
+
+                        contains_wine = json_ld.get('containsWine')
+                        if contains_wine and isinstance(contains_wine, dict) and contains_wine.get('@type') == 'Wine':
+                            if wine_data['vintage'] is None and 'vintage' in contains_wine:
+                                try: wine_data['vintage'] = int(contains_wine['vintage']);
+                                except ValueError: pass
+
+                            grapes = contains_wine.get('grape')
+                            if grapes: # Check for existence
+                                if isinstance(grapes, list):
+                                    grape_names = [g.get('name') for g in grapes if isinstance(g, dict) and g.get('name')]
+                                    if grape_names:
+                                        all_grape_names_collected.extend(grape_names)
+                                elif isinstance(grapes, dict) and 'name' in grapes:
+                                    all_grape_names_collected.append(grapes['name'].strip())
+
+                        main_entity_of_page = json_ld.get('mainEntityOfPage')
+                        if main_entity_of_page and isinstance(main_entity_of_page, dict):
+                            breadcrumb = main_entity_of_page.get('breadcrumb')
+                            if breadcrumb and isinstance(breadcrumb, dict) and breadcrumb.get('@type') == 'BreadcrumbList':
+                                item_list = breadcrumb.get('itemListElement')
+                                if item_list and isinstance(item_list, list):
+                                    for item_elem in item_list:
+                                        if isinstance(item_elem, dict) and 'item' in item_elem:
+                                            item = item_elem['item']
+                                            if isinstance(item, dict) and 'name' in item and 'url' in item:
+                                                if wine_data['country'] == 'Unknown Country' and '/countries/' in item['url']:
+                                                    wine_data['country'] = item['name'].strip()
+                                                if wine_data['region'] == 'Unknown Region' and '/regions/' in item['url']:
+                                                    wine_data['region'] = item['name'].strip()
+
+                    elif json_ld.get('@type') == 'WebPage':
+                        content_location = json_ld.get('contentLocation')
+                        if content_location and isinstance(content_location, dict):
+                            if wine_data['region'] == 'Unknown Region' and 'name' in content_location:
+                                wine_data['region'] = content_location['name'].strip()
+                            if wine_data['country'] == 'Unknown Country' and 'address' in content_location and isinstance(content_location['address'], dict):
+                                if 'addressCountry' in content_location['address']:
+                                    wine_data['country'] = content_location['address']['addressCountry'].strip()
+
+                    elif json_ld.get('@type') == 'Wine':
+                        if wine_data['name'] == 'Unknown Wine' and 'name' in json_ld:
+                            wine_data['name'] = json_ld['name'].strip()
+                        if wine_data['vintage'] is None and 'vintage' in json_ld:
+                            try: wine_data['vintage'] = int(json_ld['vintage']);
+                            except ValueError: pass
+                        if 'grape' in json_ld:
+                            grapes = json_ld['grape']
+                            if grapes: # Check for existence
+                                if isinstance(grapes, list) and grapes:
+                                    grape_names = [g.get('name') for g in grapes if isinstance(g, dict) and g.get('name')]
+                                    if grape_names:
+                                        all_grape_names_collected.extend(grape_names)
+                                elif isinstance(grapes, dict) and 'name' in grapes:
+                                    all_grape_names_collected.append(grapes['name'].strip())
+                        if wine_data['region'] == 'Unknown Region' and 'region' in json_ld:
+                            region_info = json_ld['region']
+                            if isinstance(region_info, dict) and 'name' in region_info:
+                                wine_data['region'] = region_info['name'].strip()
+                        if wine_data['country'] == 'Unknown Country' and 'country' in json_ld:
+                            country_info = json_ld['country']
+                            if isinstance(country_info, dict) and 'name' in country_info:
+                                wine_data['country'] = country_info['name'].strip()
+                        if wine_data['image_url'] is None and 'image' in json_ld:
+                            if isinstance(json_ld['image'], list) and json_ld['image']:
+                                wine_data['image_url'] = json_ld['image'][0]
+                            elif isinstance(json_ld['image'], str):
+                                wine_data['image_url'] = json_ld['image']
+
+            except (json.JSONDecodeError, KeyError, TypeError) as json_err:
+                logger.debug(f"Vivino JSON-LD parsing error (may be benign if other schemas exist): {json_err}")
+                pass
+        
+        # --- Fallback to HTML parsing for any remaining missing data from Vivino ---
+        if wine_data['name'] == 'Unknown Wine':
+            name_tag = soup.find('h1', class_='wine-page-header__name')
+            if name_tag:
+                wine_data['name'] = " ".join(name_tag.text.strip().split())
+                logger.debug(f"HTML Name found: '{wine_data['name']}'")
+
+        # Get vintage (from name, or specific elements)
+        if wine_data['vintage'] is None and wine_data['name'] and 'Unknown Wine' not in wine_data['name']:
+            name_vintage_match = re.search(r'\b(19\d{2}|20\d{2})\b', wine_data['name'])
+            if name_vintage_match:
+                try:
+                    year = int(name_vintage_match.group(0))
+                    current_year = 2025
+                    if 1900 <= year <= current_year + 5:
+                        wine_data['vintage'] = year
+                        cleaned_name = wine_data['name'].replace(name_vintage_match.group(0), '').strip()
+                        wine_data['name'] = " ".join(cleaned_name.split())
+                        logger.debug(f"HTML Vintage (name text) found and removed from name: {wine_data['vintage']}, Cleaned Name: '{wine_data['name']}'")
+                except ValueError:
+                    pass
+
+        if wine_data['vintage'] is None:
+            vintage_span = soup.find('span', class_='vintage')
+            if vintage_span:
+                year_match = re.search(r'\b(19\d{2}|20\d{2})\b', vintage_span.text.strip())
+                if year_match:
+                    try:
+                        wine_data['vintage'] = int(year_match.group(0))
+                        logger.debug(f"HTML Vintage (span.vintage) found: {wine_data['vintage']}")
+                    except ValueError: pass
+
+        logger.debug(f"Vintage scraping complete. Current data: {wine_data['vintage']}")
+
+        # --- NEW & IMPROVED: Get Varietal, Region, and Country from direct links ---
+        all_relevant_links = soup.find_all('a', href=re.compile(r'/(wine-countries|wine-regions|grapes)/'))
+        logger.debug(f"Attempting to find country/region/varietal from all relevant links. Found {len(all_relevant_links)} links.")
+
+        for link in all_relevant_links:
+            href = link.get('href', '')
+            text = link.get_text(strip=True)
+
+            if '/wine-countries/' in href and wine_data['country'] == 'Unknown Country':
+                wine_data['country'] = text
+                logger.debug(f"HTML Country (direct link) found: {wine_data['country']} from href: {href}")
+            elif '/wine-regions/' in href and wine_data['region'] == 'Unknown Region':
+                wine_data['region'] = text
+                logger.debug(f"HTML Region (direct link) found: {wine_data['region']} from href: {href}")
+            elif '/grapes/' in href: # Always try to collect grape names from links
+                if text and 'blend' not in text.lower() and 'wine' not in text.lower():
+                    all_grape_names_collected.append(text)
+                elif text:
+                    all_grape_names_collected.append(text)
+
+
+        # Fallback to definition lists if still not found in direct links or JSON-LD for varietal/region/country
+        dl_tags = soup.find_all('dl', class_=re.compile(r'wine-facts|product-details'))
+        if dl_tags:
+            logger.debug(f"Attempting to find country/region/varietal from DL elements. Found {len(dl_tags)} definition lists.")
+        for dl in dl_tags:
+            dt_dd_pairs = list(zip(dl.find_all('dt'), dl.find_all('dd')))
+            for dt, dd in dt_dd_pairs:
+                label = dt.get_text(strip=True)
+                value = dd.get_text(strip=True)
+
+                if 'Country' in label and wine_data['country'] == 'Unknown Country' and value.strip():
+                    wine_data['country'] = value
+                    logger.debug(f"HTML Country (DL) found: {wine_data['country']}")
+                elif 'Region' in label and wine_data['region'] == 'Unknown Region' and value.strip():
+                    wine_data['region'] = value
+                    logger.debug(f"HTML Region (DL) found: {wine_data['region']}")
+                elif ('Grape' in label or 'Varietal' in label):
+                    if value.strip():
+                        all_grape_names_collected.append(value.strip())
+
+
+        # --- FINAL Varietal Assignment (Post-processing all collected grapes) ---
+        if all_grape_names_collected:
+            # Filter out generic terms, keeping only actual varietal names
+            filtered_grapes = [
+                g for g in all_grape_names_collected
+                if g.lower() not in ['red wine', 'white wine', 'sparkling wine', 'rosé wine', 'dessert wine', 'fortified wine', 'blend']
+            ]
+            
+            # If after filtering we have specific grapes, use them. Maintain order as much as possible.
+            if filtered_grapes:
+                # Use a list to maintain order, convert to set for uniqueness, then back to list to preserve (first seen) order.
+                seen_grapes = set()
+                ordered_unique_grapes = []
+                for grape in all_grape_names_collected: # Iterate through ALL collected, not just filtered
+                    cleaned_grape = grape.strip()
+                    # Check against filtered_grapes set to ensure it's a specific varietal
+                    if cleaned_grape.lower() not in ['red wine', 'white wine', 'sparkling wine', 'rosé wine', 'dessert wine', 'fortified wine', 'blend'] and cleaned_grape not in seen_grapes:
+                        ordered_unique_grapes.append(cleaned_grape)
+                        seen_grapes.add(cleaned_grape)
+                
+                if ordered_unique_grapes:
+                    wine_data['varietal'] = ", ".join(ordered_unique_grapes)
+                    logger.debug(f"Final Varietal set from ordered unique collected sources: {wine_data['varietal']}")
+                elif 'blend' in [g.lower() for g in all_grape_names_collected]:
+                    wine_data['varietal'] = 'Blend'
+                else:
+                    wine_data['varietal'] = 'Unknown Varietal' # Fallback if only generic terms or empty
+            else:
+                # If only generic terms were found (e.g., just 'Red wine' or 'Blend')
+                if 'blend' in [g.lower() for g in all_grape_names_collected]:
+                    wine_data['varietal'] = 'Blend'
+                else:
+                    wine_data['varietal'] = 'Unknown Varietal'
+                logger.debug(f"All collected varietals were generic. Varietal set to: {wine_data['varietal']}")
+        else:
+            wine_data['varietal'] = 'Unknown Varietal'
+            logger.debug("No varietals collected from any source. Varietal set to Unknown Varietal.")
+
+        logger.debug(f"Final Varietal after all processing: {wine_data['varietal']}")
+        logger.debug(f"Region/Country scraping finished HTML attempts. Current data: Region='{wine_data['region']}', Country='{wine_data['country']}'")
+
+
+        # --- Specific US Country Fallback (truly a last resort now) ---
+        if wine_data['country'] == 'Unknown Country' and "/US/en/" in vivino_url:
+            wine_data['country'] = "United States"
+            logger.debug(f"Country defaulted to 'United States' due to URL pattern (final fallback).")
+
+
+        # Get Vivino number of ratings
+        if wine_data['vivino_num_ratings'] is None:
+            ratings_elements_classes = [
+                re.compile(r'vivinoRating_ratingsCount__value'),
+                re.compile(r'text-micro text-bold mt-2 text-color-gray-600'),
+                re.compile(r'vivinoRating_ratings'),
+                re.compile(r'vivinoRating_summary__reviewerAndActions'),
+                re.compile(r'community-score__total-ratings'),
+                re.compile(r'community-score__reviews-count'),
+                re.compile(r'review-score__count')
+            ]
+
+            for class_name in ratings_elements_classes:
+                elem = soup.find(class_=class_name)
+                if elem:
+                    num_ratings_text = elem.get_text(strip=True)
+                    num_ratings_match = re.search(r'([\d,\.]+)\s*(ratings|K|M)?', num_ratings_text, re.IGNORECASE)
+                    if num_ratings_match:
+                        value_str = num_ratings_match.group(1).replace(',', '.')
+                        suffix = (num_ratings_match.group(2) or '').lower()
+
+                        try:
+                            value = float(value_str)
+                            if suffix == 'k': value *= 1_000
+                            elif suffix == 'm': value *= 1_000_000
+                            wine_data['vivino_num_ratings'] = int(value)
+                            logger.debug(f"HTML Num Ratings ({class_name.pattern}) found: {wine_data['vivino_num_ratings']}")
+                            break
+                        except ValueError:
+                            pass
+
+            if wine_data['vivino_num_ratings'] is None:
+                rating_text_matches = re.finditer(r'(\d[\d,\.]*)\s*(global\s*)?ratings', response.text, re.IGNORECASE)
+                for match in rating_text_matches:
+                    value_str = match.group(1).replace(',', '.')
+                    try:
+                        wine_data['vivino_num_ratings'] = int(float(value_str))
+                        logger.debug(f"HTML Num Ratings (text match) found: {wine_data['vivino_num_ratings']}")
+                        break
+                    except ValueError:
+                        pass
+        logger.debug(f"Vivino Num Ratings scraping complete. Current data: {wine_data['vivino_num_ratings']}")
+
+
+        # Get Vivino rating
+        if wine_data['vivino_rating'] is None:
+            rating_tags = soup.find_all('div', class_=re.compile(r'vivinoRating_averageValue|average-value|community-score__score|rating-value'))
+            for rating_tag in rating_tags:
+                try:
+                    rating_text = rating_tag.text.strip().replace(',', '.')
+                    if rating_text:
+                        wine_data['vivino_rating'] = float(rating_text)
+                        logger.debug(f"HTML Vivino Rating found: {wine_data['vivino_rating']}")
+                        break
+                except ValueError: pass
+        logger.debug(f"Vivino Rating scraping complete. Current data: {wine_data['vivino_rating']}")
+
+
+        # Get image URL
+        if wine_data['image_url'] is None:
+            image_tag = soup.find('img', class_=re.compile(r'wine-page-image__image|vivinoImage_image|image-preview__image|image-container__image'))
+            if image_tag:
+                if image_tag.has_attr('src') and 'vivino.com' in image_tag['src']:
+                    wine_data['image_url'] = image_tag['src']
+                    logger.debug(f"HTML Image URL (src) found: {wine_data['image_url']}")
+                elif image_tag.has_attr('data-src') and 'vivino.com' in image_tag['data-src']:
+                    wine_data['image_url'] = image_tag['data-src']
+                    logger.debug(f"HTML Image URL (data-src) found: {wine_data['image_url']}")
+                elif image_tag.has_attr('src'):
+                    wine_data['image_url'] = image_tag['src']
+                    logger.debug(f"HTML Image URL (generic src) found: {wine_data['image_url']}")
+                elif image_tag.has_attr('data-src'):
+                    wine_data['image_url'] = image_tag['data-src']
+                    logger.debug(f"HTML Image URL (generic data-src) found: {wine_data['image_url']}")
+        logger.debug(f"Image URL scraping complete. Current data: {wine_data['image_url']}")
+
+        # Get price
+        if wine_data['price_usd'] is None:
+            price_tag = soup.find('div', class_=re.compile(r'purchase-block__price|price'))
+            if price_tag:
+                price_text = price_tag.text.strip()
+                price_match = re.search(r'\$?(\d[\d\.,]*)', price_text)
+                if price_match:
+                    try: wine_data['price_usd'] = float(price_match.group(1).replace(',', ''));
+                    except ValueError: pass
+        logger.debug(f"Price scraping complete. Current data: {wine_data['price_usd']}")
+
+        # --- Final Fallback Layer: Parse the URL itself ---
+        # This runs only if the above methods failed to find the data.
+
+        # 1. Fallback for Vintage from URL query parameter
+        if wine_data['vintage'] is None:
+            try:
+                # Use urllib.parse to get query parameters from vivino_url
+                parsed_url = urlparse(vivino_url)
+                query_params = parse_qs(parsed_url.query)
+                if 'year' in query_params:
+                    year_str = query_params['year'][0]
+                    wine_data['vintage'] = int(year_str)
+                    logger.debug(f"Vintage (URL Fallback) found: {wine_data['vintage']}")
+            except (ValueError, IndexError):
+                logger.debug("Could not parse vintage from URL or 'year' param not found.")
+                pass
+
+        # 2. Fallback for Name from URL path slug
+        # This block *sets* the name IF it's still 'Unknown Wine'.
+        # IMPORTANT: The trimming logic has been REMOVED from this section.
+        if wine_data['name'] == 'Unknown Wine':
+            try:
+                # Use regex to find the slug between '/en/' and '/w/...'
+                match = re.search(r'/en/(.*?)/w/\d+', vivino_url)
+                if match:
+                    slug = match.group(1)
+                    # Clean up the slug: replace hyphens and title case it
+                    wine_data['name'] = slug.replace('-', ' ').title()
+                    logger.debug(f"Name (URL Fallback) found: '{wine_data['name']}'")
+            except Exception as e:
+                logger.debug(f"Could not parse name from URL slug: {e}")
+                pass
+
+        # --- NEW SECTION: POST-PROCESSING - Apply Name Trimming after all attempts ---
+        # This block executes if a name was found (not 'Unknown Wine'),
+        # regardless of whether it came from primary scraping or the URL fallback.
+        if wine_data['name'] and wine_data['name'] != 'Unknown Wine':
+            original_scraped_name = wine_data['name'] # Store the name before potential trimming
+
+            # Re-attempt to extract the slug from the URL for hyphen-based trimming,
+            # as the original 'slug' variable might be out of scope or not set
+            # if the name was found by primary BeautifulSoup scraping.
+            slug_for_trimming = None
+            try:
+                match_slug = re.search(r'/en/(.*?)/w/\d+', vivino_url)
+                if match_slug:
+                    slug_for_trimming = match_slug.group(1)
+            except Exception as e:
+                logger.debug(f"Could not re-extract slug from URL for trimming: {e}")
+                # Continue without slug-based trimming if extraction fails
+                pass
+
+            # Option A: Calculate name based on trimming after the 6th hyphen in the original slug
+            name_from_hyphen_trim = original_scraped_name # Default if no slug or not enough hyphens
+            if slug_for_trimming:
+                parts = slug_for_trimming.split('-')
+                if len(parts) > 6:
+                    trimmed_slug_parts = parts[:6]
+                    trimmed_slug = '-'.join(trimmed_slug_parts)
+                    name_from_hyphen_trim = trimmed_slug.replace('-', ' ').title()
+
+            # Option B: Calculate name based on trimming to a maximum of 63 characters
+            max_char_length = 63
+            name_from_char_trim = original_scraped_name # Default if not over limit
+            if len(original_scraped_name) > max_char_length:
+                name_from_char_trim = original_scraped_name[:max_char_length]
+
+            # Determine the shortest valid name among the original, hyphen-trimmed, and char-trimmed versions.
+            # This ensures we pick the best result based on your rules.
+            potential_names = [original_scraped_name, name_from_hyphen_trim, name_from_char_trim]
+            final_trimmed_name = min(potential_names, key=len)
+
+            # Update wine_data['name'] only if a shorter, valid trimmed name was found
+            if final_trimmed_name != original_scraped_name:
+                wine_data['name'] = final_trimmed_name
+                logger.debug(f"Name trimmed from '{original_scraped_name}' to '{wine_data['name']}' ({len(wine_data['name'])} chars)")
+            else:
+                logger.debug(f"Name did not require trimming or a shorter trim was not found: '{wine_data['name']}' ({len(wine_data['name'])} chars)")
+
+        logger.info(f"Final scraped data after URL fallback: {wine_data}")
+        return wine_data
+
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Network error during Vivino scraping for {vivino_url}: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"An unexpected error occurred during Vivino scraping for {vivino_url}: {e}", exc_info=True)
+        return None
+
+# Modified to accept quantity
+def insert_wine_data(wine_data, quantity=1):
+    """
+    Inserts new wine data into the SQLite database or updates the quantity
+    if a wine with the same Vivino URL already exists.
+    """
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    try:
+        # Check if the wine already exists
+        cursor.execute("SELECT id, quantity FROM wines WHERE vivino_url = ?", (wine_data['vivino_url'],))
+        existing_wine = cursor.fetchone()
+
+        if existing_wine:
+            wine_id, current_quantity = existing_wine
+            new_quantity = current_quantity + quantity
+            cursor.execute('''
+                UPDATE wines
+                SET quantity = ?,
+                    name = ?,
+                    vintage = ?,
+                    varietal = ?,
+                    region = ?,
+                    country = ?,
+                    vivino_rating = ?,
+                    vivino_num_ratings = ?,
+                    price_usd = ?,
+                    image_url = ?,
+                    added_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            ''', (
+                new_quantity,
+                wine_data['name'],
+                wine_data['vintage'],
+                wine_data['varietal'],
+                wine_data['region'],
+                wine_data['country'],
+                wine_data['vivino_rating'],
+                wine_data['vivino_num_ratings'],
+                wine_data['price_usd'],
+                wine_data['image_url'],
+                wine_id
+            ))
+            logger.info(f"Updated quantity for '{wine_data['name']}' to {new_quantity}.")
+        else:
+            # Insert new wine with specified quantity
+            cursor.execute('''
+                INSERT INTO wines (vivino_url, name, vintage, varietal, region, country, vivino_rating, vivino_num_ratings, price_usd, image_url, quantity)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                wine_data['vivino_url'],
+                wine_data['name'],
+                wine_data['vintage'],
+                wine_data['varietal'],
+                wine_data['region'],
+                wine_data['country'],
+                wine_data['vivino_rating'],
+                wine_data['vivino_num_ratings'],
+                wine_data['price_usd'],
+                wine_data['image_url'],
+                quantity # Use the provided quantity for new inserts
+            ))
+            logger.info(f"New wine '{wine_data['name']}' inserted with quantity {quantity}.")
+
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        logger.error(f"Database error inserting/updating wine data for {wine_data.get('name', 'N/A')}: {e}")
+        conn.rollback()
+        return False
+    finally:
+        conn.close()
+
+# --- Flask Routes ---
+@app.route('/')
+def home():
+    return "Wine Inventory Scanner is running!"
+
+@app.route('/scan-wine', methods=['POST'])
+def scan_wine():
+    data = request.get_json()
+    if not data or 'vivino_url' not in data:
+        logger.warning("Received invalid data for /scan-wine endpoint: %s", data)
+        return jsonify({"status": "error", "message": "Missing 'vivino_url' in request body"}), 400
+
+    vivino_url = data['vivino_url']
+    # Get quantity from request, default to 1 if not provided
+    quantity = data.get('quantity', 1)
+    if not isinstance(quantity, int) or quantity < 1:
+        logger.warning(f"Invalid quantity provided: {quantity}. Defaulting to 1.")
+        quantity = 1
+
+    logger.info(f"Received request to process Vivino URL: {vivino_url} with quantity: {quantity}")
+
+    wine_data = scrape_vivino_data(vivino_url)
+    if wine_data:
+
+        if insert_wine_data(wine_data, quantity):
+            # Get the current total quantity from the DB after the insert/update
+            conn = sqlite3.connect(DB_PATH)
+            cursor = conn.cursor()
+            cursor.execute("SELECT quantity FROM wines WHERE vivino_url = ?", (vivino_url,))
+            current_total_quantity_row = cursor.fetchone()
+            conn.close()
+
+            current_total_quantity = 0
+            if current_total_quantity_row:
+                current_total_quantity = current_total_quantity_row[0]
+
+            # Sync with HA To-Do List based on current total quantity
+            sync_to_ha_todo(wine_data, current_total_quantity)
+
+            return jsonify({
+                "status": "success",
+                "message": "Wine data scraped and stored/updated.",
+                "wine_name": wine_data['name'],
+                "vintage": wine_data['vintage'],
+                "vivino_url": wine_data['vivino_url'],
+                "quantity_added": quantity, # Confirm the quantity added/incremented
+                "current_total_quantity": current_total_quantity # Added for clarity
+            }), 200
+        else:
+            return jsonify({"status": "error", "message": "Failed to store/update wine data in database."}), 500
+    else:
+        return jsonify({"status": "error", "message": "Failed to scrape data from Vivino URL."}), 500
+
+@app.route('/inventory', methods=['GET'])
+def get_inventory():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    name_filter = request.args.get('name')
+    vintage_filter = request.args.get('vintage')
+
+    # Select the new quantity column
+    query = "SELECT vivino_url, name, vintage, varietal, region, country, vivino_rating, vivino_num_ratings, price_usd, image_url, quantity, added_at FROM wines"
+    params = []
+    conditions = []
+
+    if name_filter:
+        conditions.append("name LIKE ?")
+        params.append(f"%{name_filter}%")
+    if vintage_filter:
+        conditions.append("vintage = ?")
+        params.append(vintage_filter)
+
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+
+    query += " ORDER BY added_at DESC"
+
+    try:
+        cursor.execute(query, params)
+        wines = cursor.fetchall()
+        conn.close()
+
+        wine_list = []
+        for wine in wines:
+            wine_list.append({
+                "vivino_url": wine[0],
+                "name": wine[1],
+                "vintage": wine[2],
+                "varietal": wine[3],
+                "region": wine[4],
+                "country": wine[5],
+                "vivino_rating": wine[6],
+                "vivino_num_ratings": wine[7],
+                "price_usd": wine[8],
+                "image_url": wine[9],
+                "quantity": wine[10], # Include quantity in the returned data
+                "added_at": wine[11]
+            })
+        logger.info(f"Returning {len(wine_list)} wines from inventory.")
+        return jsonify(wine_list), 200
+    except sqlite3.Error as e:
+        logger.error(f"Database error retrieving inventory: {e}")
+        return jsonify({"status": "error", "message": "Database error retrieving inventory."}), 500
+    finally:
+        conn.close()
+
+# New endpoint to modify wine quantity
+@app.route('/inventory/wine/set_quantity', methods=['POST'])
+def set_wine_quantity():
+    data = request.get_json()
+    if not data or 'vivino_url' not in data or 'quantity' not in data:
+        logger.warning("Received invalid data for /inventory/wine/set_quantity endpoint: %s", data)
+        return jsonify({"status": "error", "message": "Missing 'vivino_url' or 'quantity' in request body"}), 400
+
+    vivino_url = data['vivino_url']
+    new_quantity = data['quantity']
+
+    if not isinstance(new_quantity, int) or new_quantity < 0:
+        return jsonify({"status": "error", "message": "Quantity must be a non-negative integer."}), 400
+
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    try:
+        # Fetch existing wine data before update for syncing with HA
+        cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url,))
+        wine_data_row = cursor.fetchone()
+
+        if wine_data_row:
+            columns = [description[0] for description in cursor.description]
+            wine_data_dict = dict(zip(columns, wine_data_row))
+
+            if new_quantity == 0:
+                cursor.execute("DELETE FROM wines WHERE vivino_url = ?", (vivino_url,))
+                conn.commit()
+                if cursor.rowcount > 0:
+                    logger.info(f"Successfully deleted wine {vivino_url} as quantity was set to 0.")
+                    sync_to_ha_todo(wine_data_dict, 0) # Sync with HA to ensure removal
+                    return jsonify({"status": "success", "message": "Wine deleted as quantity was set to 0."}), 200
+                else:
+                    logger.warning(f"Wine {vivino_url} not found for deletion after setting quantity to 0.")
+                    return jsonify({"status": "error", "message": "Wine not found for quantity update/deletion."}), 404
+            else:
+                cursor.execute("UPDATE wines SET quantity = ? WHERE vivino_url = ?", (new_quantity, vivino_url))
+                conn.commit()
+                if cursor.rowcount > 0:
+                    logger.info(f"Successfully set quantity for wine {vivino_url} to {new_quantity}.")
+                    sync_to_ha_todo(wine_data_dict, new_quantity) # Sync with HA
+                    return jsonify({"status": "success", "message": f"Quantity for wine set to {new_quantity}."}), 200
+                else:
+                    logger.warning(f"No wine found to set quantity for URL: {vivino_url}")
+                    return jsonify({"status": "error", "message": "Wine not found for quantity update."}), 404
+        else:
+            logger.warning(f"No wine found for quantity update for URL: {vivino_url}")
+            return jsonify({"status": "error", "message": "Wine not found for quantity update."}), 404
+
+    except sqlite3.Error as e:
+        logger.error(f"Database error setting wine quantity: {e}")
+        conn.rollback()
+        return jsonify({"status": "error", "message": "Database error setting wine quantity."}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine():
+    data = request.get_json()
+    if not data or "item" not in data:
+        logger.warning("Malformed webhook: missing 'item' field.")
+        return jsonify({"status": "error", "message": "Missing 'item' in request body."}), 400
+
+    item_text = data["item"]
+    logger.info(f"Webhook received for consumed wine: {item_text}")
+
+    # The item_text from HA will now be "Wine Name (Vintage)" (no 'xN')
+    parsed_name = None
+    parsed_vintage = None
+
+    # Regex to extract "Name (Vintage)"
+    match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+    if match:
+        parsed_name = match.group(1).strip()
+        parsed_vintage = int(match.group(2))
+    else:
+        logger.warning(f"Failed to parse wine name and vintage from item: {item_text}. Expected 'Name (Vintage)' format.")
+        return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+    name = parsed_name
+    vintage = parsed_vintage
+
+    # Decrement quantity in DB
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    try:
+        # Get current quantity and vivino_url before decrementing
+        cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+        result = cursor.fetchone()
+
+        if result:
+            current_db_quantity, vivino_url_for_sync = result
+
+            # Fetch the full wine data for sync_to_ha_todo (before potential deletion)
+            cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+            wine_data_row_for_sync = cursor.fetchone()
+            wine_data_dict_for_sync = {}
+            if wine_data_row_for_sync:
+                columns = [description[0] for description in cursor.description]
+                wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+
+            if current_db_quantity > 0:
+                new_quantity = current_db_quantity - 1
+
+                if new_quantity == 0:
+                    cursor.execute(
+                        "DELETE FROM wines WHERE name = ? AND vintage = ?",
+                        (name, vintage)
+                    )
+                    conn.commit()
+                    logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                    # Sync with HA to ensure removal from To-Do list
+                    sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                    return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                else:
+                    cursor.execute(
+                        "UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?",
+                        (new_quantity, name, vintage)
+                    )
+                    conn.commit()
+                    logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                    # Sync with HA to update description
+                    sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                    return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+            else:
+                logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+        else:
+            logger.warning(f"No matching wine found in DB for '{name} ({vintage})'.")
+            return jsonify({"status": "warning", "message": "No matching wine found in inventory."}), 404
+    except sqlite3.Error as e:
+        logger.error(f"Database error consuming wine: {e}")
+        conn.rollback()
+        return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+    finally:
+        conn.close()
+
+# New endpoint to consume (decrement) wine quantity
+@app.route('/inventory/wine/consume', methods=['POST'])
+def consume_wine_by_url():
+    data = request.get_json()
+    if not data or 'vivino_url' not in data or 'quantity' not in data:
+        logger.warning("Received invalid data for /inventory/wine/consume endpoint: %s", data)
+        return jsonify({"status": "error", "message": "Missing 'vivino_url' or 'quantity' in request body"}), 400
+
+    vivino_url = data['vivino_url']
+    consume_quantity = data['quantity']
+
+    if not isinstance(consume_quantity, int) or consume_quantity <= 0:
+        return jsonify({"status": "error", "message": "Consume quantity must be a positive integer."}), 400
+
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT quantity FROM wines WHERE vivino_url = ?", (vivino_url,))
+        result = cursor.fetchone()
+
+        if result:
+            current_quantity = result[0]
+            if current_quantity < consume_quantity:
+                return jsonify({"status": "error", "message": "Not enough wine in inventory to consume."}), 400
+
+            new_quantity = current_quantity - consume_quantity
+
+            # Fetch the full wine data for sync_to_ha_todo (before potential deletion)
+            cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url,))
+            wine_data_row_for_sync = cursor.fetchone()
+            wine_data_dict_for_sync = {}
+            if wine_data_row_for_sync:
+                columns = [description[0] for description in cursor.description]
+                wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+
+            if new_quantity == 0:
+                cursor.execute("DELETE FROM wines WHERE vivino_url = ?", (vivino_url,))
+                conn.commit()
+                logger.info(f"Successfully consumed and deleted wine {vivino_url} as quantity reached 0.")
+                sync_to_ha_todo(wine_data_dict_for_sync, 0) # Sync with HA
+                return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+            else:
+                cursor.execute("UPDATE wines SET quantity = ? WHERE vivino_url = ?", (new_quantity, vivino_url))
+                conn.commit()
+                logger.info(f"Successfully consumed {consume_quantity} for wine {vivino_url}. New quantity: {new_quantity}.")
+                sync_to_ha_todo(wine_data_dict_for_sync, new_quantity) # Call sync with new quantity
+                return jsonify({"status": "success", "message": f"Wine quantity decremented. New quantity: {new_quantity}."}), 200
+        else:
+            logger.warning(f"No wine found to consume for URL: {vivino_url}")
+            return jsonify({"status": "error", "message": "Wine not found for consumption."}), 404
+    except sqlite3.Error as e:
+        logger.error(f"Database error consuming wine: {e}")
+        conn.rollback()
+        return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+    finally:
+        conn.close()
+
+@app.route('/inventory/wine', methods=['DELETE'])
+def delete_wine():
+    data = request.get_json()
+    if not data or 'vivino_url' not in data:
+        logger.warning("Received invalid data for /inventory/wine DELETE endpoint: %s", data)
+        return jsonify({"status": "error", "message": "Missing 'vivino_url' in request body"}), 400
+
+    vivino_url = data['vivino_url']
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    try:
+        # Before deleting, get wine data to remove from HA To-Do
+        cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url,))
+        wine_to_delete = cursor.fetchone()
+
+        cursor.execute("DELETE FROM wines WHERE vivino_url = ?", (vivino_url,))
+        conn.commit()
+        if cursor.rowcount > 0:
+            logger.info(f"Successfully deleted wine with URL: {vivino_url}")
+
+            # If wine was deleted, remove it from HA To-Do list
+            if wine_to_delete:
+                columns = [description[0] for description in cursor.description]
+                wine_data_dict = dict(zip(columns, wine_to_delete))
+                sync_to_ha_todo(wine_data_dict, 0) # Call with quantity 0 to ensure removal from HA
+
+            return jsonify({"status": "success", "message": "Wine deleted successfully."}), 200
+        else:
+            logger.warning(f"No wine found to delete for URL: {vivino_url}")
+            return jsonify({"status": "error", "message": "Wine not found for deletion."}), 404
+    except sqlite3.Error as e:
+        logger.error(f"Database error deleting wine: {e}")
+        conn.rollback()
+        return jsonify({"status": "error", "message": "Database error deleting wine."}), 500
+    finally:
+        conn.close()
+
+if __name__ == '__main__':
+    init_db()
+    logger.info("Flask app starting on port 5000...")
+    app.run(host='0.0.0.0', port=5000)
+@app.route('/')
+def index():
+    return app.send_static_file('index.html')
