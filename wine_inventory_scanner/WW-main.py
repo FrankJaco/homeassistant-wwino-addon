@@ -512,7 +512,7 @@ def scrape_vivino_data(vivino_url):
 
                 if ordered_unique_grapes:
                     # --- Bordeaux Region Heuristic (Merlot-first for Right Bank) ---
-                    if region and isinstance(region, str) and 'saint-émilion' in region.lower():
+                    if wine_data.get('region') and isinstance(wine_data['region'], str) and 'saint-émilion' in wine_data['region'].lower():
                         known_bordeaux_grapes = ['Merlot', 'Cabernet Franc', 'Cabernet Sauvignon']
                         reordered = []
                         for grape in known_bordeaux_grapes:
