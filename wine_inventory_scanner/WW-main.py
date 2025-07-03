@@ -503,46 +503,40 @@ def scrape_vivino_data(vivino_url):
                 # Use a list to maintain order, convert to set for uniqueness, then back to list to preserve (first seen) order.
                 seen_grapes = set()
                 ordered_unique_grapes = []
-                for grape in all_grape_names_collected: # Iterate through ALL collected, not just filtered
+                for grape in all_grape_names_collected:  # Iterate through ALL collected, not just filtered
                     cleaned_grape = grape.strip()
                     # Check against filtered_grapes set to ensure it's a specific varietal
                     if cleaned_grape.lower() not in ['red wine', 'white wine', 'sparkling wine', 'rosé wine', 'dessert wine', 'fortified wine', 'blend'] and cleaned_grape not in seen_grapes:
                         ordered_unique_grapes.append(cleaned_grape)
                         seen_grapes.add(cleaned_grape)
-                
+
                 if ordered_unique_grapes:
-    # --- Bordeaux Region Heuristic (Merlot-first for Right Bank) ---
-    if region and isinstance(region, str) and 'saint-émilion' in region.lower():
-        known_bordeaux_grapes = ['Merlot', 'Cabernet Franc', 'Cabernet Sauvignon']
-        reordered = []
-        for grape in known_bordeaux_grapes:
-            for g in ordered_unique_grapes:
-                if grape.lower() == g.lower():
-                    reordered.append(g)
-        for g in ordered_unique_grapes:
-            if g not in reordered:
-                reordered.append(g)
-        ordered_unique_grapes = reordered
+                    # --- Bordeaux Region Heuristic (Merlot-first for Right Bank) ---
+                    if region and isinstance(region, str) and 'saint-émilion' in region.lower():
+                        known_bordeaux_grapes = ['Merlot', 'Cabernet Franc', 'Cabernet Sauvignon']
+                        reordered = []
+                        for grape in known_bordeaux_grapes:
+                            for g in ordered_unique_grapes:
+                                if grape.lower() == g.lower():
+                                    reordered.append(g)
+                        for g in ordered_unique_grapes:
+                            if g not in reordered:
+                                reordered.append(g)
+                        ordered_unique_grapes = reordered
 
                     wine_data['varietal'] = ", ".join(ordered_unique_grapes)
                     logger.debug(f"Final Varietal set from ordered unique collected sources: {wine_data['varietal']}")
                 elif 'blend' in [g.lower() for g in all_grape_names_collected]:
                     wine_data['varietal'] = 'Blend'
                 else:
-                    wine_data['varietal'] = 'Unknown Varietal' # Fallback if only generic terms or empty
+                    wine_data['varietal'] = 'Unknown Varietal'  # Fallback if only generic terms or empty
+                    logger.debug(f"All collected varietals were generic. Varietal set to: {wine_data['varietal']}")
             else:
-                # If only generic terms were found (e.g., just 'Red wine' or 'Blend')
-                if 'blend' in [g.lower() for g in all_grape_names_collected]:
-                    wine_data['varietal'] = 'Blend'
-                else:
-                    wine_data['varietal'] = 'Unknown Varietal'
-                logger.debug(f"All collected varietals were generic. Varietal set to: {wine_data['varietal']}")
-        else:
-            wine_data['varietal'] = 'Unknown Varietal'
-            logger.debug("No varietals collected from any source. Varietal set to Unknown Varietal.")
+                wine_data['varietal'] = 'Unknown Varietal'
+                logger.debug("No varietals collected from any source. Varietal set to Unknown Varietal.")
 
-        logger.debug(f"Final Varietal after all processing: {wine_data['varietal']}")
-        logger.debug(f"Region/Country scraping finished HTML attempts. Current data: Region='{wine_data['region']}', Country='{wine_data['country']}'")
+            logger.debug(f"Final Varietal after all processing: {wine_data['varietal']}")
+            logger.debug(f"Region/Country scraping finished HTML attempts. Current data: Region='{wine_data['region']}', Country='{wine_data['country']}'")
 
 
         # --- Specific US Country Fallback (truly a last resort now) ---
