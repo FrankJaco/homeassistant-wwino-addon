@@ -491,6 +491,33 @@ def scrape_vivino_data(vivino_url):
 
 
         # --- FINAL Varietal Assignment (Post-processing all collected grapes) ---
+
+        # --- Heuristic Grape Prioritization ---
+        def prioritize_grapes(grapes, wine_name, region, country):
+            # Normalize grape names
+            normalized_grapes = [g.strip() for g in grapes]
+            primary_grape = None
+
+            # Check if wine name contains any grape name — assume it is the primary
+            for grape in normalized_grapes:
+                if grape.lower() in wine_name.lower():
+                    primary_grape = grape
+                    break
+
+            # Bordeaux heuristic (Left Bank = Cabernet Sauvignon, Right Bank = Merlot)
+            if country.lower() == "france" and "bordeaux" in region.lower():
+                if any("médoc" in region.lower() or "pauillac" in region.lower() or "haut-médoc" in region.lower() for _ in [0]):
+                    primary_grape = "Cabernet Sauvignon"
+                elif any("saint-émilion" in region.lower() or "pomerol" in region.lower() for _ in [0]):
+                    primary_grape = "Merlot"
+
+            if not primary_grape:
+                return normalized_grapes  # fallback: original order
+
+            # Move primary grape to the front
+            reordered = [primary_grape] + [g for g in normalized_grapes if g != primary_grape]
+            return reordered
+    
         if all_grape_names_collected:
             # Filter out generic terms, keeping only actual varietal names
             filtered_grapes = [
@@ -511,7 +538,7 @@ def scrape_vivino_data(vivino_url):
                         seen_grapes.add(cleaned_grape)
                 
                 if ordered_unique_grapes:
-                    wine_data['varietal'] = ", ".join(ordered_unique_grapes)
+                    wine_data['varietal'] = ", ".join(prioritize_grapes(ordered_unique_grapes, wine_data['name'], wine_data['region'], wine_data['country']))
                     logger.debug(f"Final Varietal set from ordered unique collected sources: {wine_data['varietal']}")
                 elif 'blend' in [g.lower() for g in all_grape_names_collected]:
                     wine_data['varietal'] = 'Blend'
@@ -1140,4 +1167,3 @@ if __name__ == '__main__':
     init_db()
     logger.info("Flask app starting on port 5000...")
     app.run(host='0.0.0.0', port=5000)
-
