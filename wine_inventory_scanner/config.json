@@ -1,6 +1,6 @@
 {
   "name": "Wine Inventory Scanner",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "slug": "wine_inventory_scanner",
   "description": "Track your wine collection and sync it with your Home Assistant ToDo list.",
   "url": "https://github.com/FrankJaco/homeassistant-wwino-addon",
