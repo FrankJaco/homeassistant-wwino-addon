@@ -253,6 +253,45 @@ def init_db():
         )
     ''')
     conn.commit()
+        # Sync with Home Assistant To-Do list
+        try:
+            remove_payload = {
+                "entity_id": TODO_LIST_ENTITY_ID,
+                "item": f"{wine_data['name']} ({wine_data['vintage']})"
+            }
+            remove_response = requests.post(
+                f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item",
+                headers={
+                    "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+                    "Content-Type": "application/json",
+                },
+                json=remove_payload,
+                timeout=5,
+            )
+            remove_response.raise_for_status()
+            logger.info(f"HA To-Do removed (or attempted to remove) for update/deletion: {remove_payload['item']}")
+        except Exception as e:
+            logger.warning(f"HA To-Do remove attempt failed for '{remove_payload['item']}'. This can be ignored if adding a new wine for the first time. Check Home Assistant logs if this persists for existing items or indicates a network problem: {e}")
+
+        try:
+            add_payload = {
+                "entity_id": TODO_LIST_ENTITY_ID,
+                "item": f"{wine_data['name']} ({wine_data['vintage']}) x{quantity}"
+            }
+            add_response = requests.post(
+                f"{HOME_ASSISTANT_URL}/api/services/todo/add_item",
+                headers={
+                    "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+                    "Content-Type": "application/json",
+                },
+                json=add_payload,
+                timeout=5,
+            )
+            add_response.raise_for_status()
+            logger.info(f"HA To-Do synchronized (re-added/updated) for: {add_payload['item']} with quantity {quantity}")
+        except Exception as e:
+            logger.error(f"HA To-Do sync failed for add/update: {e}")
+
     conn.close()
     logger.info(f"SQLite database initialized at {DB_PATH}")
 
@@ -503,40 +542,46 @@ def scrape_vivino_data(vivino_url):
                 # Use a list to maintain order, convert to set for uniqueness, then back to list to preserve (first seen) order.
                 seen_grapes = set()
                 ordered_unique_grapes = []
-                for grape in all_grape_names_collected:  # Iterate through ALL collected, not just filtered
+                for grape in all_grape_names_collected: # Iterate through ALL collected, not just filtered
                     cleaned_grape = grape.strip()
                     # Check against filtered_grapes set to ensure it's a specific varietal
                     if cleaned_grape.lower() not in ['red wine', 'white wine', 'sparkling wine', 'rosé wine', 'dessert wine', 'fortified wine', 'blend'] and cleaned_grape not in seen_grapes:
                         ordered_unique_grapes.append(cleaned_grape)
                         seen_grapes.add(cleaned_grape)
-
+                
                 if ordered_unique_grapes:
-                    # --- Bordeaux Region Heuristic (Merlot-first for Right Bank) ---
-                    if wine_data.get('region') and isinstance(wine_data['region'], str) and 'saint-émilion' in wine_data['region'].lower():
-                        known_bordeaux_grapes = ['Merlot', 'Cabernet Franc', 'Cabernet Sauvignon']
-                        reordered = []
-                        for grape in known_bordeaux_grapes:
-                            for g in ordered_unique_grapes:
-                                if grape.lower() == g.lower():
-                                    reordered.append(g)
-                        for g in ordered_unique_grapes:
-                            if g not in reordered:
-                                reordered.append(g)
-                        ordered_unique_grapes = reordered
+    # --- Bordeaux Region Heuristic (Merlot-first for Right Bank) ---
+    if region and isinstance(region, str) and 'saint-émilion' in region.lower():
+        known_bordeaux_grapes = ['Merlot', 'Cabernet Franc', 'Cabernet Sauvignon']
+        reordered = []
+        for grape in known_bordeaux_grapes:
+            for g in ordered_unique_grapes:
+                if grape.lower() == g.lower():
+                    reordered.append(g)
+        for g in ordered_unique_grapes:
+            if g not in reordered:
+                reordered.append(g)
+        ordered_unique_grapes = reordered
 
                     wine_data['varietal'] = ", ".join(ordered_unique_grapes)
                     logger.debug(f"Final Varietal set from ordered unique collected sources: {wine_data['varietal']}")
                 elif 'blend' in [g.lower() for g in all_grape_names_collected]:
                     wine_data['varietal'] = 'Blend'
                 else:
-                    wine_data['varietal'] = 'Unknown Varietal'  # Fallback if only generic terms or empty
-                    logger.debug(f"All collected varietals were generic. Varietal set to: {wine_data['varietal']}")
+                    wine_data['varietal'] = 'Unknown Varietal' # Fallback if only generic terms or empty
             else:
-                wine_data['varietal'] = 'Unknown Varietal'
-                logger.debug("No varietals collected from any source. Varietal set to Unknown Varietal.")
+                # If only generic terms were found (e.g., just 'Red wine' or 'Blend')
+                if 'blend' in [g.lower() for g in all_grape_names_collected]:
+                    wine_data['varietal'] = 'Blend'
+                else:
+                    wine_data['varietal'] = 'Unknown Varietal'
+                logger.debug(f"All collected varietals were generic. Varietal set to: {wine_data['varietal']}")
+        else:
+            wine_data['varietal'] = 'Unknown Varietal'
+            logger.debug("No varietals collected from any source. Varietal set to Unknown Varietal.")
 
-            logger.debug(f"Final Varietal after all processing: {wine_data['varietal']}")
-            logger.debug(f"Region/Country scraping finished HTML attempts. Current data: Region='{wine_data['region']}', Country='{wine_data['country']}'")
+        logger.debug(f"Final Varietal after all processing: {wine_data['varietal']}")
+        logger.debug(f"Region/Country scraping finished HTML attempts. Current data: Region='{wine_data['region']}', Country='{wine_data['country']}'")
 
 
         # --- Specific US Country Fallback (truly a last resort now) ---
@@ -787,6 +832,45 @@ def insert_wine_data(wine_data, quantity=1):
             logger.info(f"New wine '{wine_data['name']}' inserted with quantity {quantity}.")
 
         conn.commit()
+        # Sync with Home Assistant To-Do list
+        try:
+            remove_payload = {
+                "entity_id": TODO_LIST_ENTITY_ID,
+                "item": f"{wine_data['name']} ({wine_data['vintage']})"
+            }
+            remove_response = requests.post(
+                f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item",
+                headers={
+                    "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+                    "Content-Type": "application/json",
+                },
+                json=remove_payload,
+                timeout=5,
+            )
+            remove_response.raise_for_status()
+            logger.info(f"HA To-Do removed (or attempted to remove) for update/deletion: {remove_payload['item']}")
+        except Exception as e:
+            logger.warning(f"HA To-Do remove attempt failed for '{remove_payload['item']}'. This can be ignored if adding a new wine for the first time. Check Home Assistant logs if this persists for existing items or indicates a network problem: {e}")
+
+        try:
+            add_payload = {
+                "entity_id": TODO_LIST_ENTITY_ID,
+                "item": f"{wine_data['name']} ({wine_data['vintage']}) x{quantity}"
+            }
+            add_response = requests.post(
+                f"{HOME_ASSISTANT_URL}/api/services/todo/add_item",
+                headers={
+                    "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+                    "Content-Type": "application/json",
+                },
+                json=add_payload,
+                timeout=5,
+            )
+            add_response.raise_for_status()
+            logger.info(f"HA To-Do synchronized (re-added/updated) for: {add_payload['item']} with quantity {quantity}")
+        except Exception as e:
+            logger.error(f"HA To-Do sync failed for add/update: {e}")
+
         return True
     except sqlite3.Error as e:
         logger.error(f"Database error inserting/updating wine data for {wine_data.get('name', 'N/A')}: {e}")
@@ -927,6 +1011,45 @@ def set_wine_quantity():
             if new_quantity == 0:
                 cursor.execute("DELETE FROM wines WHERE vivino_url = ?", (vivino_url,))
                 conn.commit()
+        # Sync with Home Assistant To-Do list
+        try:
+            remove_payload = {
+                "entity_id": TODO_LIST_ENTITY_ID,
+                "item": f"{wine_data['name']} ({wine_data['vintage']})"
+            }
+            remove_response = requests.post(
+                f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item",
+                headers={
+                    "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+                    "Content-Type": "application/json",
+                },
+                json=remove_payload,
+                timeout=5,
+            )
+            remove_response.raise_for_status()
+            logger.info(f"HA To-Do removed (or attempted to remove) for update/deletion: {remove_payload['item']}")
+        except Exception as e:
+            logger.warning(f"HA To-Do remove attempt failed for '{remove_payload['item']}'. This can be ignored if adding a new wine for the first time. Check Home Assistant logs if this persists for existing items or indicates a network problem: {e}")
+
+        try:
+            add_payload = {
+                "entity_id": TODO_LIST_ENTITY_ID,
+                "item": f"{wine_data['name']} ({wine_data['vintage']}) x{quantity}"
+            }
+            add_response = requests.post(
+                f"{HOME_ASSISTANT_URL}/api/services/todo/add_item",
+                headers={
+                    "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+                    "Content-Type": "application/json",
+                },
+                json=add_payload,
+                timeout=5,
+            )
+            add_response.raise_for_status()
+            logger.info(f"HA To-Do synchronized (re-added/updated) for: {add_payload['item']} with quantity {quantity}")
+        except Exception as e:
+            logger.error(f"HA To-Do sync failed for add/update: {e}")
+
                 if cursor.rowcount > 0:
                     logger.info(f"Successfully deleted wine {vivino_url} as quantity was set to 0.")
                     sync_to_ha_todo(wine_data_dict, 0) # Sync with HA to ensure removal
@@ -937,6 +1060,45 @@ def set_wine_quantity():
             else:
                 cursor.execute("UPDATE wines SET quantity = ? WHERE vivino_url = ?", (new_quantity, vivino_url))
                 conn.commit()
+        # Sync with Home Assistant To-Do list
+        try:
+            remove_payload = {
+                "entity_id": TODO_LIST_ENTITY_ID,
+                "item": f"{wine_data['name']} ({wine_data['vintage']})"
+            }
+            remove_response = requests.post(
+                f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item",
+                headers={
+                    "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+                    "Content-Type": "application/json",
+                },
+                json=remove_payload,
+                timeout=5,
+            )
+            remove_response.raise_for_status()
+            logger.info(f"HA To-Do removed (or attempted to remove) for update/deletion: {remove_payload['item']}")
+        except Exception as e:
+            logger.warning(f"HA To-Do remove attempt failed for '{remove_payload['item']}'. This can be ignored if adding a new wine for the first time. Check Home Assistant logs if this persists for existing items or indicates a network problem: {e}")
+
+        try:
+            add_payload = {
+                "entity_id": TODO_LIST_ENTITY_ID,
+                "item": f"{wine_data['name']} ({wine_data['vintage']}) x{quantity}"
+            }
+            add_response = requests.post(
+                f"{HOME_ASSISTANT_URL}/api/services/todo/add_item",
+                headers={
+                    "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+                    "Content-Type": "application/json",
+                },
+                json=add_payload,
+                timeout=5,
+            )
+            add_response.raise_for_status()
+            logger.info(f"HA To-Do synchronized (re-added/updated) for: {add_payload['item']} with quantity {quantity}")
+        except Exception as e:
+            logger.error(f"HA To-Do sync failed for add/update: {e}")
+
                 if cursor.rowcount > 0:
                     logger.info(f"Successfully set quantity for wine {vivino_url} to {new_quantity}.")
                     sync_to_ha_todo(wine_data_dict, new_quantity) # Sync with HA
@@ -1010,6 +1172,45 @@ def consume_wine():
                         (name, vintage)
                     )
                     conn.commit()
+        # Sync with Home Assistant To-Do list
+        try:
+            remove_payload = {
+                "entity_id": TODO_LIST_ENTITY_ID,
+                "item": f"{wine_data['name']} ({wine_data['vintage']})"
+            }
+            remove_response = requests.post(
+                f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item",
+                headers={
+                    "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+                    "Content-Type": "application/json",
+                },
+                json=remove_payload,
+                timeout=5,
+            )
+            remove_response.raise_for_status()
+            logger.info(f"HA To-Do removed (or attempted to remove) for update/deletion: {remove_payload['item']}")
+        except Exception as e:
+            logger.warning(f"HA To-Do remove attempt failed for '{remove_payload['item']}'. This can be ignored if adding a new wine for the first time. Check Home Assistant logs if this persists for existing items or indicates a network problem: {e}")
+
+        try:
+            add_payload = {
+                "entity_id": TODO_LIST_ENTITY_ID,
+                "item": f"{wine_data['name']} ({wine_data['vintage']}) x{quantity}"
+            }
+            add_response = requests.post(
+                f"{HOME_ASSISTANT_URL}/api/services/todo/add_item",
+                headers={
+                    "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+                    "Content-Type": "application/json",
+                },
+                json=add_payload,
+                timeout=5,
+            )
+            add_response.raise_for_status()
+            logger.info(f"HA To-Do synchronized (re-added/updated) for: {add_payload['item']} with quantity {quantity}")
+        except Exception as e:
+            logger.error(f"HA To-Do sync failed for add/update: {e}")
+
                     logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
                     # Sync with HA to ensure removal from To-Do list
                     sync_to_ha_todo(wine_data_dict_for_sync, 0)
@@ -1020,6 +1221,45 @@ def consume_wine():
                         (new_quantity, name, vintage)
                     )
                     conn.commit()
+        # Sync with Home Assistant To-Do list
+        try:
+            remove_payload = {
+                "entity_id": TODO_LIST_ENTITY_ID,
+                "item": f"{wine_data['name']} ({wine_data['vintage']})"
+            }
+            remove_response = requests.post(
+                f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item",
+                headers={
+                    "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+                    "Content-Type": "application/json",
+                },
+                json=remove_payload,
+                timeout=5,
+            )
+            remove_response.raise_for_status()
+            logger.info(f"HA To-Do removed (or attempted to remove) for update/deletion: {remove_payload['item']}")
+        except Exception as e:
+            logger.warning(f"HA To-Do remove attempt failed for '{remove_payload['item']}'. This can be ignored if adding a new wine for the first time. Check Home Assistant logs if this persists for existing items or indicates a network problem: {e}")
+
+        try:
+            add_payload = {
+                "entity_id": TODO_LIST_ENTITY_ID,
+                "item": f"{wine_data['name']} ({wine_data['vintage']}) x{quantity}"
+            }
+            add_response = requests.post(
+                f"{HOME_ASSISTANT_URL}/api/services/todo/add_item",
+                headers={
+                    "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+                    "Content-Type": "application/json",
+                },
+                json=add_payload,
+                timeout=5,
+            )
+            add_response.raise_for_status()
+            logger.info(f"HA To-Do synchronized (re-added/updated) for: {add_payload['item']} with quantity {quantity}")
+        except Exception as e:
+            logger.error(f"HA To-Do sync failed for add/update: {e}")
+
                     logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
                     # Sync with HA to update description
                     sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
@@ -1076,12 +1316,90 @@ def consume_wine_by_url():
             if new_quantity == 0:
                 cursor.execute("DELETE FROM wines WHERE vivino_url = ?", (vivino_url,))
                 conn.commit()
+        # Sync with Home Assistant To-Do list
+        try:
+            remove_payload = {
+                "entity_id": TODO_LIST_ENTITY_ID,
+                "item": f"{wine_data['name']} ({wine_data['vintage']})"
+            }
+            remove_response = requests.post(
+                f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item",
+                headers={
+                    "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+                    "Content-Type": "application/json",
+                },
+                json=remove_payload,
+                timeout=5,
+            )
+            remove_response.raise_for_status()
+            logger.info(f"HA To-Do removed (or attempted to remove) for update/deletion: {remove_payload['item']}")
+        except Exception as e:
+            logger.warning(f"HA To-Do remove attempt failed for '{remove_payload['item']}'. This can be ignored if adding a new wine for the first time. Check Home Assistant logs if this persists for existing items or indicates a network problem: {e}")
+
+        try:
+            add_payload = {
+                "entity_id": TODO_LIST_ENTITY_ID,
+                "item": f"{wine_data['name']} ({wine_data['vintage']}) x{quantity}"
+            }
+            add_response = requests.post(
+                f"{HOME_ASSISTANT_URL}/api/services/todo/add_item",
+                headers={
+                    "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+                    "Content-Type": "application/json",
+                },
+                json=add_payload,
+                timeout=5,
+            )
+            add_response.raise_for_status()
+            logger.info(f"HA To-Do synchronized (re-added/updated) for: {add_payload['item']} with quantity {quantity}")
+        except Exception as e:
+            logger.error(f"HA To-Do sync failed for add/update: {e}")
+
                 logger.info(f"Successfully consumed and deleted wine {vivino_url} as quantity reached 0.")
                 sync_to_ha_todo(wine_data_dict_for_sync, 0) # Sync with HA
                 return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
             else:
                 cursor.execute("UPDATE wines SET quantity = ? WHERE vivino_url = ?", (new_quantity, vivino_url))
                 conn.commit()
+        # Sync with Home Assistant To-Do list
+        try:
+            remove_payload = {
+                "entity_id": TODO_LIST_ENTITY_ID,
+                "item": f"{wine_data['name']} ({wine_data['vintage']})"
+            }
+            remove_response = requests.post(
+                f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item",
+                headers={
+                    "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+                    "Content-Type": "application/json",
+                },
+                json=remove_payload,
+                timeout=5,
+            )
+            remove_response.raise_for_status()
+            logger.info(f"HA To-Do removed (or attempted to remove) for update/deletion: {remove_payload['item']}")
+        except Exception as e:
+            logger.warning(f"HA To-Do remove attempt failed for '{remove_payload['item']}'. This can be ignored if adding a new wine for the first time. Check Home Assistant logs if this persists for existing items or indicates a network problem: {e}")
+
+        try:
+            add_payload = {
+                "entity_id": TODO_LIST_ENTITY_ID,
+                "item": f"{wine_data['name']} ({wine_data['vintage']}) x{quantity}"
+            }
+            add_response = requests.post(
+                f"{HOME_ASSISTANT_URL}/api/services/todo/add_item",
+                headers={
+                    "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+                    "Content-Type": "application/json",
+                },
+                json=add_payload,
+                timeout=5,
+            )
+            add_response.raise_for_status()
+            logger.info(f"HA To-Do synchronized (re-added/updated) for: {add_payload['item']} with quantity {quantity}")
+        except Exception as e:
+            logger.error(f"HA To-Do sync failed for add/update: {e}")
+
                 logger.info(f"Successfully consumed {consume_quantity} for wine {vivino_url}. New quantity: {new_quantity}.")
                 sync_to_ha_todo(wine_data_dict_for_sync, new_quantity) # Call sync with new quantity
                 return jsonify({"status": "success", "message": f"Wine quantity decremented. New quantity: {new_quantity}."}), 200
@@ -1112,6 +1430,45 @@ def delete_wine():
 
         cursor.execute("DELETE FROM wines WHERE vivino_url = ?", (vivino_url,))
         conn.commit()
+        # Sync with Home Assistant To-Do list
+        try:
+            remove_payload = {
+                "entity_id": TODO_LIST_ENTITY_ID,
+                "item": f"{wine_data['name']} ({wine_data['vintage']})"
+            }
+            remove_response = requests.post(
+                f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item",
+                headers={
+                    "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+                    "Content-Type": "application/json",
+                },
+                json=remove_payload,
+                timeout=5,
+            )
+            remove_response.raise_for_status()
+            logger.info(f"HA To-Do removed (or attempted to remove) for update/deletion: {remove_payload['item']}")
+        except Exception as e:
+            logger.warning(f"HA To-Do remove attempt failed for '{remove_payload['item']}'. This can be ignored if adding a new wine for the first time. Check Home Assistant logs if this persists for existing items or indicates a network problem: {e}")
+
+        try:
+            add_payload = {
+                "entity_id": TODO_LIST_ENTITY_ID,
+                "item": f"{wine_data['name']} ({wine_data['vintage']}) x{quantity}"
+            }
+            add_response = requests.post(
+                f"{HOME_ASSISTANT_URL}/api/services/todo/add_item",
+                headers={
+                    "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+                    "Content-Type": "application/json",
+                },
+                json=add_payload,
+                timeout=5,
+            )
+            add_response.raise_for_status()
+            logger.info(f"HA To-Do synchronized (re-added/updated) for: {add_payload['item']} with quantity {quantity}")
+        except Exception as e:
+            logger.error(f"HA To-Do sync failed for add/update: {e}")
+
         if cursor.rowcount > 0:
             logger.info(f"Successfully deleted wine with URL: {vivino_url}")
 
