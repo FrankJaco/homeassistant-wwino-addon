@@ -64,10 +64,6 @@ def format_wine_for_todo(wine: dict) -> str: # Removed quantity parameter from s
 
 # Updated sync_to_ha_todo function
 def sync_to_ha_todo(wine: dict, current_quantity: int) -> None:
-    if not all([HOME_ASSISTANT_URL, HA_LONG_LIVED_TOKEN, TODO_LIST_ENTITY_ID]):
-        logger.warning("Home Assistant environment variables not set. Skipping sync.")
-        return
-
     # item_text will be just "Name (Vintage)" as per the new format_wine_for_todo
     item_text = format_wine_for_todo(wine) # No quantity in summary
     description = build_markdown_description(wine, current_quantity) # Quantity in description
@@ -81,7 +77,7 @@ def sync_to_ha_todo(wine: dict, current_quantity: int) -> None:
     resp = None
 
     # Always attempt to remove the old item first to ensure updates are reflected
-    remove_url = f"{HOME_ASSISTANT_URL.rstrip('/')}/api/services/todo/remove_item"
+    remove_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
     remove_payload = {
         "entity_id": entity_id,
         "item": item_text
@@ -101,7 +97,7 @@ def sync_to_ha_todo(wine: dict, current_quantity: int) -> None:
 
     if current_quantity > 0:
         # If quantity > 0, re-add the item with the updated description
-        add_url = f"{HOME_ASSISTANT_URL.rstrip('/')}/api/services/todo/add_item"
+        add_url = f"{HOME_ASSISTANT_URL}/api/services/todo/add_item"
         add_payload = {
             "entity_id": entity_id,
             "item": item_text, # This now does NOT include quantity
@@ -515,20 +511,6 @@ def scrape_vivino_data(vivino_url):
                         seen_grapes.add(cleaned_grape)
                 
                 if ordered_unique_grapes:
-                    # --- Bordeaux Region Heuristic (Merlot-first for Right Bank) ---
-                    region = wine_data.get('region')
-                    if region and isinstance(region, str) and 'saint-émilion' in region.lower():
-                        known_bordeaux_grapes = ['Merlot', 'Cabernet Franc', 'Cabernet Sauvignon']
-                        reordered = []
-                        for grape in known_bordeaux_grapes:
-                            for g in ordered_unique_grapes:
-                                if grape.lower() == g.lower():
-                                    reordered.append(g)
-                        for g in ordered_unique_grapes:
-                            if g not in reordered:
-                                reordered.append(g)
-                        ordered_unique_grapes = reordered
-
                     wine_data['varietal'] = ", ".join(ordered_unique_grapes)
                     logger.debug(f"Final Varietal set from ordered unique collected sources: {wine_data['varietal']}")
                 elif 'blend' in [g.lower() for g in all_grape_names_collected]:
@@ -860,7 +842,6 @@ def scan_wine():
 @app.route('/inventory', methods=['GET'])
 def get_inventory():
     conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row # Allows accessing columns by name
     cursor = conn.cursor()
     name_filter = request.args.get('name')
     vintage_filter = request.args.get('vintage')
@@ -885,9 +866,24 @@ def get_inventory():
     try:
         cursor.execute(query, params)
         wines = cursor.fetchall()
-        
-        wine_list = [dict(row) for row in wines]
-        
+        conn.close()
+
+        wine_list = []
+        for wine in wines:
+            wine_list.append({
+                "vivino_url": wine[0],
+                "name": wine[1],
+                "vintage": wine[2],
+                "varietal": wine[3],
+                "region": wine[4],
+                "country": wine[5],
+                "vivino_rating": wine[6],
+                "vivino_num_ratings": wine[7],
+                "price_usd": wine[8],
+                "image_url": wine[9],
+                "quantity": wine[10], # Include quantity in the returned data
+                "added_at": wine[11]
+            })
         logger.info(f"Returning {len(wine_list)} wines from inventory.")
         return jsonify(wine_list), 200
     except sqlite3.Error as e:
@@ -911,7 +907,6 @@ def set_wine_quantity():
         return jsonify({"status": "error", "message": "Quantity must be a non-negative integer."}), 400
 
     conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     try:
         # Fetch existing wine data before update for syncing with HA
@@ -919,30 +914,27 @@ def set_wine_quantity():
         wine_data_row = cursor.fetchone()
 
         if wine_data_row:
-            wine_data_dict = dict(wine_data_row)
+            columns = [description[0] for description in cursor.description]
+            wine_data_dict = dict(zip(columns, wine_data_row))
 
             if new_quantity == 0:
                 cursor.execute("DELETE FROM wines WHERE vivino_url = ?", (vivino_url,))
                 conn.commit()
-
                 if cursor.rowcount > 0:
                     logger.info(f"Successfully deleted wine {vivino_url} as quantity was set to 0.")
                     sync_to_ha_todo(wine_data_dict, 0) # Sync with HA to ensure removal
                     return jsonify({"status": "success", "message": "Wine deleted as quantity was set to 0."}), 200
                 else:
-                    # This case should ideally not be reached if the initial fetch succeeded
                     logger.warning(f"Wine {vivino_url} not found for deletion after setting quantity to 0.")
                     return jsonify({"status": "error", "message": "Wine not found for quantity update/deletion."}), 404
             else:
                 cursor.execute("UPDATE wines SET quantity = ? WHERE vivino_url = ?", (new_quantity, vivino_url))
                 conn.commit()
-
                 if cursor.rowcount > 0:
                     logger.info(f"Successfully set quantity for wine {vivino_url} to {new_quantity}.")
                     sync_to_ha_todo(wine_data_dict, new_quantity) # Sync with HA
                     return jsonify({"status": "success", "message": f"Quantity for wine set to {new_quantity}."}), 200
                 else:
-                     # This case should ideally not be reached if the initial fetch succeeded
                     logger.warning(f"No wine found to set quantity for URL: {vivino_url}")
                     return jsonify({"status": "error", "message": "Wine not found for quantity update."}), 404
         else:
@@ -984,16 +976,23 @@ def consume_wine():
 
     # Decrement quantity in DB
     conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     try:
-        # Get the full wine data for sync_to_ha_todo (before potential deletion)
-        cursor.execute("SELECT * FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
-        wine_data_row = cursor.fetchone()
+        # Get current quantity and vivino_url before decrementing
+        cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+        result = cursor.fetchone()
 
-        if wine_data_row:
-            wine_data_dict = dict(wine_data_row)
-            current_db_quantity = wine_data_dict['quantity']
+        if result:
+            current_db_quantity, vivino_url_for_sync = result
+
+            # Fetch the full wine data for sync_to_ha_todo (before potential deletion)
+            cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+            wine_data_row_for_sync = cursor.fetchone()
+            wine_data_dict_for_sync = {}
+            if wine_data_row_for_sync:
+                columns = [description[0] for description in cursor.description]
+                wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
 
             if current_db_quantity > 0:
                 new_quantity = current_db_quantity - 1
@@ -1005,8 +1004,8 @@ def consume_wine():
                     )
                     conn.commit()
                     logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
-                    # Sync with HA to ensure removal from To-Do list (using the data we fetched before deleting)
-                    sync_to_ha_todo(wine_data_dict, 0)
+                    # Sync with HA to ensure removal from To-Do list
+                    sync_to_ha_todo(wine_data_dict_for_sync, 0)
                     return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
                 else:
                     cursor.execute(
@@ -1015,17 +1014,14 @@ def consume_wine():
                     )
                     conn.commit()
                     logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
-                    # Sync with HA to update description (using the data we fetched)
-                    sync_to_ha_todo(wine_data_dict, new_quantity)
+                    # Sync with HA to update description
+                    sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
                     return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
             else:
                 logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
-                # Sync just in case HA is out of sync with a zero-quantity item
-                sync_to_ha_todo(wine_data_dict, 0)
                 return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
         else:
-            logger.warning(f"No matching wine found in DB for '{name} ({vintage})'. Cannot decrement.")
-            # We don't have wine data, so we can't sync, but the item is already gone from HA.
+            logger.warning(f"No matching wine found in DB for '{name} ({vintage})'.")
             return jsonify({"status": "warning", "message": "No matching wine found in inventory."}), 404
     except sqlite3.Error as e:
         logger.error(f"Database error consuming wine: {e}")
@@ -1049,34 +1045,38 @@ def consume_wine_by_url():
         return jsonify({"status": "error", "message": "Consume quantity must be a positive integer."}), 400
 
     conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     try:
-        # Fetch the full wine data for sync_to_ha_todo (before potential deletion)
-        cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url,))
-        wine_data_row = cursor.fetchone()
+        cursor.execute("SELECT quantity FROM wines WHERE vivino_url = ?", (vivino_url,))
+        result = cursor.fetchone()
 
-
-        if wine_data_row:
-            wine_data_dict = dict(wine_data_row)
-            current_quantity = wine_data_dict['quantity']
-
+        if result:
+            current_quantity = result[0]
             if current_quantity < consume_quantity:
                 return jsonify({"status": "error", "message": "Not enough wine in inventory to consume."}), 400
 
             new_quantity = current_quantity - consume_quantity
 
+            # Fetch the full wine data for sync_to_ha_todo (before potential deletion)
+            cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url,))
+            wine_data_row_for_sync = cursor.fetchone()
+            wine_data_dict_for_sync = {}
+            if wine_data_row_for_sync:
+                columns = [description[0] for description in cursor.description]
+                wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+
             if new_quantity == 0:
                 cursor.execute("DELETE FROM wines WHERE vivino_url = ?", (vivino_url,))
                 conn.commit()
                 logger.info(f"Successfully consumed and deleted wine {vivino_url} as quantity reached 0.")
-                sync_to_ha_todo(wine_data_dict, 0) # Sync with HA
+                sync_to_ha_todo(wine_data_dict_for_sync, 0) # Sync with HA
                 return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
             else:
                 cursor.execute("UPDATE wines SET quantity = ? WHERE vivino_url = ?", (new_quantity, vivino_url))
                 conn.commit()
                 logger.info(f"Successfully consumed {consume_quantity} for wine {vivino_url}. New quantity: {new_quantity}.")
-                sync_to_ha_todo(wine_data_dict, new_quantity) # Call sync with new quantity
+                sync_to_ha_todo(wine_data_dict_for_sync, new_quantity) # Call sync with new quantity
                 return jsonify({"status": "success", "message": f"Wine quantity decremented. New quantity: {new_quantity}."}), 200
         else:
             logger.warning(f"No wine found to consume for URL: {vivino_url}")
@@ -1097,31 +1097,27 @@ def delete_wine():
 
     vivino_url = data['vivino_url']
     conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     try:
         # Before deleting, get wine data to remove from HA To-Do
         cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url,))
-        wine_to_delete_row = cursor.fetchone()
-
-        if not wine_to_delete_row:
-            logger.warning(f"No wine found to delete for URL: {vivino_url}")
-            return jsonify({"status": "error", "message": "Wine not found for deletion."}), 404
-
-        wine_data_dict = dict(wine_to_delete_row)
+        wine_to_delete = cursor.fetchone()
 
         cursor.execute("DELETE FROM wines WHERE vivino_url = ?", (vivino_url,))
         conn.commit()
-        
         if cursor.rowcount > 0:
             logger.info(f"Successfully deleted wine with URL: {vivino_url}")
+
             # If wine was deleted, remove it from HA To-Do list
-            sync_to_ha_todo(wine_data_dict, 0) # Call with quantity 0 to ensure removal from HA
+            if wine_to_delete:
+                columns = [description[0] for description in cursor.description]
+                wine_data_dict = dict(zip(columns, wine_to_delete))
+                sync_to_ha_todo(wine_data_dict, 0) # Call with quantity 0 to ensure removal from HA
+
             return jsonify({"status": "success", "message": "Wine deleted successfully."}), 200
         else:
-            # This case should not be reached if wine_to_delete_row was found
-            logger.warning(f"Deletion failed for wine with URL: {vivino_url} despite being found.")
-            return jsonify({"status": "error", "message": "Wine deletion failed in database."}), 500
+            logger.warning(f"No wine found to delete for URL: {vivino_url}")
+            return jsonify({"status": "error", "message": "Wine not found for deletion."}), 404
     except sqlite3.Error as e:
         logger.error(f"Database error deleting wine: {e}")
         conn.rollback()
@@ -1144,3 +1140,4 @@ if __name__ == '__main__':
     init_db()
     logger.info("Flask app starting on port 5000...")
     app.run(host='0.0.0.0', port=5000)
+
