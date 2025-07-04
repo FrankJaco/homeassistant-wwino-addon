@@ -1059,61 +1059,42 @@ def consume_wine():
 
 # New endpoint to consume (decrement) wine quantity
 @app.route('/inventory/wine/consume', methods=['POST'])
-def consume_wine_by_url():
+def consume_wine():
     data = request.get_json()
-    if not data or 'vivino_url' not in data or 'quantity' not in data:
-        logger.warning("Received invalid data for /inventory/wine/consume endpoint: %s", data)
-        return jsonify({"status": "error", "message": "Missing 'vivino_url' or 'quantity' in request body"}), 400
+    vivino_url = data.get('vivino_url')
 
-    vivino_url = data['vivino_url']
-    consume_quantity = data['quantity']
-
-    if not isinstance(consume_quantity, int) or consume_quantity <= 0:
-        return jsonify({"status": "error", "message": "Consume quantity must be a positive integer."}), 400
+    if not vivino_url:
+        return jsonify({'error': 'vivino_url is required'}), 400
 
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     try:
-        cursor.execute("SELECT quantity FROM wines WHERE vivino_url = ?", (vivino_url,))
-        result = cursor.fetchone()
+        cursor.execute("SELECT id, quantity FROM wines WHERE vivino_url = ?", (vivino_url,))
+        wine_row = cursor.fetchone()
 
-        if result:
-            current_quantity = result[0]
-            if current_quantity < consume_quantity:
-                return jsonify({"status": "error", "message": "Not enough wine in inventory to consume."}), 400
+        if not wine_row:
+            logger.warning(f"Wine not found for consumption: {vivino_url}")
+            return jsonify({'error': 'Wine not found in inventory'}), 404
 
-            new_quantity = current_quantity - consume_quantity
-
-            # Fetch the full wine data for sync_to_ha_todo (before potential deletion)
-            cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url,))
-            wine_data_row_for_sync = cursor.fetchone()
-            wine_data_dict_for_sync = {}
-            if wine_data_row_for_sync:
-                columns = [description[0] for description in cursor.description]
-                wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
-
-
-            if new_quantity == 0:
-                cursor.execute("DELETE FROM wines WHERE vivino_url = ?", (vivino_url,))
-                conn.commit()
-                logger.info(f"Successfully consumed and deleted wine {vivino_url} as quantity reached 0.")
-                sync_to_ha_todo(wine_data_dict_for_sync, 0) # Sync with HA
-                return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
-            else:
-                cursor.execute("UPDATE wines SET quantity = ? WHERE vivino_url = ?", (new_quantity, vivino_url))
-                conn.commit()
-                logger.info(f"Successfully consumed {consume_quantity} for wine {vivino_url}. New quantity: {new_quantity}.")
-                sync_to_ha_todo(wine_data_dict_for_sync, new_quantity) # Call sync with new quantity
-                return jsonify({"status": "success", "message": f"Wine quantity decremented. New quantity: {new_quantity}."}), 200
+        wine_id, quantity = wine_row
+        if quantity > 1:
+            new_quantity = quantity - 1
+            cursor.execute("UPDATE wines SET quantity = ?, added_at = CURRENT_TIMESTAMP WHERE id = ?", (new_quantity, wine_id))
+            logger.info(f"Decremented quantity for wine {vivino_url} to {new_quantity}.")
         else:
-            logger.warning(f"No wine found to consume for URL: {vivino_url}")
-            return jsonify({"status": "error", "message": "Wine not found for consumption."}), 404
+            cursor.execute("DELETE FROM wines WHERE id = ?", (wine_id,))
+            logger.info(f"Successfully consumed and deleted wine {vivino_url} as quantity reached 0.")
+
+        conn.commit()
+        return jsonify({'status': 'success'})
     except sqlite3.Error as e:
-        logger.error(f"Database error consuming wine: {e}")
-        conn.rollback()
-        return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        logger.error(f"Database error during consumption: {e}")
+        return jsonify({'error': 'Database error'}), 500
     finally:
         conn.close()
+
+
+
 
 @app.route('/inventory/wine', methods=['DELETE'])
 def delete_wine():
