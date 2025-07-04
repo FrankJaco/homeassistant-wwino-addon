@@ -77,7 +77,7 @@ def sync_to_ha_todo(wine: dict, current_quantity: int) -> None:
     resp = None
 
     # Always attempt to remove the old item first to ensure updates are reflected
-    remove_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+    remove_url = f"{HOME_ASSISTANT_URL.rstrip('/')}/api/services/todo/remove_item"
     remove_payload = {
         "entity_id": entity_id,
         "item": item_text
@@ -97,7 +97,7 @@ def sync_to_ha_todo(wine: dict, current_quantity: int) -> None:
 
     if current_quantity > 0:
         # If quantity > 0, re-add the item with the updated description
-        add_url = f"{HOME_ASSISTANT_URL}/api/services/todo/add_item"
+        add_url = f"{HOME_ASSISTANT_URL.rstrip('/')}/api/services/todo/add_item"
         add_payload = {
             "entity_id": entity_id,
             "item": item_text, # This now does NOT include quantity
@@ -511,6 +511,19 @@ def scrape_vivino_data(vivino_url):
                         seen_grapes.add(cleaned_grape)
                 
                 if ordered_unique_grapes:
+    # --- Bordeaux Region Heuristic (Merlot-first for Right Bank) ---
+    if region and isinstance(region, str) and 'saint-émilion' in region.lower():
+        known_bordeaux_grapes = ['Merlot', 'Cabernet Franc', 'Cabernet Sauvignon']
+        reordered = []
+        for grape in known_bordeaux_grapes:
+            for g in ordered_unique_grapes:
+                if grape.lower() == g.lower():
+                    reordered.append(g)
+        for g in ordered_unique_grapes:
+            if g not in reordered:
+                reordered.append(g)
+        ordered_unique_grapes = reordered
+
                     wine_data['varietal'] = ", ".join(ordered_unique_grapes)
                     logger.debug(f"Final Varietal set from ordered unique collected sources: {wine_data['varietal']}")
                 elif 'blend' in [g.lower() for g in all_grape_names_collected]:
@@ -1140,4 +1153,3 @@ if __name__ == '__main__':
     init_db()
     logger.info("Flask app starting on port 5000...")
     app.run(host='0.0.0.0', port=5000)
-
