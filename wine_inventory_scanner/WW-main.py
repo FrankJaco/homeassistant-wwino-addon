@@ -975,8 +975,9 @@ def set_wine_quantity():
     finally:
         conn.close()
 
+
 @app.route('/api/consume-wine', methods=['POST'])
-def consume_wine():
+def consume_wine_from_webhook():
     data = request.get_json()
     if not data or "item" not in data:
         logger.warning("Malformed webhook: missing 'item' field.")
