@@ -1116,6 +1116,8 @@ def consume_wine():
 
 
 
+
+
 @app.route('/inventory/wine', methods=['DELETE'])
 def delete_wine():
     data = request.get_json()
@@ -1131,14 +1133,20 @@ def delete_wine():
         cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url,))
         wine_to_delete = cursor.fetchone()
 
+        # Capture description immediately after the SELECT query, if a result was found
+        # This description will be used to form the dictionary later
+        wine_columns_description = None
+        if wine_to_delete:
+            wine_columns_description = cursor.description
+
         cursor.execute("DELETE FROM wines WHERE vivino_url = ?", (vivino_url,))
         conn.commit()
         if cursor.rowcount > 0:
             logger.info(f"Successfully deleted wine with URL: {vivino_url}")
 
             # If wine was deleted, remove it from HA To-Do list
-            if wine_to_delete:
-                columns = [description[0] for description in cursor.description]
+            if wine_to_delete and wine_columns_description: # Ensure both exist
+                columns = [description[0] for description in wine_columns_description] # FIX: Use captured description
                 wine_data_dict = dict(zip(columns, wine_to_delete))
                 sync_to_ha_todo(wine_data_dict, 0) # Call with quantity 0 to ensure removal from HA
 
@@ -1152,6 +1160,7 @@ def delete_wine():
         return jsonify({"status": "error", "message": "Database error deleting wine."}), 500
     finally:
         conn.close()
+
 
 from flask import send_from_directory
 
