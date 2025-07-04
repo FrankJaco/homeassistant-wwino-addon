@@ -117,60 +117,60 @@ def build_markdown_description(wine: dict, current_quantity: int) -> str:
 
     # Line 1: Varietals (bold first, 32 char limit, 60% truncation)
     varietal_str = wine.get("varietal")
-    
-    rendered_varietal_line_markdown = [] 
-    current_visual_length = 0 
-    
-    MAX_VISUAL_LINE_LENGTH_FOR_VARIETAL = 32 
+
+    rendered_varietal_line_markdown = []
+    current_visual_length = 0
+
+    MAX_VISUAL_LINE_LENGTH_FOR_VARIETAL = 32
     TRUNCATION_THRESHOLD_PERCENT = 0.60
-    ELLIPSIS_LENGTH = 0 
+    ELLIPSIS_LENGTH = 0
 
     if varietal_str and varietal_str != "Unknown Varietal":
         individual_varietals = [v.strip() for v in varietal_str.split(',')]
-        
+
         if individual_varietals:
             # --- Handle the first grape (bolded) ---
             first_grape = individual_varietals[0]
-            
+
             visual_len_first_grape = len(first_grape)
 
             if visual_len_first_grape <= MAX_VISUAL_LINE_LENGTH_FOR_VARIETAL:
                 rendered_varietal_line_markdown.append(f"**{first_grape}**")
                 current_visual_length += visual_len_first_grape
             else:
-                chars_for_truncated_grape = MAX_VISUAL_LINE_LENGTH_FOR_VARIETAL - ELLIPSIS_LENGTH 
+                chars_for_truncated_grape = MAX_VISUAL_LINE_LENGTH_FOR_VARIETAL - ELLIPSIS_LENGTH
                 if chars_for_truncated_grape > 0:
                     truncated_grape = first_grape[:chars_for_truncated_grape]
                     rendered_varietal_line_markdown.append(f"**{truncated_grape}**")
-                    current_visual_length += len(truncated_grape) 
+                    current_visual_length += len(truncated_grape)
 
             # --- Handle subsequent grapes ---
-            for i, grape in enumerate(individual_varietals[1:]): 
-                if not rendered_varietal_line_markdown and i > 0: 
+            for i, grape in enumerate(individual_varietals[1:]):
+                if not rendered_varietal_line_markdown and i > 0:
                     break
-                
-                separator_text = " " if i == 0 else ", " 
+
+                separator_text = " " if i == 0 else ", "
                 visual_len_grape = len(grape)
 
                 remaining_line_space = MAX_VISUAL_LINE_LENGTH_FOR_VARIETAL - current_visual_length
-                
+
                 if remaining_line_space >= (len(separator_text) + visual_len_grape):
                     rendered_varietal_line_markdown.append(f"{separator_text}{grape}")
                     current_visual_length += len(separator_text) + visual_len_grape
                 else:
                     space_for_grape_body = remaining_line_space - len(separator_text)
-                    
-                    if space_for_grape_body > 0: 
+
+                    if space_for_grape_body > 0:
                         if (space_for_grape_body / visual_len_grape) >= TRUNCATION_THRESHOLD_PERCENT:
                             truncated_grape = grape[:space_for_grape_body]
                             rendered_varietal_line_markdown.append(f"{separator_text}{truncated_grape}")
-                            current_visual_length += len(separator_text) + len(truncated_grape) 
-                    break 
-        
+                            current_visual_length += len(separator_text) + len(truncated_grape)
+                    break
+
     if rendered_varietal_line_markdown:
         description_parts.append("".join(rendered_varietal_line_markdown))
     else:
-        description_parts.append("Unknown Varietal") 
+        description_parts.append("Unknown Varietal")
 
 
     # Line 2: Region, Country (bold region, un-bold country, conditional abbreviation)
@@ -178,7 +178,7 @@ def build_markdown_description(wine: dict, current_quantity: int) -> str:
     country_str = wine.get("country")
 
     MAX_VISUAL_LINE_LENGTH_FOR_REGION_COUNTRY = 32 # Same limit as varietal line
-    
+
     region_country_display = []
     current_rc_visual_length = 0
 
@@ -413,7 +413,7 @@ def scrape_vivino_data(vivino_url):
             except (json.JSONDecodeError, KeyError, TypeError) as json_err:
                 logger.debug(f"Vivino JSON-LD parsing error (may be benign if other schemas exist): {json_err}")
                 pass
-        
+
         # --- Fallback to HTML parsing for any remaining missing data from Vivino ---
         if wine_data['name'] == 'Unknown Wine':
             name_tag = soup.find('h1', class_='wine-page-header__name')
@@ -517,43 +517,62 @@ def scrape_vivino_data(vivino_url):
             # Move primary grape to the front
             reordered = [primary_grape] + [g for g in normalized_grapes if g != primary_grape]
             return reordered
-    
+
         if all_grape_names_collected:
             # Filter out generic terms, keeping only actual varietal names
             filtered_grapes = [
                 g for g in all_grape_names_collected
                 if g.lower() not in ['red wine', 'white wine', 'sparkling wine', 'rosé wine', 'dessert wine', 'fortified wine', 'blend']
             ]
-            
+
             # If after filtering we have specific grapes, use them. Maintain order as much as possible.
             if filtered_grapes:
                 # Use a list to maintain order, convert to set for uniqueness, then back to list to preserve (first seen) order.
                 seen_grapes = set()
                 ordered_unique_grapes = []
-                for grape in all_grape_names_collected: # Iterate through ALL collected, not just filtered
+                for grape in all_grape_names_collected:  # Iterate through ALL collected, not just filtered
                     cleaned_grape = grape.strip()
-                    # Check against filtered_grapes set to ensure it's a specific varietal
-                    if cleaned_grape.lower() not in ['red wine', 'white wine', 'sparkling wine', 'rosé wine', 'dessert wine', 'fortified wine', 'blend'] and cleaned_grape not in seen_grapes:
+                    if cleaned_grape.lower() not in [
+                        'red wine', 'white wine', 'sparkling wine', 'rosé wine', 'dessert wine', 'fortified wine', 'blend'
+                    ] and cleaned_grape not in seen_grapes:
                         ordered_unique_grapes.append(cleaned_grape)
                         seen_grapes.add(cleaned_grape)
-                
-                if ordered_unique_grapes:
-                    wine_data['varietal'] = ", ".join(prioritize_grapes(ordered_unique_grapes, wine_data['name'], wine_data['region'], wine_data['country']))
-                    logger.debug(f"Final Varietal set from ordered unique collected sources: {wine_data['varietal']}")
-                elif 'blend' in [g.lower() for g in all_grape_names_collected]:
-                    wine_data['varietal'] = 'Blend'
-                else:
-                    wine_data['varietal'] = 'Unknown Varietal' # Fallback if only generic terms or empty
+
+                # --- Bordeaux Region Heuristics ---
+                if 'region' in wine_data and isinstance(wine_data['region'], str):
+                    region_str = wine_data['region'].lower()
+                    if 'saint-émilion' in region_str or 'pomerol' in region_str:
+                        # Right Bank: Merlot first
+                        known_right_bank = ['Merlot', 'Cabernet Franc', 'Cabernet Sauvignon']
+                        reordered = []
+                        for grape in known_right_bank:
+                            for g in ordered_unique_grapes:
+                                if grape.lower() == g.lower():
+                                    reordered.append(g)
+                        for g in ordered_unique_grapes:
+                            if g not in reordered:
+                                reordered.append(g)
+                        ordered_unique_grapes = reordered
+                    elif any(left_bank in region_str for left_bank in ['médoc', 'pauillac', 'margaux', 'haut-médoc', 'saint-estèphe', 'saint-julien', 'listrac']):
+                        # Left Bank: Cabernet Sauvignon first
+                        known_left_bank = ['Cabernet Sauvignon', 'Merlot', 'Cabernet Franc']
+                        reordered = []
+                        for grape in known_left_bank:
+                            for g in ordered_unique_grapes:
+                                if grape.lower() == g.lower():
+                                    reordered.append(g)
+                        for g in ordered_unique_grapes:
+                            if g not in reordered:
+                                reordered.append(g)
+                        ordered_unique_grapes = reordered
+
+                wine_data['varietal'] = ", ".join(ordered_unique_grapes)
+                logger.debug(f"Final Varietal set from ordered unique collected sources: {wine_data['varietal']}")
+            elif 'blend' in [g.lower() for g in all_grape_names_collected]:
+                wine_data['varietal'] = 'Blend'
             else:
-                # If only generic terms were found (e.g., just 'Red wine' or 'Blend')
-                if 'blend' in [g.lower() for g in all_grape_names_collected]:
-                    wine_data['varietal'] = 'Blend'
-                else:
-                    wine_data['varietal'] = 'Unknown Varietal'
+                wine_data['varietal'] = 'Unknown Varietal'
                 logger.debug(f"All collected varietals were generic. Varietal set to: {wine_data['varietal']}")
-        else:
-            wine_data['varietal'] = 'Unknown Varietal'
-            logger.debug("No varietals collected from any source. Varietal set to Unknown Varietal.")
 
         logger.debug(f"Final Varietal after all processing: {wine_data['varietal']}")
         logger.debug(f"Region/Country scraping finished HTML attempts. Current data: Region='{wine_data['region']}', Country='{wine_data['country']}'")
