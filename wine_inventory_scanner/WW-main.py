@@ -1077,6 +1077,7 @@ def consume_wine_from_webhook():
     finally:
         conn.close()
 
+
 # New endpoint to consume (decrement) wine quantity
 @app.route('/inventory/wine/consume', methods=['POST'])
 def consume_wine():
@@ -1089,31 +1090,46 @@ def consume_wine():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     try:
-        cursor.execute("SELECT id, quantity FROM wines WHERE vivino_url = ?", (vivino_url,))
-        wine_row = cursor.fetchone()
+        # Fetch the current wine data to pass to sync_to_ha_todo later
+        # Select all columns to get a complete wine_data_dict
+        cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url,))
+        wine_data_row = cursor.fetchone()
 
-        if not wine_row:
+        if not wine_data_row:
             logger.warning(f"Wine not found for consumption: {vivino_url}")
             return jsonify({'error': 'Wine not found in inventory'}), 404
 
-        wine_id, quantity = wine_row
-        if quantity > 1:
-            new_quantity = quantity - 1
+        # Prepare wine_data_dict for sync_to_ha_todo using fetched data and columns
+        columns = [description[0] for description in cursor.description]
+        wine_data_dict = dict(zip(columns, wine_data_row))
+
+        # Get current quantity from the fetched row
+        current_quantity = wine_data_dict['quantity']
+        wine_id = wine_data_dict['id'] # Assuming 'id' is one of the selected columns
+
+        new_quantity = 0 # Initialize new_quantity
+
+        if current_quantity > 1:
+            new_quantity = current_quantity - 1
             cursor.execute("UPDATE wines SET quantity = ?, added_at = CURRENT_TIMESTAMP WHERE id = ?", (new_quantity, wine_id))
             logger.info(f"Decremented quantity for wine {vivino_url} to {new_quantity}.")
-        else:
+            # Sync with HA for updated quantity
+            sync_to_ha_todo(wine_data_dict, new_quantity)
+        else: # Quantity is 1, so it becomes 0 after decrement (delete)
+            new_quantity = 0 # Explicitly set to 0 for HA sync
             cursor.execute("DELETE FROM wines WHERE id = ?", (wine_id,))
             logger.info(f"Successfully consumed and deleted wine {vivino_url} as quantity reached 0.")
+            # Sync with HA to remove item
+            sync_to_ha_todo(wine_data_dict, new_quantity)
 
         conn.commit()
-        return jsonify({'status': 'success'})
+        return jsonify({'status': 'success', 'new_quantity': new_quantity}) # Added new_quantity to response for clarity
     except sqlite3.Error as e:
         logger.error(f"Database error during consumption: {e}")
+        conn.rollback()
         return jsonify({'error': 'Database error'}), 500
     finally:
         conn.close()
-
-
 
 
 
