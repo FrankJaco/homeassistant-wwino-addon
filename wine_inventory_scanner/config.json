@@ -1,6 +1,6 @@
 {
   "name": "Wonderful Wino",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "slug": "wine_inventory_scanner",
   "description": "Track your wine collection and sync it with your Home Assistant ToDo list. Yes a quick wink and nod to George Carlin and the Mothers of Invention as well",
   "url": "https://github.com/FrankJaco/homeassistant-wwino-addon",
