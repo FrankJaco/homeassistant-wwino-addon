@@ -2,8 +2,9 @@
   "name": "Wonderful Wino",
   "version": "0.0.2",
   "slug": "wine_inventory_scanner",
-  "description": "Track your wine collection and sync it with your Home Assistant ToDo list. Yes a quick wink and nod to George Carlin and the Mothers of Invention as well",
-  "url": "https://github.com/FrankJaco/homeassistant-wwino-addon",
+  "description": "Access your wines from Home Assistant ToDo list. Yes, a quick nod to George Carlin / Mothers of Invention",
+  "url": "https://github.com/frankjaco/homeassistant-wwino-addon",
+  "icon": "WW-icon.png",
   "arch": ["aarch64", "amd64", "armhf", "armv7", "i386"],
   "startup": "application",
   "init": false,
@@ -13,7 +14,7 @@
   "options": {
     "HOME_ASSISTANT_URL": "http://homeassistant.local:8123",
     "HA_LONG_LIVED_TOKEN": "",
-    "TODO_LIST_ENTITY_ID": "todo.wine_fridge_contents",
+    "TODO_LIST_ENTITY_ID": "todo.my_wine",
     "LOG_LEVEL": "info"
   },
   "schema": {
