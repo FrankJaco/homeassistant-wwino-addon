@@ -256,13 +256,14 @@ def init_db():
     conn.close()
     logger.info(f"SQLite database initialized at {DB_PATH}")
 
-# --- Vivino Scraping Logic (Original from your provided file) ---
+# --- Vivino Scraping Logic ---
 def scrape_vivino_data(vivino_url):
     """
     Scrapes detailed wine information from a given Vivino URL.
     Prioritizes JSON-LD data, falls back to enhanced HTML parsing.
     Returns a dictionary of wine data or None if scraping fails.
     """
+    logger.debug(f"Starting Vivino data scrape for URL: {vivino_url}")
     user_agents = [
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36', # Desktop user agent (seems more reliable for Vivino)
         'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1',
@@ -427,8 +428,8 @@ def scrape_vivino_data(vivino_url):
             if name_vintage_match:
                 try:
                     year = int(name_vintage_match.group(0))
-                    current_year = 2025
-                    if 1900 <= year <= current_year + 5:
+                    current_year = 2025 # Assuming current year for vintage validation
+                    if 1900 <= year <= current_year + 5: # Allow a few years into the future for new releases
                         wine_data['vintage'] = year
                         cleaned_name = wine_data['name'].replace(name_vintage_match.group(0), '').strip()
                         wine_data['name'] = " ".join(cleaned_name.split())
@@ -465,7 +466,7 @@ def scrape_vivino_data(vivino_url):
             elif '/grapes/' in href: # Always try to collect grape names from links
                 if text and 'blend' not in text.lower() and 'wine' not in text.lower():
                     all_grape_names_collected.append(text)
-                elif text:
+                elif text: # Still append if it's a generic 'blend' or 'wine' for later filtering
                     all_grape_names_collected.append(text)
 
 
@@ -491,34 +492,7 @@ def scrape_vivino_data(vivino_url):
 
 
         # --- FINAL Varietal Assignment (Post-processing all collected grapes) ---
-
-        # --- Heuristic Grape Prioritization ---
-        def prioritize_grapes(grapes, wine_name, region, country):
-            # Normalize grape names
-            normalized_grapes = [g.strip() for g in grapes]
-            primary_grape = None
-
-            # Check if wine name contains any grape name — assume it is the primary
-            for grape in normalized_grapes:
-                if grape.lower() in wine_name.lower():
-                    primary_grape = grape
-                    break
-
-            # Bordeaux heuristic (Left Bank = Cabernet Sauvignon, Right Bank = Merlot)
-            if country.lower() == "france" and "bordeaux" in region.lower():
-                if any("médoc" in region.lower() or "pauillac" in region.lower() or "haut-médoc" in region.lower() for _ in [0]):
-                    primary_grape = "Cabernet Sauvignon"
-                elif any("saint-émilion" in region.lower() or "pomerol" in region.lower() for _ in [0]):
-                    primary_grape = "Merlot"
-
-            if not primary_grape:
-                return normalized_grapes  # fallback: original order
-
-            # Move primary grape to the front
-            reordered = [primary_grape] + [g for g in normalized_grapes if g != primary_grape]
-            return reordered
-
-if all_grape_names_collected:
+        if all_grape_names_collected:
             # Filter out generic terms, keeping only actual varietal names
             filtered_grapes = [
                 g for g in all_grape_names_collected
@@ -538,35 +512,43 @@ if all_grape_names_collected:
                         ordered_unique_grapes.append(cleaned_grape)
                         seen_grapes.add(cleaned_grape)
 
-                # --- Bordeaux Region Heuristics ---
+                # --- Apply Bordeaux Region Heuristics for ordering ---
                 if 'region' in wine_data and isinstance(wine_data['region'], str):
                     region_str = wine_data['region'].lower()
-                    if 'saint-émilion' in region_str or 'pomerol' in region_str:
-                        # Right Bank: Merlot first
-                        known_right_bank = ['Merlot', 'Cabernet Franc', 'Cabernet Sauvignon']
-                        reordered = []
-                        for grape_type in known_right_bank:
+                    
+                    if 'saint-émilion' in region_str or 'pomerol' in region_str or 'fronsac' in region_str or 'canon-fronsac' in region_str:
+                        # Right Bank: Prioritize Merlot, then Cabernet Franc, then Cabernet Sauvignon
+                        preferred_order = ['Merlot', 'Cabernet Franc', 'Cabernet Sauvignon']
+                        
+                        reordered_grapes = []
+                        for preferred_grape in preferred_order:
                             for g in ordered_unique_grapes:
-                                if grape_type.lower() == g.lower():
-                                    reordered.append(g)
+                                if preferred_grape.lower() == g.lower() and g not in reordered_grapes:
+                                    reordered_grapes.append(g)
+                        # Add any other grapes that were not in the preferred list
                         for g in ordered_unique_grapes:
-                            if g not in reordered:
-                                reordered.append(g)
-                        ordered_unique_grapes = reordered
-                    elif any(left_bank in region_str for left_bank in ['médoc', 'pauillac', 'margaux', 'haut-médoc', 'saint-estèphe', 'saint-julien', 'listrac']):
-                        # Left Bank: Cabernet Sauvignon first
-                        known_left_bank = ['Cabernet Sauvignon', 'Merlot', 'Cabernet Franc']
-                        reordered = []
-                        for grape_type in known_left_bank: # Corrected loop variable
-                            for g in ordered_unique_grapes: # Corrected iteration source
-                                if grape_type.lower() == g.lower():
-                                    reordered.append(g)
-                        for g in ordered_unique_grapes:
-                            if g not in reordered:
-                                reordered.append(g)
-                        ordered_unique_grapes = reordered
+                            if g not in reordered_grapes:
+                                reordered_grapes.append(g)
+                        ordered_unique_grapes = reordered_grapes
+                        logger.debug(f"Bordeaux Right Bank heuristic applied. Ordered grapes: {ordered_unique_grapes}")
 
-                # --- NEW: Apply Syrah/Shiraz Renaming Logic ---
+                    elif any(lb_region in region_str for lb_region in ['médoc', 'pauillac', 'margaux', 'haut-médoc', 'saint-estèphe', 'saint-julien', 'listrac', 'moulis', 'graves']):
+                        # Left Bank: Prioritize Cabernet Sauvignon, then Merlot, then Cabernet Franc
+                        preferred_order = ['Cabernet Sauvignon', 'Merlot', 'Cabernet Franc']
+                        
+                        reordered_grapes = []
+                        for preferred_grape in preferred_order:
+                            for g in ordered_unique_grapes:
+                                if preferred_grape.lower() == g.lower() and g not in reordered_grapes:
+                                    reordered_grapes.append(g)
+                        # Add any other grapes that were not in the preferred list
+                        for g in ordered_unique_grapes:
+                            if g not in reordered_grapes:
+                                reordered_grapes.append(g)
+                        ordered_unique_grapes = reordered_grapes
+                        logger.debug(f"Bordeaux Left Bank heuristic applied. Ordered grapes: {ordered_unique_grapes}")
+
+                # --- Apply Syrah/Shiraz Renaming Logic ---
                 country_for_shiraz_syrah = wine_data.get('country', '').strip().lower()
                 is_australia_sa = (country_for_shiraz_syrah == 'australia' or country_for_shiraz_syrah == 'south africa')
 
@@ -577,7 +559,7 @@ if all_grape_names_collected:
                             transformed_grapes.append('Shiraz')
                         else:
                             transformed_grapes.append('Syrah')
-                    elif 'shiraz' in grape.lower(): # Also catch if it was already Shiraz
+                    elif 'shiraz' in grape.lower(): # Also catch if it was already Shiraz but needs to be Syrah
                         if not is_australia_sa:
                             transformed_grapes.append('Syrah')
                         else:
@@ -585,36 +567,26 @@ if all_grape_names_collected:
                     else:
                         transformed_grapes.append(grape)
 
-                # This line *replaces* the old assignment within this 'if filtered_grapes' block
                 wine_data['varietal'] = ", ".join(transformed_grapes)
                 logger.debug(f"Final Varietal set from ordered unique collected sources (Syrah/Shiraz logic applied): {wine_data['varietal']}")
 
-            # These 'elif' and 'else' statements must be at the same indentation level as 'if filtered_grapes:'
             elif 'blend' in [g.lower() for g in all_grape_names_collected]:
                 wine_data['varietal'] = 'Blend'
+                logger.debug(f"Varietal set to 'Blend' as only generic terms found.")
             else:
                 wine_data['varietal'] = 'Unknown Varietal'
                 logger.debug(f"All collected varietals were generic. Varietal set to: {wine_data['varietal']}")
+        else: # No grape names collected at all
+            wine_data['varietal'] = 'Unknown Varietal'
+            logger.debug(f"No grape names were collected from any source. Varietal set to: {wine_data['varietal']}")
 
 
-
-                wine_data['varietal'] = ", ".join(ordered_unique_grapes)
-                logger.debug(f"Final Varietal set from ordered unique collected sources: {wine_data['varietal']}")
-            elif 'blend' in [g.lower() for g in all_grape_names_collected]:
-                wine_data['varietal'] = 'Blend'
-            else:
-                wine_data['varietal'] = 'Unknown Varietal'
-                logger.debug(f"All collected varietals were generic. Varietal set to: {wine_data['varietal']}")
-
-        logger.debug(f"Final Varietal after all processing: {wine_data['varietal']}")
         logger.debug(f"Region/Country scraping finished HTML attempts. Current data: Region='{wine_data['region']}', Country='{wine_data['country']}'")
-
 
         # --- Specific US Country Fallback (truly a last resort now) ---
         if wine_data['country'] == 'Unknown Country' and "/US/en/" in vivino_url:
             wine_data['country'] = "United States"
             logger.debug(f"Country defaulted to 'United States' due to URL pattern (final fallback).")
-
 
         # Get Vivino number of ratings
         if wine_data['vivino_num_ratings'] is None:
@@ -627,7 +599,6 @@ if all_grape_names_collected:
                 re.compile(r'community-score__reviews-count'),
                 re.compile(r'review-score__count')
             ]
-
             for class_name in ratings_elements_classes:
                 elem = soup.find(class_=class_name)
                 if elem:
@@ -636,17 +607,16 @@ if all_grape_names_collected:
                     if num_ratings_match:
                         value_str = num_ratings_match.group(1).replace(',', '.')
                         suffix = (num_ratings_match.group(2) or '').lower()
-
                         try:
                             value = float(value_str)
-                            if suffix == 'k': value *= 1_000
-                            elif suffix == 'm': value *= 1_000_000
+                            if suffix == 'k':
+                                value *= 1_000
+                            elif suffix == 'm':
+                                value *= 1_000_000
                             wine_data['vivino_num_ratings'] = int(value)
                             logger.debug(f"HTML Num Ratings ({class_name.pattern}) found: {wine_data['vivino_num_ratings']}")
                             break
-                        except ValueError:
-                            pass
-
+                        except ValueError: pass
             if wine_data['vivino_num_ratings'] is None:
                 rating_text_matches = re.finditer(r'(\d[\d,\.]*)\s*(global\s*)?ratings', response.text, re.IGNORECASE)
                 for match in rating_text_matches:
@@ -655,10 +625,8 @@ if all_grape_names_collected:
                         wine_data['vivino_num_ratings'] = int(float(value_str))
                         logger.debug(f"HTML Num Ratings (text match) found: {wine_data['vivino_num_ratings']}")
                         break
-                    except ValueError:
-                        pass
+                    except ValueError: pass
         logger.debug(f"Vivino Num Ratings scraping complete. Current data: {wine_data['vivino_num_ratings']}")
-
 
         # Get Vivino rating
         if wine_data['vivino_rating'] is None:
@@ -673,7 +641,6 @@ if all_grape_names_collected:
                 except ValueError: pass
         logger.debug(f"Vivino Rating scraping complete. Current data: {wine_data['vivino_rating']}")
 
-
         # Get image URL
         if wine_data['image_url'] is None:
             image_tag = soup.find('img', class_=re.compile(r'wine-page-image__image|vivinoImage_image|image-preview__image|image-container__image'))
@@ -684,10 +651,10 @@ if all_grape_names_collected:
                 elif image_tag.has_attr('data-src') and 'vivino.com' in image_tag['data-src']:
                     wine_data['image_url'] = image_tag['data-src']
                     logger.debug(f"HTML Image URL (data-src) found: {wine_data['image_url']}")
-                elif image_tag.has_attr('src'):
+                elif image_tag.has_attr('src'): # Generic fallback for any src
                     wine_data['image_url'] = image_tag['src']
                     logger.debug(f"HTML Image URL (generic src) found: {wine_data['image_url']}")
-                elif image_tag.has_attr('data-src'):
+                elif image_tag.has_attr('data-src'): # Generic fallback for any data-src
                     wine_data['image_url'] = image_tag['data-src']
                     logger.debug(f"HTML Image URL (generic data-src) found: {wine_data['image_url']}")
         logger.debug(f"Image URL scraping complete. Current data: {wine_data['image_url']}")
@@ -705,7 +672,6 @@ if all_grape_names_collected:
 
         # --- Final Fallback Layer: Parse the URL itself ---
         # This runs only if the above methods failed to find the data.
-
         # 1. Fallback for Vintage from URL query parameter
         if wine_data['vintage'] is None:
             try:
@@ -717,81 +683,18 @@ if all_grape_names_collected:
                     wine_data['vintage'] = int(year_str)
                     logger.debug(f"Vintage (URL Fallback) found: {wine_data['vintage']}")
             except (ValueError, IndexError):
-                logger.debug("Could not parse vintage from URL or 'year' param not found.")
-                pass
-
-        # 2. Fallback for Name from URL path slug
-        # This block *sets* the name IF it's still 'Unknown Wine'.
-        # IMPORTANT: The trimming logic has been REMOVED from this section.
-        if wine_data['name'] == 'Unknown Wine':
-            try:
-                # Use regex to find the slug between '/en/' and '/w/...'
-                match = re.search(r'/en/(.*?)/w/\d+', vivino_url)
-                if match:
-                    slug = match.group(1)
-                    # Clean up the slug: replace hyphens and title case it
-                    wine_data['name'] = slug.replace('-', ' ').title()
-                    logger.debug(f"Name (URL Fallback) found: '{wine_data['name']}'")
-            except Exception as e:
-                logger.debug(f"Could not parse name from URL slug: {e}")
-                pass
-
-        # --- NEW SECTION: POST-PROCESSING - Apply Name Trimming after all attempts ---
-        # This block executes if a name was found (not 'Unknown Wine'),
-        # regardless of whether it came from primary scraping or the URL fallback.
-        if wine_data['name'] and wine_data['name'] != 'Unknown Wine':
-            original_scraped_name = wine_data['name'] # Store the name before potential trimming
-
-            # Re-attempt to extract the slug from the URL for hyphen-based trimming,
-            # as the original 'slug' variable might be out of scope or not set
-            # if the name was found by primary BeautifulSoup scraping.
-            slug_for_trimming = None
-            try:
-                match_slug = re.search(r'/en/(.*?)/w/\d+', vivino_url)
-                if match_slug:
-                    slug_for_trimming = match_slug.group(1)
-            except Exception as e:
-                logger.debug(f"Could not re-extract slug from URL for trimming: {e}")
-                # Continue without slug-based trimming if extraction fails
-                pass
-
-            # Option A: Calculate name based on trimming after the 6th hyphen in the original slug
-            name_from_hyphen_trim = original_scraped_name # Default if no slug or not enough hyphens
-            if slug_for_trimming:
-                parts = slug_for_trimming.split('-')
-                if len(parts) > 6:
-                    trimmed_slug_parts = parts[:6]
-                    trimmed_slug = '-'.join(trimmed_slug_parts)
-                    name_from_hyphen_trim = trimmed_slug.replace('-', ' ').title()
-
-            # Option B: Calculate name based on trimming to a maximum of 63 characters
-            max_char_length = 63
-            name_from_char_trim = original_scraped_name # Default if not over limit
-            if len(original_scraped_name) > max_char_length:
-                name_from_char_trim = original_scraped_name[:max_char_length]
-
-            # Determine the shortest valid name among the original, hyphen-trimmed, and char-trimmed versions.
-            # This ensures we pick the best result based on your rules.
-            potential_names = [original_scraped_name, name_from_hyphen_trim, name_from_char_trim]
-            final_trimmed_name = min(potential_names, key=len)
-
-            # Update wine_data['name'] only if a shorter, valid trimmed name was found
-            if final_trimmed_name != original_scraped_name:
-                wine_data['name'] = final_trimmed_name
-                logger.debug(f"Name trimmed from '{original_scraped_name}' to '{wine_data['name']}' ({len(wine_data['name'])} chars)")
-            else:
-                logger.debug(f"Name did not require trimming or a shorter trim was not found: '{wine_data['name']}' ({len(wine_data['name'])} chars)")
-
-        logger.info(f"Final scraped data after URL fallback: {wine_data}")
-        return wine_data
-
+                logger.debug("Could not parse vintage from URL query parameter.")
+                pass # Ignore errors if 'year' param is not present or invalid
 
     except requests.exceptions.RequestException as e:
-        logger.error(f"Network error during Vivino scraping for {vivino_url}: {e}")
+        logger.error(f"HTTP/Network error during Vivino scrape for {vivino_url}: {e}")
         return None
     except Exception as e:
-        logger.error(f"An unexpected error occurred during Vivino scraping for {vivino_url}: {e}", exc_info=True)
+        logger.error(f"An unexpected error occurred during Vivino scrape for {vivino_url}: {e}")
         return None
+
+    logger.info(f"Successfully scraped Vivino data for {wine_data.get('name', 'Unknown')} ({wine_data.get('vintage', 'NV')})")
+    return wine_data
 
 # Modified to accept quantity
 def insert_wine_data(wine_data, quantity=1):
