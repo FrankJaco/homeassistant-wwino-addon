@@ -518,7 +518,7 @@ def scrape_vivino_data(vivino_url):
             reordered = [primary_grape] + [g for g in normalized_grapes if g != primary_grape]
             return reordered
 
-        if all_grape_names_collected:
+if all_grape_names_collected:
             # Filter out generic terms, keeping only actual varietal names
             filtered_grapes = [
                 g for g in all_grape_names_collected
@@ -545,9 +545,9 @@ def scrape_vivino_data(vivino_url):
                         # Right Bank: Merlot first
                         known_right_bank = ['Merlot', 'Cabernet Franc', 'Cabernet Sauvignon']
                         reordered = []
-                        for grape in known_right_bank:
+                        for grape_type in known_right_bank:
                             for g in ordered_unique_grapes:
-                                if grape.lower() == g.lower():
+                                if grape_type.lower() == g.lower():
                                     reordered.append(g)
                         for g in ordered_unique_grapes:
                             if g not in reordered:
@@ -557,15 +557,14 @@ def scrape_vivino_data(vivino_url):
                         # Left Bank: Cabernet Sauvignon first
                         known_left_bank = ['Cabernet Sauvignon', 'Merlot', 'Cabernet Franc']
                         reordered = []
-                        for grape in known_left_bank:
-                            for g in ordered_unique_grapes:
-                                if grape.lower() == g.lower():
+                        for grape_type in known_left_bank: # Corrected loop variable
+                            for g in ordered_unique_grapes: # Corrected iteration source
+                                if grape_type.lower() == g.lower():
                                     reordered.append(g)
                         for g in ordered_unique_grapes:
                             if g not in reordered:
                                 reordered.append(g)
                         ordered_unique_grapes = reordered
-
 
                 # --- NEW: Apply Syrah/Shiraz Renaming Logic ---
                 country_for_shiraz_syrah = wine_data.get('country', '').strip().lower()
@@ -586,16 +585,16 @@ def scrape_vivino_data(vivino_url):
                     else:
                         transformed_grapes.append(grape)
 
-                # Use the transformed list for the final varietal string
+                # This line *replaces* the old assignment within this 'if filtered_grapes' block
                 wine_data['varietal'] = ", ".join(transformed_grapes)
                 logger.debug(f"Final Varietal set from ordered unique collected sources (Syrah/Shiraz logic applied): {wine_data['varietal']}")
+
+            # These 'elif' and 'else' statements must be at the same indentation level as 'if filtered_grapes:'
             elif 'blend' in [g.lower() for g in all_grape_names_collected]:
                 wine_data['varietal'] = 'Blend'
             else:
                 wine_data['varietal'] = 'Unknown Varietal'
                 logger.debug(f"All collected varietals were generic. Varietal set to: {wine_data['varietal']}")
-
-
 
 
 
