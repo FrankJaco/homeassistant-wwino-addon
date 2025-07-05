@@ -1,5 +1,5 @@
 # repository.yaml
 name: Wonderful Wino Addon Repository
-url: https://github.com/FrankJaco/homeassistant-wwino-addon
-maintainer: Frank Jaco <fjaco@proton.me>
-
+url: https://github.com/frankjaco/homeassistant-wwino-addon
+maintainer: frank jaco <fjaco@proton.me>
+icon: 'https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/WW-icon.png'
