@@ -566,6 +566,39 @@ def scrape_vivino_data(vivino_url):
                                 reordered.append(g)
                         ordered_unique_grapes = reordered
 
+
+                # --- NEW: Apply Syrah/Shiraz Renaming Logic ---
+                country_for_shiraz_syrah = wine_data.get('country', '').strip().lower()
+                is_australia_sa = (country_for_shiraz_syrah == 'australia' or country_for_shiraz_syrah == 'south africa')
+
+                transformed_grapes = []
+                for grape in ordered_unique_grapes:
+                    if 'syrah' in grape.lower():
+                        if is_australia_sa:
+                            transformed_grapes.append('Shiraz')
+                        else:
+                            transformed_grapes.append('Syrah')
+                    elif 'shiraz' in grape.lower(): # Also catch if it was already Shiraz
+                        if not is_australia_sa:
+                            transformed_grapes.append('Syrah')
+                        else:
+                            transformed_grapes.append('Shiraz')
+                    else:
+                        transformed_grapes.append(grape)
+
+                # Use the transformed list for the final varietal string
+                wine_data['varietal'] = ", ".join(transformed_grapes)
+                logger.debug(f"Final Varietal set from ordered unique collected sources (Syrah/Shiraz logic applied): {wine_data['varietal']}")
+            elif 'blend' in [g.lower() for g in all_grape_names_collected]:
+                wine_data['varietal'] = 'Blend'
+            else:
+                wine_data['varietal'] = 'Unknown Varietal'
+                logger.debug(f"All collected varietals were generic. Varietal set to: {wine_data['varietal']}")
+
+
+
+
+
                 wine_data['varietal'] = ", ".join(ordered_unique_grapes)
                 logger.debug(f"Final Varietal set from ordered unique collected sources: {wine_data['varietal']}")
             elif 'blend' in [g.lower() for g in all_grape_names_collected]:
