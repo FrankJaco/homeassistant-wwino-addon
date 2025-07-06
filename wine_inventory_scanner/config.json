@@ -23,7 +23,7 @@
     "HA_LONG_LIVED_TOKEN": "str",
     "TODO_LIST_ENTITY_ID": "str",
     "LOG_LEVEL": "list(debug|info|warning|error|critical)",
-    "REINITIALIZE_DATABASE": "boolean"
+    "REINITIALIZE_DATABASE": "bool"
   },
   "ports": {
     "5000/tcp": null
