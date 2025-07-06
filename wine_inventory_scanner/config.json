@@ -15,14 +15,14 @@
     "HOME_ASSISTANT_URL": "http://homeassistant.local:8123",
     "HA_LONG_LIVED_TOKEN": "",
     "TODO_LIST_ENTITY_ID": "todo.my_wine",
-    "LOG_LEVEL": "info"
+    "LOG_LEVEL": "info",
     "REINITIALIZE_DATABASE": "false"
   },
   "schema": {
     "HOME_ASSISTANT_URL": "str",
     "HA_LONG_LIVED_TOKEN": "str",
     "TODO_LIST_ENTITY_ID": "str",
-    "LOG_LEVEL": "list(debug|info|warning|error|critical)"
+    "LOG_LEVEL": "list(debug|info|warning|error|critical)",
     "REINITIALIZE_DATABASE": "boolean"
   },
   "ports": {
