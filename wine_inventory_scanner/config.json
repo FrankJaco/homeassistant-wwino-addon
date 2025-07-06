@@ -16,7 +16,7 @@
     "HA_LONG_LIVED_TOKEN": "",
     "TODO_LIST_ENTITY_ID": "todo.my_wine",
     "LOG_LEVEL": "info",
-    "DANGER! Setting to ON and starting the Addon will RESET your Database completely! REMEMBER to turn the switch OFF after use!!!": false
+    "REINITIALIZE_DATABASE": false
   },
   "schema": {
     "HOME_ASSISTANT_URL": "str",
