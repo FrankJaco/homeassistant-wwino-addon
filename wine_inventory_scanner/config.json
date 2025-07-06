@@ -1,6 +1,6 @@
 {
   "name": "Wonderful Wino",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "slug": "wonderful_wino",
   "description": "Access your wines from Home Assistant ToDo list. Yes, a quick nod to both George Carlin and the Mothers of Invention",
   "url": "https://github.com/frankjaco/homeassistant-wwino-addon",
@@ -23,7 +23,12 @@
     "HA_LONG_LIVED_TOKEN": "str",
     "TODO_LIST_ENTITY_ID": "str",
     "LOG_LEVEL": "list(debug|info|warning|error|critical)",
-    "REINITIALIZE_DATABASE": "bool"
+
+    "REINITIALIZE_DATABASE": {   <-- EDIT THIS SECTION
+      "type": "bool",
+      "name": "Reinitialize Wine Database (DANGER: Deletes ALL Wine Data!)",
+      "description": "Turn ON this switch and then restart the add-on to permanently delete all existing wine inventory data. This action cannot be undone. REMEMBER to turn the switch OFF immediately after reinitialization to prevent accidental data loss on future restarts. You have been warned!"
+    }
   },
   "ports": {
     "5000/tcp": null
