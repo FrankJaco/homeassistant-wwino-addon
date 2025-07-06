@@ -1157,6 +1157,9 @@ if __name__ == '__main__':
     # Check if REINITIALIZE_DATABASE environment variable is set to trigger a fresh start
     reinitialize_flag = os.environ.get("REINITIALIZE_DATABASE", "false").lower()
 
+    logger.debug(f"DEBUG: REINITIALIZE_DATABASE as read by app: '{reinitialize_flag}'
+
+
     if reinitialize_flag == 'true':
         logger.warning("REINITIALIZE_DATABASE flag is set to 'true'. Reinitializing the database...")
         reinitialize_database()
