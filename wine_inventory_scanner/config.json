@@ -16,7 +16,7 @@
     "HA_LONG_LIVED_TOKEN": "",
     "TODO_LIST_ENTITY_ID": "todo.my_wine",
     "LOG_LEVEL": "info",
-    "REINITIALIZE_DATABASE": "false"
+    "REINITIALIZE_DATABASE": false
   },
   "schema": {
     "HOME_ASSISTANT_URL": "str",
