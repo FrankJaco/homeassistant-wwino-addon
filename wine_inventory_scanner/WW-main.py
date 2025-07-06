@@ -1152,12 +1152,14 @@ def serve_static(path):
     return send_from_directory("frontend", path)
 
 
+# Application Entry Point and Initialization
 if __name__ == '__main__':
     # --- Database Initialization / Reinitialization ---
     # Check if REINITIALIZE_DATABASE environment variable is set to trigger a fresh start
     reinitialize_flag = os.environ.get("REINITIALIZE_DATABASE", "false").lower()
 
-    logger.debug(f"DEBUG: REINITIALIZE_DATABASE as read by app: '{reinitialize_flag}'
+    # CORRECTED LINE: Ensure this line is exactly as shown below, with correct quotes and parentheses.
+    logger.debug(f"DEBUG: REINITIALIZE_DATABASE as read by app: '{reinitialize_flag}' (Type: {type(reinitialize_flag)})")
 
 
     if reinitialize_flag == 'true':
@@ -1167,7 +1169,7 @@ if __name__ == '__main__':
         # and set REINITIALIZE_DATABASE back to 'false' to prevent accidental re-wipes on future restarts.
     else:
         logger.info("REINITIALIZE_DATABASE flag not set or set to 'false'. Ensuring tables exist.")
-        init_db() # Call your existing init_db() function to ensure tables exist
+        init_db() # Call your existing init_db() function to ensure tables exists
 
     logger.info("Flask app starting on port 5000...")
     app.run(host='0.0.0.0', port=5000)

@@ -23,7 +23,7 @@
     "HA_LONG_LIVED_TOKEN": "str",
     "TODO_LIST_ENTITY_ID": "str",
     "LOG_LEVEL": "list(debug|info|warning|error|critical)",
-    "REINITIALIZE_DATABASE": "bool"
+    "DANGER SWITCH: Setting to ON and starting the Addon will RESET your Database completely! Do remember to turn the switch OFF after use!!!": "bool"
   },
   "ports": {
     "5000/tcp": null
