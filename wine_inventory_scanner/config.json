@@ -23,8 +23,7 @@
     "HA_LONG_LIVED_TOKEN": "str",
     "TODO_LIST_ENTITY_ID": "str",
     "LOG_LEVEL": "list(debug|info|warning|error|critical)",
-
-    "REINITIALIZE_DATABASE": {   <-- EDIT THIS SECTION
+    "REINITIALIZE_DATABASE": {
       "type": "bool",
       "name": "Reinitialize Wine Database (DANGER: Deletes ALL Wine Data!)",
       "description": "Turn ON this switch and then restart the add-on to permanently delete all existing wine inventory data. This action cannot be undone. REMEMBER to turn the switch OFF immediately after reinitialization to prevent accidental data loss on future restarts. You have been warned!"
