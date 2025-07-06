@@ -256,6 +256,35 @@ def init_db():
     conn.close()
     logger.info(f"SQLite database initialized at {DB_PATH}")
 
+def reinitialize_database():
+    """
+    Drops all existing tables and then recreates them by calling init_db().
+    """
+    conn = None
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+
+        logger.warning("Attempting to reinitialize the database: Dropping existing 'wines' table.")
+        cursor.execute("DROP TABLE IF EXISTS wines")
+        conn.commit()
+        logger.info("Successfully dropped 'wines' table (if it existed).")
+
+        # Call your existing database initialization function to recreate tables
+        init_db()
+        logger.info("Successfully re-created database tables using init_db().")
+
+    except sqlite3.Error as e:
+        logger.error(f"Database error during reinitialization: {e}")
+        if conn:
+            conn.rollback()
+    finally:
+        if conn:
+            conn.close()
+
+
+
+
 # --- Vivino Scraping Logic ---
 def scrape_vivino_data(vivino_url):
     """
@@ -1124,6 +1153,18 @@ def serve_static(path):
 
 
 if __name__ == '__main__':
-    init_db()
+    # --- Database Initialization / Reinitialization ---
+    # Check if REINITIALIZE_DATABASE environment variable is set to trigger a fresh start
+    reinitialize_flag = os.environ.get("REINITIALIZE_DATABASE", "false").lower()
+
+    if reinitialize_flag == 'true':
+        logger.warning("REINITIALIZE_DATABASE flag is set to 'true'. Reinitializing the database...")
+        reinitialize_database()
+        # After reinitialization, you should go back to the Home Assistant Add-on configuration
+        # and set REINITIALIZE_DATABASE back to 'false' to prevent accidental re-wipes on future restarts.
+    else:
+        logger.info("REINITIALIZE_DATABASE flag not set or set to 'false'. Ensuring tables exist.")
+        init_db() # Call your existing init_db() function to ensure tables exist
+
     logger.info("Flask app starting on port 5000...")
     app.run(host='0.0.0.0', port=5000)
