@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wonderful-Wino Inventory</title>
-    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Fonts - Inter -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         /* Custom styles to ensure Inter font is applied universally and for basic body reset */
@@ -17,66 +15,333 @@
             box-sizing: border-box;
             background-color: #f8f5ed; /* A light, warm background color for the whole page */
         }
+        /* Style for markdown-rendered content within the table */
+        .markdown-cell h4 {
+            font-weight: 600; /* Semi-bold for wine name */
+            margin-bottom: 0.25rem;
+            color: #4a0e4e; /* Darker purple for headings */
+        }
+        .markdown-cell p {
+            margin-top: 0.25rem;
+            margin-bottom: 0.25rem;
+            line-height: 1.3;
+            color: #333;
+        }
+        .markdown-cell strong {
+            font-weight: 700; /* Bold for important text */
+            color: #6b21a8; /* A darker purple for bold elements */
+        }
+        .markdown-cell ul {
+            list-style: disc;
+            margin-left: 1.25rem;
+            margin-top: 0.5rem;
+        }
+        .markdown-cell li {
+            margin-bottom: 0.25rem;
+        }
+        .markdown-cell table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 0.5rem;
+        }
+        .markdown-cell th, .markdown-cell td {
+            border: 1px solid #e2e8f0;
+            padding: 0.5rem;
+            text-align: left;
+        }
+        .markdown-cell th {
+            background-color: #f1f5f9;
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col items-center py-8">
 
-    <!-- Header Section -->
     <header class="text-center mb-8 px-4 w-full max-w-4xl">
         <h1 class="text-4xl font-extrabold text-purple-800 tracking-tight">Wonderful-Wino Inventory</h1>
         <p class="text-lg text-gray-600 mt-2">Manage your wine collection with ease!</p>
     </header>
 
-    <!-- Vivino Wine Search Section -->
-    <section class="bg-white p-6 sm:p-8 rounded-xl shadow-lg border border-gray-200 w-full max-w-2xl mx-auto mb-8">
-        <h2 class="text-2xl font-semibold text-purple-700 mb-4 text-center">Search Vivino for Wine</h2>
-        <form id="vivinoSearchForm" class="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4">
-            <input
-                type="text"
-                id="vivinoSearchInput"
-                name="q"
-                placeholder="e.g., Cabernet Sauvignon, Pinot Noir 2018"
-                class="flex-grow w-full sm:w-auto p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-700"
-            >
-            <button
-                type="submit"
-                class="w-full sm:w-auto px-6 py-3 bg-purple-700 text-white font-medium rounded-lg shadow-md hover:bg-purple-800 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
-            >
-                Search Vivino
-            </button>
-        </form>
-        <p class="text-center text-gray-500 text-sm mt-4">Your search results will open directly on Vivino.com.</p>
-    </section>
+    <main class="w-full max-w-4xl px-4">
+        <section class="bg-white p-6 rounded-lg shadow-md mb-8">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">Scan New Wine</h2>
+            <form id="scanWineForm" class="flex flex-col sm:flex-row gap-4">
+                <input type="text" id="vivinoUrlInput" placeholder="Enter Vivino URL (e.g., https://www.vivino.com/w/1234567)"
+                       class="flex-grow px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500" required>
+                <input type="number" id="quantityInput" placeholder="Quantity (default 1)" min="1" value="1"
+                       class="w-full sm:w-32 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                <button type="submit"
+                        class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    Scan Wine
+                </button>
+            </form>
+            <div id="scanMessage" class="mt-4 text-center hidden"></div>
+        </section>
 
-    <!-- Original Root div for your React application -->
-    <div id="root" class="w-full max-w-4xl px-4">
-        <!-- Your React App.js will be bundled and loaded here -->
-        <!-- This div is where your "Vivino URL" text field and "Scan Wine" button would be,
-             as rendered by your React application. -->
-    </div>
+        <section class="bg-white p-6 rounded-lg shadow-md mb-8">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">Your Wine Inventory</h2>
+            
+            <button id="syncTodoButton"
+                    class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4">
+                Sync All Wines to Home Assistant To-Do List
+            </button>
+            <div id="syncMessage" class="mt-4 text-center hidden"></div>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Wine Details
+                            </th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Actions
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="inventoryTableBody" class="bg-white divide-y divide-gray-200">
+                        <tr><td colspan="2" class="py-4 text-center text-gray-500">Loading inventory...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div id="inventoryMessage" class="mt-4 text-center hidden"></div>
+        </section>
+
+        <section class="bg-white p-6 rounded-lg shadow-md">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">Search Vivino</h2>
+            <form id="vivinoSearchForm" class="flex gap-4">
+                <input type="text" id="vivinoSearchInput" placeholder="Search Vivino for wines..."
+                       class="flex-grow px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                <button type="submit"
+                        class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    Search
+                </button>
+            </form>
+        </section>
+    </main>
+
+    <footer class="mt-8 text-center text-gray-500 text-sm px-4">
+        <p>&copy; 2025 Wonderful-Wino. All rights reserved.</p>
+    </footer>
 
     <script>
-        // Get the search form and input elements
+        // --- Utility Functions for Messaging ---
+        function showMessage(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `mt-4 text-center p-2 rounded-md ${type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`;
+            element.style.display = 'block';
+            setTimeout(() => {
+                element.style.display = 'none';
+            }, 5000); // Hide after 5 seconds
+        }
+
+        // --- Fetch Inventory ---
+        async function fetchInventory() {
+            const inventoryTableBody = document.getElementById('inventoryTableBody');
+            try {
+                inventoryTableBody.innerHTML = '<tr><td colspan="2" class="py-4 text-center text-gray-500">Loading inventory...</td></tr>';
+                const response = await fetch('/inventory');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const inventory = await response.json();
+                displayInventory(inventory);
+            } catch (error) {
+                console.error('Error fetching inventory:', error);
+                showMessage('inventoryMessage', `Failed to load inventory: ${error.message}`, 'error');
+                inventoryTableBody.innerHTML = '<tr><td colspan="2" class="py-4 text-center text-gray-500">Error loading inventory.</td></tr>';
+            }
+        }
+
+        // --- Display Inventory ---
+        function displayInventory(inventory) {
+            const tbody = document.getElementById('inventoryTableBody');
+            tbody.innerHTML = ''; // Clear existing rows
+
+            if (inventory.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="2" class="py-4 text-center text-gray-500">No wines in your inventory yet!</td></tr>';
+                return;
+            }
+
+            inventory.forEach(item => {
+                const row = tbody.insertRow();
+                row.className = 'border-b border-gray-200 hover:bg-gray-50';
+
+                // Wine Details Cell (using the new 'description' field for rich markdown)
+                const detailsCell = row.insertCell();
+                detailsCell.className = 'px-6 py-4 text-sm font-medium text-gray-900 markdown-cell';
+                // Using innerHTML to render markdown (Flask's backend converts it to HTML)
+                detailsCell.innerHTML = item.description || `${item.name} (${item.vintage})`; // Fallback if description is somehow missing
+
+                // Actions Cell
+                const actionsCell = row.insertCell();
+                actionsCell.className = 'px-6 py-4 whitespace-nowrap text-right text-sm font-medium';
+
+                const consumeButton = document.createElement('button');
+                consumeButton.textContent = 'Consume';
+                consumeButton.className = 'text-green-600 hover:text-green-900 mr-4';
+                consumeButton.onclick = () => consumeWine(item.vivino_url);
+                actionsCell.appendChild(consumeButton);
+
+                // Add Set Quantity Button
+                const setQuantityButton = document.createElement('button');
+                setQuantityButton.textContent = 'Set Qty';
+                setQuantityButton.className = 'text-blue-600 hover:text-blue-900 mr-4';
+                setQuantityButton.onclick = () => {
+                    const newQuantity = prompt(`Set new quantity for ${item.name} (${item.vintage}):`, item.quantity);
+                    if (newQuantity !== null && !isNaN(newQuantity) && newQuantity.trim() !== '') {
+                        setWineQuantity(item.vivino_url, parseInt(newQuantity, 10));
+                    } else if (newQuantity !== null) {
+                        alert('Please enter a valid number for quantity.');
+                    }
+                };
+                actionsCell.appendChild(setQuantityButton);
+
+
+                const deleteButton = document.createElement('button');
+                deleteButton.textContent = 'Delete';
+                deleteButton.className = 'text-red-600 hover:text-red-900';
+                deleteButton.onclick = () => deleteWine(item.vivino_url);
+                actionsCell.appendChild(deleteButton);
+            });
+        }
+
+        // --- Scan Wine ---
+        const scanWineForm = document.getElementById('scanWineForm');
+        scanWineForm.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const vivinoUrl = document.getElementById('vivinoUrlInput').value;
+            const quantity = document.getElementById('quantityInput').value;
+            const scanMessage = document.getElementById('scanMessage');
+            
+            try {
+                scanMessage.style.display = 'none'; // Hide previous messages
+                const response = await fetch('/scan-wine', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ vivino_url: vivinoUrl, quantity: parseInt(quantity, 10) || 1 })
+                });
+
+                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(result.message || 'Failed to scan wine');
+                }
+                showMessage('scanMessage', result.message || 'Wine scanned successfully!');
+                document.getElementById('vivinoUrlInput').value = ''; // Clear input field
+                document.getElementById('quantityInput').value = '1'; // Reset quantity
+                fetchInventory(); // Refresh inventory list
+            } catch (error) {
+                console.error('Error scanning wine:', error);
+                showMessage('scanMessage', `Error: ${error.message}`, 'error');
+            }
+        });
+
+        // --- Consume Wine ---
+        async function consumeWine(vivinoUrl) {
+            if (!confirm('Are you sure you want to consume one unit of this wine?')) {
+                return;
+            }
+            try {
+                const response = await fetch('/inventory/wine/consume', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ vivino_url: vivinoUrl })
+                });
+                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(result.message || 'Failed to consume wine');
+                }
+                showMessage('inventoryMessage', result.message || 'Wine consumed successfully!');
+                fetchInventory(); // Refresh inventory list
+            } catch (error) {
+                console.error('Error consuming wine:', error);
+                showMessage('inventoryMessage', `Error: ${error.message}`, 'error');
+            }
+        }
+
+        // --- Set Wine Quantity ---
+        async function setWineQuantity(vivinoUrl, newQuantity) {
+            try {
+                const response = await fetch('/inventory/wine/set_quantity', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ vivino_url: vivinoUrl, quantity: newQuantity })
+                });
+                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(result.message || 'Failed to set wine quantity');
+                }
+                showMessage('inventoryMessage', result.message || 'Wine quantity updated successfully!');
+                fetchInventory(); // Refresh inventory list
+            } catch (error) {
+                console.error('Error setting wine quantity:', error);
+                showMessage('inventoryMessage', `Error: ${error.message}`, 'error');
+            }
+        }
+
+        // --- Delete Wine ---
+        async function deleteWine(vivinoUrl) {
+            if (!confirm('Are you sure you want to delete this wine from your inventory? This action cannot be undone.')) {
+                return;
+            }
+            try {
+                const response = await fetch('/inventory/wine', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ vivino_url: vivinoUrl })
+                });
+                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(result.message || 'Failed to delete wine');
+                }
+                showMessage('inventoryMessage', result.message || 'Wine deleted successfully!');
+                fetchInventory(); // Refresh inventory list
+            } catch (error) {
+                console.error('Error deleting wine:', error);
+                showMessage('inventoryMessage', `Error: ${error.message}`, 'error');
+            }
+        }
+
+        // --- NEW: Sync All Wines to Home Assistant To-Do List ---
+        async function syncAllWinesToTodo() {
+            const syncMessage = document.getElementById('syncMessage');
+            try {
+                syncMessage.style.display = 'none'; // Hide previous messages
+                syncMessage.textContent = 'Synchronizing... Please wait.';
+                syncMessage.className = 'mt-4 text-center p-2 rounded-md bg-blue-100 text-blue-700';
+                syncMessage.style.display = 'block';
+
+                const response = await fetch('/api/sync_todo', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(result.message || 'Failed to sync wines to Home Assistant To-Do list.');
+                }
+                showMessage('syncMessage', result.message || 'All wines synced to Home Assistant To-Do list successfully!');
+                // No need to fetch inventory again unless sync affects local display directly (it doesn't here)
+            } catch (error) {
+                console.error('Error syncing wines to To-Do list:', error);
+                showMessage('syncMessage', `Error syncing to Home Assistant: ${error.message}`, 'error');
+            }
+        }
+
+
+        // --- Vivino Search Functionality ---
         const vivinoSearchForm = document.getElementById('vivinoSearchForm');
         const vivinoSearchInput = document.getElementById('vivinoSearchInput');
 
-        // Add an event listener for the form submission
         vivinoSearchForm.addEventListener('submit', function(event) {
-            // Prevent the default form submission (which would open in the current webview)
             event.preventDefault();
-
-            // Get the search query from the input field
             const query = vivinoSearchInput.value;
-
-            // Construct the Vivino search URL
             const vivinoUrl = `https://www.vivino.com/search/wines?q=${encodeURIComponent(query)}`;
-
-            // Attempt to open the URL in a new browser window/tab.
-            // In a mobile webview environment, this often results in the OS opening
-            // an external browser or prompting the user, rather than deep-linking
-            // to a native app, especially if "_blank" is interpreted as "new window".
             window.open(vivinoUrl, '_blank');
         });
+
+        // Initial fetch of inventory when the page loads
+        document.addEventListener('DOMContentLoaded', fetchInventory);
     </script>
 
 </body>
