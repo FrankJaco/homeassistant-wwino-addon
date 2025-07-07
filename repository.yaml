@@ -2,8 +2,7 @@
 name: Wonderful Wino Addon Repository
 url: https://github.com/FrankJaco/homeassistant-wwino-addon
 maintainer: Frank Jaco <fjaco@proton.me>
-icon: 'https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/WW-icon.png'
-icon: 'https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/WW-icon.png'
+icon: 'https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/wwicon.png'
 addons:
   - name: Wonderful Wino # This is the display name for the add-on in the store list
     url: ./wine_inventory_scanner
