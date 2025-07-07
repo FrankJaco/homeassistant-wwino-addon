@@ -283,6 +283,64 @@ def reinitialize_database():
             conn.close()
 
 
+#Clear all items from HA To-Do list
+def clear_ha_todo_list() -> None:
+    entity_id = TODO_LIST_ENTITY_ID
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+    clear_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_all"
+    payload = {
+        "entity_id": entity_id
+    }
+    resp = None
+    try:
+        resp = requests.post(clear_url, json=payload, headers=headers, timeout=10)
+        resp.raise_for_status()
+        logger.info(f"Successfully sent request to clear all items from HA To-Do list: {entity_id}")
+    except Exception as e:
+        logger.error(
+            f"Failed to clear all items from HA To-Do list '{entity_id}': {e} -> {getattr(resp, 'text', '<no response>')}"
+        )
+
+# NEW FUNCTION: Sync all wines from DB to HA To-Do list
+def sync_db_to_ha_todo() -> None:
+    logger.info("Starting full synchronization from database to HA To-Do list.")
+    conn = None # Initialize conn
+    try:
+        conn = sqlite3.connect(DB_PATH) # Directly connect as per your existing code
+        conn.row_factory = sqlite3.Row # Ensure row_factory is set for named column access
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT * FROM wines")
+        wines = cursor.fetchall()
+        
+        # We need to know what's currently in HA to remove items that are no longer in DB,
+        # but the HA API doesn't easily give us the *text* of all current items.
+        # So, the current strategy is to push all DB items. `sync_to_ha_todo` handles existing.
+        # If an item is in HA but no longer in DB, it won't be explicitly removed by this loop alone.
+        # For a truly robust "sync", we'd fetch HA items, diff with DB, then add/remove.
+        # For now, let's assume `sync_to_ha_todo` (which first attempts to remove then re-add/update)
+        # combined with `reinitialize_database` clearing everything will suffice for most cases.
+
+        if not wines:
+            logger.info("No wines found in database for synchronization. HA To-Do list will remain as is (unless database was just reinitialized).")
+            return
+
+        for wine in wines:
+            wine_dict = dict(wine) # Convert Row object to dict
+            # Pass the current quantity from the fetched wine to the sync function
+            sync_to_ha_todo(wine_dict, wine_dict.get('quantity', 0))
+
+        logger.info(f"Completed synchronization of {len(wines)} wines from database to HA To-Do list.")
+    except sqlite3.Error as e:
+        logger.error(f"Database error during full sync to HA To-Do list: {e}")
+    except Exception as e: # Catch other potential errors like HA API call issues
+        logger.error(f"An unexpected error occurred during full sync to HA To-Do list: {e}")
+    finally:
+        if conn: # Ensure connection is closed if it was opened
+            conn.close()
 
 
 # --- Vivino Scraping Logic ---
