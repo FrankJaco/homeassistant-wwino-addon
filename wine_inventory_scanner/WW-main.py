@@ -1210,6 +1210,16 @@ def sync_all_wines_to_ha():
         logger.error(f"Error during full synchronization to Home Assistant: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route("/reinitialize-database-action", methods=["POST"])
+def reinitialize_db_endpoint():
+    logger.warning("Received request to reinitialize database from web UI.")
+    try:
+        reinitialize_database() # Call your existing function
+        return jsonify({"status": "success", "message": "Database reinitialized successfully. Please restart add-on from Home Assistant if needed."}), 200
+    except Exception as e:
+        logger.error(f"Error reinitializing database from web UI: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route("/")
 def serve_frontend():
     return send_from_directory("frontend", "index.html")
@@ -1228,15 +1238,24 @@ if __name__ == '__main__':
     # CORRECTED LINE: Ensure this line is exactly as shown below, with correct quotes and parentheses.
     logger.debug(f"DEBUG: REINITIALIZE_DATABASE as read by app: '{reinitialize_flag}' (Type: {type(reinitialize_flag)})")
 
-
-    if reinitialize_flag == 'true':
-        logger.warning("REINITIALIZE_DATABASE flag is set to 'true'. Reinitializing the database...")
-        reinitialize_database()
-        # After reinitialization, you should go back to the Home Assistant Add-on configuration
-        # and set REINITIALIZE_DATABASE back to 'false' to prevent accidental re-wipes on future restarts.
-    else:
-        logger.info("REINITIALIZE_DATABASE flag not set or set to 'false'. Ensuring tables exist.")
-        init_db() # Call your existing init_db() function to ensure tables exists
+# Application Entry Point and Initialization
+    if __name__ == '__main__':
+        # --- Database Initialization ---
+        logger.info("Ensuring database tables exist.")
+        init_db() # Call your existing init_db function
 
     logger.info("Flask app starting on port 5000...")
     app.run(host='0.0.0.0', port=5000)
+
+    
+    
+    
+    
+    
+    
+    
+    
+
+    
+    
+    
