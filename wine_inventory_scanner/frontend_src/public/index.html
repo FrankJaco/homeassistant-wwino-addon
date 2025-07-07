@@ -58,8 +58,7 @@
 
     <header class="text-center mb-8 px-4 w-full max-w-4xl">
         <h1 class="text-4xl font-extrabold text-purple-800 tracking-tight">Wonderful-Wino Inventory</h1>
-        <p class="text-lg text-gray-600 mt-2">Manage your wine collection with ease!</p>
-    </header>
+        <p class="text-lg text-gray-600 mt-2">Manage your wine collection with ease!</p></header>
 
     <main class="w-full max-w-4xl px-4">
         <section class="bg-white p-6 rounded-lg shadow-md mb-8">
@@ -79,7 +78,7 @@
 
         <section class="bg-white p-6 rounded-lg shadow-md mb-8">
             <h2 class="text-2xl font-semibold text-gray-800 mb-4">Your Wine Inventory</h2>
-            
+
             <button id="syncTodoButton"
                     class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4">
                 Sync All Wines to Home Assistant To-Do List
@@ -225,7 +224,7 @@
             const vivinoUrl = document.getElementById('vivinoUrlInput').value;
             const quantity = document.getElementById('quantityInput').value;
             const scanMessage = document.getElementById('scanMessage');
-            
+
             try {
                 scanMessage.style.display = 'none'; // Hide previous messages
                 const response = await fetch('/scan-wine', {
@@ -287,7 +286,7 @@
                 fetchInventory(); // Refresh inventory list
             } catch (error) {
                 console.error('Error setting wine quantity:', error);
-                showMessage('inventoryMessage', `Error: ${error.message}`, 'error');
+                showMessage('inventoryMessage', `Error: ${e.message}`, 'error');
             }
         }
 
