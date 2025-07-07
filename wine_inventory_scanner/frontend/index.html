@@ -79,7 +79,7 @@
         <section class="bg-white p-6 rounded-lg shadow-md mb-8">
             <h2 class="text-2xl font-semibold text-gray-800 mb-4">Your Wine Inventory</h2>
 
-            <button id="syncTodoButton"
+            <button id="syncTodoButton" onclick="syncAllWinesToTodo()"
                     class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4">
                 Sync All Wines to Home Assistant To-Do List
             </button>
@@ -322,7 +322,7 @@
                 syncMessage.className = 'mt-4 text-center p-2 rounded-md bg-blue-100 text-blue-700';
                 syncMessage.style.display = 'block';
 
-                const response = await fetch('/api/sync_todo', {
+                const response = await fetch('/sync-all-wines', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' }
                 });
