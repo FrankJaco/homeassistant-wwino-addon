@@ -1199,7 +1199,16 @@ def delete_wine():
     finally:
         conn.close()
 
-
+@app.route("/sync-all-wines", methods=["POST"])
+def sync_all_wines_to_ha():
+    logger.info("Received request to sync all wines to Home Assistant.")
+    try:
+        clear_ha_todo_list() # Clear existing To-Do items
+        sync_db_to_ha_todo() # Sync all wines from DB to HA
+        return jsonify({"status": "success", "message": "All wines synchronized to Home Assistant."}), 200
+    except Exception as e:
+        logger.error(f"Error during full synchronization to Home Assistant: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route("/")
 def serve_frontend():
