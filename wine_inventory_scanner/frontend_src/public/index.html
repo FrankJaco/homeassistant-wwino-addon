@@ -91,6 +91,9 @@
                     <thead class="bg-gray-50">
                         <tr>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Image
+                            </th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Wine Details
                             </th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -99,7 +102,7 @@
                         </tr>
                     </thead>
                     <tbody id="inventoryTableBody" class="bg-white divide-y divide-gray-200">
-                        <tr><td colspan="2" class="py-4 text-center text-gray-500">Loading inventory...</td></tr>
+                        <tr><td colspan="3" class="py-4 text-center text-gray-500">Loading inventory...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -139,7 +142,7 @@
         async function fetchInventory() {
             const inventoryTableBody = document.getElementById('inventoryTableBody');
             try {
-                inventoryTableBody.innerHTML = '<tr><td colspan="2" class="py-4 text-center text-gray-500">Loading inventory...</td></tr>';
+                inventoryTableBody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-gray-500">Loading inventory...</td></tr>'; // Adjusted colspan
                 const response = await fetch('/inventory');
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
@@ -149,7 +152,7 @@
             } catch (error) {
                 console.error('Error fetching inventory:', error);
                 showMessage('inventoryMessage', `Failed to load inventory: ${error.message}`, 'error');
-                inventoryTableBody.innerHTML = '<tr><td colspan="2" class="py-4 text-center text-gray-500">Error loading inventory.</td></tr>';
+                inventoryTableBody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-gray-500">Error loading inventory.</td></tr>'; // Adjusted colspan
             }
         }
 
@@ -158,14 +161,24 @@
             const tbody = document.getElementById('inventoryTableBody');
             tbody.innerHTML = ''; // Clear existing rows
 
+            // Adjusted colspan for "No wines" message
             if (inventory.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="2" class="py-4 text-center text-gray-500">No wines in your inventory yet!</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-gray-500">No wines in your inventory yet!</td></tr>';
                 return;
             }
 
             inventory.forEach(item => {
                 const row = tbody.insertRow();
                 row.className = 'border-b border-gray-200 hover:bg-gray-50';
+
+                // NEW: Image Cell
+                const imageCell = row.insertCell();
+                imageCell.className = 'px-6 py-4 whitespace-nowrap text-sm text-gray-500';
+                if (item.image_url) {
+                    imageCell.innerHTML = `<img src="${item.image_url}" class="h-16 w-16 object-cover rounded-md" alt="Wine Image">`;
+                } else {
+                    imageCell.textContent = 'No Image';
+                }
 
                 // Wine Details Cell (using the new 'description' field for rich markdown)
                 const detailsCell = row.insertCell();
@@ -196,7 +209,6 @@
                     }
                 };
                 actionsCell.appendChild(setQuantityButton);
-
 
                 const deleteButton = document.createElement('button');
                 deleteButton.textContent = 'Delete';
@@ -327,7 +339,6 @@
                 showMessage('syncMessage', `Error syncing to Home Assistant: ${error.message}`, 'error');
             }
         }
-
 
         // --- Vivino Search Functionality ---
         const vivinoSearchForm = document.getElementById('vivinoSearchForm');
