@@ -123,11 +123,10 @@
 
             <div class="row g-3">
                 <div class="col-md-4">
-                    <div class="d-grid">
-                        <button id="haSyncToggleButton" class="btn btn-warning" type="button" data-bs-toggle="modal" data-bs-target="#haSyncModal">
-                            <span id="haSyncButtonText">Loading Sync Status...</span>
-                            <span id="haSyncStatusBadge" class="badge bg-light text-dark ms-2"></span>
-                        </button>
+                    <div class="d-grid gap-2">
+                        <p class="text-center mb-0" id="haSyncCurrentStatus">Loading Sync Status...</p>
+                        <button id="enableHaSyncBtn" class="btn btn-success" type="button" style="display: none;">Enable DB Sync</button>
+                        <button id="disableHaSyncBtn" class="btn btn-danger" type="button" style="display: none;">Pause DB Sync</button>
                     </div>
                 </div>
 
@@ -139,28 +138,11 @@
 
                 <div class="col-md-4">
                     <div class="d-grid">
-                        <button id="reinitializeDbBtn" class="btn btn-danger" type="button" data-bs-toggle="modal" data-bs-target="#resetDbModal">Reset DB</button>
+                        <button id="reinitializeDbBtn" class="btn btn-warning" type="button" data-bs-toggle="modal" data-bs-target="#resetDbModal">Reset DB</button>
                     </div>
                 </div>
             </div>
         </section>
-
-        <div class="modal fade" id="haSyncModal" tabindex="-1" aria-labelledby="haSyncModalLabel" aria-hidden="true">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="haSyncModalLabel">Home Assistant To-Do Sync Status</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body" id="haSyncModalBody">
-                        </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                        <button type="button" class="btn btn-primary" id="confirmHaSyncToggleBtn">Confirm Toggle</button>
-                    </div>
-                </div>
-            </div>
-        </div>
 
         <div class="modal fade" id="syncAllModal" tabindex="-1" aria-labelledby="syncAllModalLabel" aria-hidden="true">
             <div class="modal-dialog">
@@ -233,16 +215,12 @@
         }
 
         // --- Global HA Sync Status Variable ---
-        // This variable will hold the current HA sync status to ensure all functions use the same state.
         let currentHaSyncEnabled = false; // Initialize to false
 
         // --- DOM Elements for HA Sync UI ---
-        const haSyncToggleButton = document.getElementById('haSyncToggleButton');
-        const haSyncButtonText = document.getElementById('haSyncButtonText');
-        const haSyncStatusBadge = document.getElementById('haSyncStatusBadge');
-        const haSyncModalBody = document.getElementById('haSyncModalBody');
-        const confirmHaSyncToggleBtn = document.getElementById('confirmHaSyncToggleBtn');
-        const haSyncModalLabel = document.getElementById('haSyncModalLabel');
+        const haSyncCurrentStatus = document.getElementById('haSyncCurrentStatus');
+        const enableHaSyncBtn = document.getElementById('enableHaSyncBtn');
+        const disableHaSyncBtn = document.getElementById('disableHaSyncBtn');
 
 
         // --- Main function to fetch inventory and sync status ---
@@ -269,8 +247,8 @@
                     throw new Error(`HTTP error! status: ${inventoryResponse.status}`);
                 }
                 const inventory = await inventoryResponse.json();
-                displayInventory(inventory, currentHaSyncEnabled); // Pass global sync status to display function for table buttons
-                setMainControlsEnabled(currentHaSyncEnabled); // Set global scan/search controls
+                displayInventory(inventory, currentHaSyncEnabled); // Pass global sync status for table buttons
+                setMainControlsEnabled(currentHaSyncEnabled); // Set global scan/search form controls
             } catch (error) {
                 console.error('Error fetching inventory or HA sync status:', error);
                 showMessage('inventoryMessage', `Failed to load inventory: ${error.message}`, 'error');
@@ -314,7 +292,7 @@
                 consumeButton.textContent = 'Consume';
                 consumeButton.className = 'text-green-600 hover:text-green-900 mr-4';
                 consumeButton.onclick = () => consumeWine(item.vivino_url);
-                consumeButton.disabled = !haSyncEnabled; // Set disabled state
+                consumeButton.disabled = !haSyncEnabled; // Set disabled state based on currentHaSyncEnabled
                 actionsCell.appendChild(consumeButton);
 
                 const setQuantityButton = document.createElement('button');
@@ -328,14 +306,14 @@
                         alert('Please enter a valid number for quantity.');
                     }
                 };
-                setQuantityButton.disabled = !haSyncEnabled; // Set disabled state
+                setQuantityButton.disabled = !haSyncEnabled; // Set disabled state based on currentHaSyncEnabled
                 actionsCell.appendChild(setQuantityButton);
 
                 const deleteButton = document.createElement('button');
                 deleteButton.textContent = 'Delete';
                 deleteButton.className = 'text-red-600 hover:text-red-900';
                 deleteButton.onclick = () => deleteWine(item.vivino_url);
-                deleteButton.disabled = !haSyncEnabled; // Set disabled state
+                deleteButton.disabled = !haSyncEnabled; // Set disabled state based on currentHaSyncEnabled
                 actionsCell.appendChild(deleteButton);
             });
         }
@@ -372,7 +350,7 @@
                     showMessage('scanMessage', result.message || 'Wine scanned successfully!');
                     document.getElementById('vivinoUrlInput').value = '';
                     document.getElementById('quantityInput').value = '1';
-                    fetchInventory(); // Re-fetch to update all UI controls based on (unlikely) sync status change
+                    fetchInventory(); // Re-fetch to update all UI controls based on current HA sync status
                 } catch (error) {
                     console.error('Error scanning wine:', error);
                     showMessage('scanMessage', `Error: ${error.message}`, 'error');
@@ -396,7 +374,7 @@
                     throw new Error(result.message || 'Failed to consume wine');
                 }
                 showMessage('inventoryMessage', result.message || 'Wine consumed successfully!');
-                fetchInventory(); // Re-fetch to update all UI controls based on quantity change
+                fetchInventory(); // Re-fetch to update all UI controls
             } catch (error) {
                 console.error('Error consuming wine:', error);
                 showMessage('inventoryMessage', `Error: ${error.message}`, 'error');
@@ -416,7 +394,7 @@
                     throw new Error(result.message || 'Failed to set wine quantity');
                 }
                 showMessage('inventoryMessage', result.message || 'Wine quantity updated successfully!');
-                fetchInventory(); // Re-fetch to update all UI controls based on quantity change
+                fetchInventory(); // Re-fetch to update all UI controls
             } catch (error) {
                 console.error('Error setting wine quantity:', error);
                 showMessage('inventoryMessage', `Error: ${error.message}`, 'error');
@@ -439,7 +417,7 @@
                     throw new Error(result.message || 'Failed to delete wine');
                 }
                 showMessage('inventoryMessage', result.message || 'Wine deleted successfully!');
-                fetchInventory(); // Re-fetch to update all UI controls after deletion
+                fetchInventory(); // Re-fetch to update all UI controls
             } catch (error) {
                 console.error('Error deleting wine:', error);
                 showMessage('inventoryMessage', `Error: ${error.message}`, 'error');
@@ -461,90 +439,83 @@
 
 
         // ===========================================
-        // JAVASCRIPT FOR MAINTENANCE SECTION
+        // JAVASCRIPT FOR MAINTENANCE SECTION (TWO BUTTONS)
         // ===========================================
 
         // Function to update HA Sync UI elements based on passed status
         function updateHaSyncUiElements(isEnabled) {
             if (isEnabled) {
-                haSyncButtonText.textContent = 'Pause DB Sync';
-                haSyncStatusBadge.textContent = 'Enabled';
-                haSyncStatusBadge.className = 'badge bg-success ms-2'; // Green badge
-                haSyncModalLabel.textContent = 'Home Assistant To-Do Sync (Enabled)';
-                haSyncModalBody.innerHTML = `
-                    <p>Home Assistant To-Do Sync is currently <strong class="text-success">ENABLED</strong>.</p>
-                    <p>If you **Pause DB Sync**, the add-on will stop automatically creating/updating/deleting To-Do items in Home Assistant.</p>
-                    <p><strong>Warning:</strong> While paused, all actions to add, consume, set quantity, or delete wines will be disabled to prevent inconsistencies with Home Assistant. You would typically pause sync to manually clean up orphaned items in HA.</p>
-                    <p>Click "Pause DB Sync" to **PAUSE** Home Assistant To-Do Sync.</p>
-                `;
-                confirmHaSyncToggleBtn.textContent = 'Pause DB Sync';
-                confirmHaSyncToggleBtn.className = 'btn btn-danger'; // Red button for Pause
+                haSyncCurrentStatus.innerHTML = '<span class="fw-bold text-success">Sync: Enabled</span>';
+                enableHaSyncBtn.style.display = 'none'; // Hide Enable button
+                disableHaSyncBtn.style.display = 'block'; // Show Disable button
             } else {
-                haSyncButtonText.textContent = 'Resume DB Sync';
-                haSyncStatusBadge.textContent = 'Disabled';
-                haSyncStatusBadge.className = 'badge bg-danger ms-2'; // Red badge
-                haSyncModalLabel.textContent = 'Home Assistant To-Do Sync (Disabled)';
-                haSyncModalBody.innerHTML = `
-                    <p>Home Assistant To-Do Sync is currently <strong class="text-danger">DISABLED</strong>.</p>
-                    <p>While **DB Sync is Paused**, the add-on will NOT update your <code>todo.my_wine</code> list in Home Assistant. All wine management actions (add, consume, set quantity, delete) are also currently disabled.</p>
-                    <p><strong>Important:</strong> If you have "orphaned" wine items in your Home Assistant To-Do list (due to previous deletions/changes while sync was paused or during database resets), you should manually clear them from Home Assistant now.</p>
-                    <p>Click "Resume DB Sync" to **RESUME** Home Assistant To-Do Sync and re-enable wine management actions.</p>
-                `;
-                confirmHaSyncToggleBtn.textContent = 'Resume DB Sync';
-                confirmHaSyncToggleBtn.className = 'btn btn-success'; // Green button for Resume
+                haSyncCurrentStatus.innerHTML = '<span class="fw-bold text-danger">Sync: Disabled</span>';
+                enableHaSyncBtn.style.display = 'block'; // Show Enable button
+                disableHaSyncBtn.style.display = 'none'; // Hide Disable button
             }
         }
 
-        // Event listener for the HA Sync button to prepare the modal content (and re-fetch status)
-        if (haSyncToggleButton) {
-            haSyncToggleButton.addEventListener('click', async () => {
-                // The status is already updated by fetchInventory on page load/toggle,
-                // so we just need to ensure the modal content is correctly set based on the global state.
-                updateHaSyncUiElements(currentHaSyncEnabled);
-            });
-        }
-
-        // Event listener for the Confirm HA Sync Toggle button
-        if (confirmHaSyncToggleBtn) {
-            confirmHaSyncToggleBtn.addEventListener('click', async () => {
-                // Toggle the global state to determine the new state
-                const newState = !currentHaSyncEnabled;
-
+        // Event listener for the Enable HA Sync button
+        if (enableHaSyncBtn) {
+            enableHaSyncBtn.addEventListener('click', async () => {
+                if (!confirm('Are you sure you want to ENABLE Home Assistant To-Do Sync? All wine management actions will be re-enabled.')) {
+                    return;
+                }
                 try {
                     const response = await fetch('/api/toggle-ha-sync', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ enable: newState })
+                        body: JSON.stringify({ enable: true }) // Explicitly enable
                     });
                     const result = await response.json();
                     if (!response.ok) {
-                        throw new Error(result.message || 'Failed to toggle HA sync');
+                        throw new Error(result.message || 'Failed to enable HA sync');
                     }
-                    showMessage('inventoryMessage', result.message || `DB Sync ${newState ? 'enabled' : 'disabled'} successfully!`);
-
-                    // Update the global state immediately
-                    currentHaSyncEnabled = newState;
-
-                    // Close the modal
-                    const haSyncModal = bootstrap.Modal.getInstance(document.getElementById('haSyncModal'));
-                    if (haSyncModal) haSyncModal.hide();
-
-                    // After a successful toggle, force UI updates:
-                    updateHaSyncUiElements(currentHaSyncEnabled); // Update the main button and modal content
-                    fetchInventory(); // Re-fetch inventory to update table buttons and main controls
+                    showMessage('inventoryMessage', result.message || 'DB Sync enabled successfully!');
+                    currentHaSyncEnabled = true; // Update global state
+                    updateHaSyncUiElements(currentHaSyncEnabled); // Update buttons visibility and status text
+                    fetchInventory(); // Re-fetch inventory to update table and main controls
                 } catch (error) {
-                    console.error('Error toggling HA sync:', error);
-                    haSyncModalBody.innerHTML += `<p class="text-danger">Error: ${error.message}</p>`;
-                    showMessage('inventoryMessage', `Error toggling HA sync: ${error.message}`, 'error');
+                    console.error('Error enabling HA sync:', error);
+                    showMessage('inventoryMessage', `Error enabling HA sync: ${error.message}`, 'error');
                 }
             });
         }
 
-        // --- Other Maintenance Buttons (simplified, as they also trigger fetchInventory) ---
-        const syncAllWinesBtn = document.getElementById('syncAllWinesBtn');
-        const confirmSyncAllBtn = document.getElementById('confirmSyncAllBtn');
-        const syncAllResponse = document.getElementById('syncAllResponse');
+        // Event listener for the Disable HA Sync button
+        if (disableHaSyncBtn) {
+            disableHaSyncBtn.addEventListener('click', async () => {
+                if (!confirm('Are you sure you want to PAUSE Home Assistant To-Do Sync? All wine management actions will be disabled.')) {
+                    return;
+                }
+                try {
+                    const response = await fetch('/api/toggle-ha-sync', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ enable: false }) // Explicitly disable
+                    });
+                    const result = await response.json();
+                    if (!response.ok) {
+                        throw new Error(result.message || 'Failed to disable HA sync');
+                    }
+                    showMessage('inventoryMessage', result.message || 'DB Sync paused successfully!');
+                    currentHaSyncEnabled = false; // Update global state
+                    updateHaSyncUiElements(currentHaSyncEnabled); // Update buttons visibility and status text
+                    fetchInventory(); // Re-fetch inventory to update table and main controls
+                } catch (error) {
+                    console.error('Error disabling HA sync:', error);
+                    showMessage('inventoryMessage', `Error disabling HA sync: ${error.message}`, 'error');
+                }
+            });
+        }
 
+
+        // --- Other Maintenance Buttons (Sync All Wines, Reset DB) ---
+        const syncAllResponse = document.getElementById('syncAllResponse');
+        const reinitResponse = document.getElementById('reinitResponse');
+
+        // Sync All Wines
+        const confirmSyncAllBtn = document.getElementById('confirmSyncAllBtn');
         if (confirmSyncAllBtn) {
             confirmSyncAllBtn.addEventListener('click', async () => {
                 try {
@@ -568,10 +539,8 @@
             });
         }
 
-        const reinitializeDbBtn = document.getElementById('reinitializeDbBtn');
+        // Reset Database
         const confirmResetDbBtn = document.getElementById('confirmResetDbBtn');
-        const reinitResponse = document.getElementById('reinitResponse');
-
         if (confirmResetDbBtn) {
             confirmResetDbBtn.addEventListener('click', async () => {
                 if (!confirm('This will permanently delete all wine data. Are you absolutely sure?')) {
@@ -598,7 +567,6 @@
             });
         }
 
-
         // ===========================================
         // END JAVASCRIPT FOR MAINTENANCE SECTION
         // ===========================================
@@ -606,7 +574,7 @@
 
         // Initial fetch of inventory and HA Sync status when the page loads
         document.addEventListener('DOMContentLoaded', () => {
-            fetchInventory(); // This initiates the entire UI state
+            fetchInventory(); // This initiates the entire UI state by fetching HA sync status first.
         });
     </script>
 </body>
