@@ -68,6 +68,10 @@ def format_wine_for_todo(wine: dict) -> str:
 
 # Updated sync_to_ha_todo function
 def sync_to_ha_todo(wine: dict, current_quantity: int) -> None:
+    global HA_SYNC_ENABLED # Declare global to access the flag
+    if not HA_SYNC_ENABLED:
+        logger.info(f"HA Sync is disabled. Skipping synchronization for wine: {wine.get('title', 'N/A')}.")
+        return
     # item_text will be just "Name (Vintage)"
     item_text = format_wine_for_todo(wine) 
     description = build_markdown_description(wine, current_quantity) # Quantity in description
@@ -289,6 +293,10 @@ def reinitialize_database():
 
 # Sync all wines from DB to HA To-Do list
 def sync_db_to_ha_todo() -> None:
+    global HA_SYNC_ENABLED # Declare global to access the flag
+    if not HA_SYNC_ENABLED:
+        logger.info("HA Sync is disabled. Skipping full synchronization of all wines to Home Assistant.")
+        return
     logger.info("Starting full synchronization from database to HA To-Do list.")
     conn = None # Initialize conn
     try:
