@@ -15,6 +15,10 @@ HA_LONG_LIVED_TOKEN = os.environ.get("HA_LONG_LIVED_TOKEN")
 TODO_LIST_ENTITY_ID = os.environ.get("TODO_LIST_ENTITY_ID")
 DB_PATH = os.environ.get("DB_PATH", "/share/wine_inventory.db") # Default to /share if not set
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "debug").upper() # Set to debug for consistent logging
+SYNC_CONFIG_FILE = os.path.join(os.environ.get("DB_PATH", "/share/"), 'ha_sync_status.json')
+HA_SYNC_ENABLED = True # Default state if config file doesn't exist or load fails
+
+
 
 # --- Logging Setup ---
 logging.basicConfig(level=getattr(logging, LOG_LEVEL),
@@ -835,6 +839,32 @@ def insert_wine_data(wine_data, quantity=1):
     finally:
         conn.close()
 
+def load_ha_sync_status():
+    """Loads the HA sync status from the config file."""
+    global HA_SYNC_ENABLED
+    try:
+        if os.path.exists(SYNC_CONFIG_FILE):
+            with open(SYNC_CONFIG_FILE, 'r') as f:
+                config = json.load(f)
+                HA_SYNC_ENABLED = config.get('ha_sync_enabled', True) # Default to True if key not found
+                logger.info(f"Loaded HA sync status from {SYNC_CONFIG_FILE}: {HA_SYNC_ENABLED}")
+        else:
+            logger.info(f"HA sync config file not found at {SYNC_CONFIG_FILE}. Initializing HA_SYNC_ENABLED to default ({HA_SYNC_ENABLED}).")
+            save_ha_sync_status() # Create the file with the default state
+    except Exception as e:
+        logger.error(f"Error loading HA sync status from {SYNC_CONFIG_FILE}: {e}. Defaulting to enabled.")
+        HA_SYNC_ENABLED = True # Ensure it's enabled if there's an error during load
+
+def save_ha_sync_status():
+    """Saves the current HA sync status to the config file."""
+    try:
+        with open(SYNC_CONFIG_FILE, 'w') as f:
+            json.dump({'ha_sync_enabled': HA_SYNC_ENABLED}, f)
+        logger.info(f"Saved HA sync status to {SYNC_CONFIG_FILE}: {HA_SYNC_ENABLED}")
+    except Exception as e:
+        logger.error(f"Error saving HA sync status to {SYNC_CONFIG_FILE}: {e}")
+
+
 
 # --- Flask Routes ---
 
@@ -1223,6 +1253,9 @@ if __name__ == '__main__':
     else:
         logger.info("REINITIALIZE_DATABASE flag not set or set to 'false'. Ensuring tables exist.")
         init_db() # Call your existing init_db function
+
+    # Load Home Assistant sync status on startup
+    load_ha_sync_status()
 
     logger.info("Flask app starting on port 5000...")
     app.run(host='0.0.0.0', port=5000)    
