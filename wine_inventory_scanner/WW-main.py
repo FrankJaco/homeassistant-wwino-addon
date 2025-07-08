@@ -304,9 +304,10 @@ def clear_ha_todo_list() -> None:
             f"Failed to clear all items from HA To-Do list '{entity_id}': {e} -> {getattr(resp, 'text', '<no response>')}"
         )
 
-# NEW FUNCTION: Sync all wines from DB to HA To-Do list
+# Sync all wines from DB to HA To-Do list
 def sync_db_to_ha_todo() -> None:
     logger.info("Starting full synchronization from database to HA To-Do list.")
+    clear_ha_todo_list()
     conn = None # Initialize conn
     try:
         conn = sqlite3.connect(DB_PATH) # Directly connect as per your existing code
@@ -1228,27 +1229,27 @@ def serve_frontend():
 def serve_static(path):
     return send_from_directory("frontend", path)
 
-
+    
 # Application Entry Point and Initialization
 if __name__ == '__main__':
     # --- Database Initialization / Reinitialization ---
     # Check if REINITIALIZE_DATABASE environment variable is set to trigger a fresh start
     reinitialize_flag = os.environ.get("REINITIALIZE_DATABASE", "false").lower()
 
-    # CORRECTED LINE: Ensure this line is exactly as shown below, with correct quotes and parentheses.
     logger.debug(f"DEBUG: REINITIALIZE_DATABASE as read by app: '{reinitialize_flag}' (Type: {type(reinitialize_flag)})")
 
-# Application Entry Point and Initialization
-    if __name__ == '__main__':
-        # --- Database Initialization ---
-        logger.info("Ensuring database tables exist.")
+    if reinitialize_flag == 'true':
+        logger.warning("REINITIALIZE_DATABASE flag is set to 'true'. Reinitializing the database...")
+        reinitialize_database()
+        clear_ha_todo_list()  # <--- PLACE THIS LINE HERE
+        # After reinitialization, you should go back to the Home Assistant Add-on configuration
+        # and set REINITIALIZE_DATABASE back to 'false' to prevent accidental re-wipes on future restarts.
+    else:
+        logger.info("REINITIALIZE_DATABASE flag not set or set to 'false'. Ensuring tables exist.")
         init_db() # Call your existing init_db function
 
     logger.info("Flask app starting on port 5000...")
-    app.run(host='0.0.0.0', port=5000)
-
-    
-    
+    app.run(host='0.0.0.0', port=5000)    
     
     
     
