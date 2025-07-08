@@ -52,11 +52,11 @@ COUNTRY_ABBREVIATIONS = {
 }
 
 
-def format_wine_for_todo(wine: dict) -> str: # Removed quantity parameter from signature
+def format_wine_for_todo(wine: dict) -> str: 
     name = wine.get("name") or "n/a"
     vintage = wine.get("vintage")
 
-    # Summary line is now just name and vintage, without quantity
+    # Summary line
     if vintage:
         return f"{name} ({vintage})"
     else:
@@ -64,8 +64,8 @@ def format_wine_for_todo(wine: dict) -> str: # Removed quantity parameter from s
 
 # Updated sync_to_ha_todo function
 def sync_to_ha_todo(wine: dict, current_quantity: int) -> None:
-    # item_text will be just "Name (Vintage)" as per the new format_wine_for_todo
-    item_text = format_wine_for_todo(wine) # No quantity in summary
+    # item_text will be just "Name (Vintage)"
+    item_text = format_wine_for_todo(wine) 
     description = build_markdown_description(wine, current_quantity) # Quantity in description
     entity_id = TODO_LIST_ENTITY_ID
     headers = {
@@ -285,24 +285,84 @@ def reinitialize_database():
 
 #Clear all items from HA To-Do list
 def clear_ha_todo_list() -> None:
-    entity_id = TODO_LIST_ENTITY_ID
+    """Clears all items from the HA To-Do list by fetching them and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
     headers = {
         "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
         "Content-Type": "application/json",
     }
-    clear_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_all"
-    payload = {
-        "entity_id": entity_id
-    }
-    resp = None
+    
+    # First, get all items from the To-Do list
+    get_items_url = f"{HOME_ASSISTANT_URL}/api/services/todo/get_items"
+    get_items_payload = {"entity_id": TODO_LIST_ENTITY_ID}
+
     try:
-        resp = requests.post(clear_url, json=payload, headers=headers, timeout=10)
-        resp.raise_for_status()
-        logger.info(f"Successfully sent request to clear all items from HA To-Do list: {entity_id}")
+        get_response = requests.post(get_items_url, headers=headers, json=get_items_payload)
+        get_response.raise_for_status()
+        items_data = get_response.json()
+
+        # The response for get_items is usually a list of states,
+        # with the actual items under `attributes.items` or similar, depending on HA version/integration.
+        # Let's assume the items are directly in the response for now, or require parsing.
+        # Based on typical HA service responses, it might be in a structure like:
+        # [{"entity_id": "todo.my_wine", "state": "not_supported", "attributes": {"items": [...]}}]
+        # We need to extract the actual list of to-do items from this.
+        
+        # More robust way to find the items list, as the structure can vary
+        all_todo_items = []
+        if isinstance(items_data, list):
+            for entry in items_data:
+                if 'attributes' in entry and 'items' in entry['attributes']:
+                    for item in entry['attributes']['items']:
+                        # HA To-Do items can have 'summary' and 'uid'. 'summary' is the visible name.
+                        # We need to pass 'item' which can be either the summary or UID to remove_item.
+                        # Using 'summary' if available, otherwise trying the full item dictionary if needed by HA.
+                        all_todo_items.append(item.get('summary', item)) # Prefer summary, else pass the whole item dict
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+        
+        # Now, remove each item one by one
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+        
+        for item_to_remove in all_todo_items:
+            # item_to_remove could be a string (summary) or a dict (full item object).
+            # The remove_item service expects the 'item' parameter.
+            # If `item_to_remove` is a dict, we might need to decide which key to use (e.g., 'summary' or 'uid').
+            # Assuming 'summary' is the most common and robust way to refer to the item for removal.
+            
+            # If it's a dictionary and has 'summary' or 'uid', use that. Otherwise, use it as is.
+            item_param = item_to_remove
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
     except Exception as e:
-        logger.error(
-            f"Failed to clear all items from HA To-Do list '{entity_id}': {e} -> {getattr(resp, 'text', '<no response>')}"
-        )
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+
 
 # Sync all wines from DB to HA To-Do list
 def sync_db_to_ha_todo() -> None:
@@ -857,8 +917,8 @@ def insert_wine_data(wine_data, quantity=1):
     finally:
         conn.close()
 
-# --- Flask Routes ---
 
+# --- Flask Routes ---
 
 @app.route('/scan-wine', methods=['POST'])
 def scan_wine():
