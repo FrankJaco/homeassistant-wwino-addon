@@ -422,5 +422,94 @@
         document.addEventListener('DOMContentLoaded', fetchInventory);
     </script>
 
+<hr class="my-4"> <section id="maintenance-section" class="container card p-4 mb-5">
+    <h2 class="mb-3">Maintenance</h2>
+
+    <div class="row g-3">
+        <div class="col-md-4">
+            <div class="d-grid">
+                <button id="haSyncToggleButton" class="btn btn-warning" type="button" data-bs-toggle="modal" data-bs-target="#haSyncModal">
+                    <span id="haSyncButtonText">Pause HA Sync</span>
+                    <span id="haSyncStatusBadge" class="badge bg-light text-dark ms-2">Loading...</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="d-grid">
+                <button id="syncAllWinesBtn" class="btn btn-info" type="button" data-bs-toggle="modal" data-bs-target="#syncAllModal">Sync ToDo</button>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="d-grid">
+                <button id="reinitializeDbBtn" class="btn btn-danger" type="button" data-bs-toggle="modal" data-bs-target="#resetDbModal">Reset DB</button>
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="modal fade" id="haSyncModal" tabindex="-1" aria-labelledby="haSyncModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="haSyncModalLabel">Home Assistant Sync Status</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="haSyncModalBody">
+                </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="confirmHaSyncToggleBtn">Confirm Toggle</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="syncAllModal" tabindex="-1" aria-labelledby="syncAllModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="syncAllModalLabel">Synchronize All Wines to Home Assistant To-Do</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>This action will force a full synchronization of all wines currently in your inventory database to your Home Assistant To-Do list (`todo.my_wine`).</p>
+                <p>Use this if you believe the lists are out of sync or if you've made manual changes to the database that need to be reflected in Home Assistant.</p>
+                <p class="text-danger">**Important:** This will attempt to add/update wines based on your database. If you have "orphaned" items in HA (not in your database), they will **not** be removed by this action. You may need to manually clear them if HA Sync is paused.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirmSyncAllBtn">Synchronize Now</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="resetDbModal" tabindex="-1" aria-labelledby="resetDbModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="resetDbModalLabel">Reset Database Confirmation</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-danger"><strong>WARNING: This action is irreversible!</strong></p>
+                <p>Resetting the database will:</p>
+                <ul>
+                    <li>**Permanently delete ALL wine data** from your inventory.</li>
+                    <li>Re-create an empty, fresh database.</li>
+                    <li>This will also cause all your wines in Home Assistant's To-Do list to become "orphaned" (if you don't clear them manually first).</li>
+                </ul>
+                <p>Are you absolutely sure you want to proceed?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmResetDbBtn">Reset Database Permanently</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 </body>
 </html>
