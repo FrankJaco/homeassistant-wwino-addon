@@ -298,19 +298,15 @@ def clear_ha_todo_list() -> None:
     # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
     get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
 
-    try:
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
         # Perform a GET request to get the state of the To-Do list entity
         get_response = requests.get(get_state_url, headers=headers)
         get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
         state_data = get_response.json()
-        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") 
-
-    # Home Assistant To-Do entity state has items under 'attributes.items'
-    all_todo_items = state_data.get('attributes', {}).get('items', [])
-
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
 
         # Home Assistant To-Do entity state has items under 'attributes.items'
-        all_todo_items = state_data.get('attributes', {}).get('items', [])
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
 
         if not all_todo_items:
             logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
@@ -324,13 +320,9 @@ def clear_ha_todo_list() -> None:
         for item_to_remove in all_todo_items:
             item_param = None
             if isinstance(item_to_remove, dict):
-                # HA remove_item service can use 'summary' or 'uid' as the 'item' parameter.
-                # 'summary' is the visible name, 'uid' is a unique identifier.
-                # Prefer 'summary' as it's typically what the user sees,
-                # but 'uid' can be more reliable for removal if summary might not be unique.
                 item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
             elif isinstance(item_to_remove, str):
-                item_param = item_to_remove # If somehow it's just a string, use it directly
+                item_param = item_to_remove
 
             if item_param:
                 remove_payload = {
@@ -345,13 +337,16 @@ def clear_ha_todo_list() -> None:
 
         logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
 
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
     except requests.exceptions.RequestException as e:
         logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
     except json.JSONDecodeError:
         logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
     except Exception as e:
         logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
-    """Clears all items from the HA To-Do list by fetching them and removing one by one."""
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
     if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
         logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
         return
@@ -361,25 +356,18 @@ def clear_ha_todo_list() -> None:
         "Content-Type": "application/json",
     }
 
-    # First, get all items from the To-Do list
-    get_items_url = f"{HOME_ASSISTANT_URL}/api/services/todo/get_items"
-    # Removed get_items_payload as todo.get_items does not accept it.
-    # The entity_id is derived from the context of the service call in Home Assistant.
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
 
-    try:
-        # CORRECTED LINE: Removed 'json=get_items_payload'
-        get_response = requests.post(get_items_url, headers=headers)
-        get_response.raise_for_status()
-        items_data = get_response.json()
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
 
-        all_todo_items = []
-        if isinstance(items_data, list):
-            for entry in items_data:
-                # Ensure we are looking at the correct entity_id's attributes.
-                # HA usually returns a list of states. Find the one for our TODO_LIST_ENTITY_ID.
-                if entry.get('entity_id') == TODO_LIST_ENTITY_ID and 'attributes' in entry and 'items' in entry['attributes']:
-                    for item in entry['attributes']['items']:
-                        all_todo_items.append(item) # Append the full item dictionary
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
 
         if not all_todo_items:
             logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
@@ -387,19 +375,15 @@ def clear_ha_todo_list() -> None:
 
         logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
 
-        # Now, remove each item one by one
+        # Now, remove each item one by one using the remove_item service
         remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
 
         for item_to_remove in all_todo_items:
             item_param = None
             if isinstance(item_to_remove, dict):
-                # HA remove_item service can use 'summary' or 'uid' as the 'item' parameter.
-                # 'summary' is the visible name, 'uid' is a unique identifier.
-                # Prefer 'summary' as it's typically what the user sees,
-                # but 'uid' can be more reliable for removal if summary might not be unique.
                 item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
             elif isinstance(item_to_remove, str):
-                item_param = item_to_remove # If somehow it's just a string, use it directly
+                item_param = item_to_remove
 
             if item_param:
                 remove_payload = {
@@ -414,6 +398,7 @@ def clear_ha_todo_list() -> None:
 
         logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
 
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
     except requests.exceptions.RequestException as e:
         logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
     except json.JSONDecodeError:
@@ -421,6 +406,8301 @@ def clear_ha_todo_list() -> None:
     except Exception as e:
         logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
 
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+
+def clear_ha_todo_list() -> None:
+    """Clears all items from the HA To-Do list by fetching their state and removing one by one."""
+    if not HA_LONG_LIVED_TOKEN or not HOME_ASSISTANT_URL or not TODO_LIST_ENTITY_ID:
+        logger.error("Home Assistant integration not fully configured. Cannot clear To-Do list.")
+        return
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # CORRECTED APPROACH: Get all items by fetching the state of the To-Do list entity
+    get_state_url = f"{HOME_ASSISTANT_URL}/api/states/{TODO_LIST_ENTITY_ID}"
+
+    try: # <--- Ensure this 'try' is correctly indented, typically 4 spaces from the 'def' line above
+        # Perform a GET request to get the state of the To-Do list entity
+        get_response = requests.get(get_state_url, headers=headers)
+        get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
+        state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") # <--- Ensure this line is correctly indented
+
+        # Home Assistant To-Do entity state has items under 'attributes.items'
+        all_todo_items = state_data.get('attributes', {}).get('items', []) # <--- Ensure this line is correctly indented
+
+        if not all_todo_items:
+            logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
+            return
+
+        logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
+
+        # Now, remove each item one by one using the remove_item service
+        remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+
+        for item_to_remove in all_todo_items:
+            item_param = None
+            if isinstance(item_to_remove, dict):
+                item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove
+
+            if item_param:
+                remove_payload = {
+                    "entity_id": TODO_LIST_ENTITY_ID,
+                    "item": item_param
+                }
+                remove_response = requests.post(remove_item_url, headers=headers, json=remove_payload)
+                remove_response.raise_for_status()
+                logger.debug(f"Successfully removed item '{item_param}' from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+            else:
+                logger.warning(f"Could not determine item identifier for: {item_to_remove}. Skipping removal.")
+
+        logger.info(f"Successfully cleared all items from HA To-Do list '{TODO_LIST_ENTITY_ID}'.")
+
+    # <--- VERY IMPORTANT: Ensure the 'except' blocks are at the same indentation level as the 'try'
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error communicating with Home Assistant while clearing To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
 
 # Sync all wines from DB to HA To-Do list
 def sync_db_to_ha_todo() -> None:
