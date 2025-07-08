@@ -176,9 +176,9 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
-                        <p>This action will force a full synchronization of all wines currently in your inventory database to your Home Assistant To-Do list (`todo.my_wine`).</p>
+                        <p>This action will force a full synchronization of all wines currently in your inventory database to your Home Assistant To-Do list (<code>todo.my_wine</code>).</p>
                         <p>Use this if you believe the lists are out of sync or if you've made manual changes to the database that need to be reflected in Home Assistant.</p>
-                        <p class="text-danger">**Important:** This will attempt to add/update wines based on your database. If you have "orphaned" items in HA (not in your database), they will **not** be removed by this action. You may need to manually clear them if HA Sync is paused.</p>
+                        <p class="text-danger"><strong>Important:</strong> This will attempt to add/update wines based on your database. If you have "orphaned" items in HA (not in your database), they will <strong>not</strong> be removed by this action. You may need to manually clear them if HA Sync is paused.</p>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -212,6 +212,9 @@
                 </div>
             </div>
         </div>
+
+        <div id="syncAllResponse" class="mt-4 text-center hidden"></div>
+        <div id="reinitResponse" class="mt-4 text-center hidden"></div>
 
         <div id="root" class="w-full max-w-4xl px-4">
         </div>
@@ -470,7 +473,7 @@
                     haSyncStatusBadge.className = 'badge bg-danger ms-2';
                     haSyncModalBody.innerHTML = `
                         <p>Home Assistant To-Do Sync is currently <strong class="text-danger">DISABLED</strong>.</p>
-                        <p>While disabled, the add-on will NOT update your `todo.my_wine` list in Home Assistant.</p>
+                        <p>While disabled, the add-on will NOT update your <code>todo.my_wine</code> list in Home Assistant.</p>
                         <p><strong>Important:</strong> If you have "orphaned" wine items in your Home Assistant To-Do list (due to previous deletions/changes while sync was paused or during database resets), you should manually clear them from Home Assistant now.</p>
                         <p>Click "Confirm Toggle" to **ENABLE** HA Sync and resume automatic synchronization.</p>
                     `;
@@ -524,7 +527,7 @@
         if (confirmSyncAllBtn) {
             confirmSyncAllBtn.addEventListener('click', async () => {
                 try {
-                    showMessage('syncMessage', 'Synchronizing wines to Home Assistant...', 'info'); // Show general message
+                    showMessage('syncAllResponse', 'Synchronizing wines to Home Assistant...', 'info'); // Show message in dedicated div
                     const response = await fetch('/sync-all-wines', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' }
@@ -533,13 +536,13 @@
                     if (!response.ok) {
                         throw new Error(result.message || 'Failed to sync all wines');
                     }
-                    showMessage('syncMessage', result.message || 'All wines synchronized successfully to Home Assistant!', 'info');
+                    showMessage('syncAllResponse', result.message || 'All wines synchronized successfully to Home Assistant!', 'info');
                     // Close the modal
                     const syncAllModal = bootstrap.Modal.getInstance(document.getElementById('syncAllModal'));
                     if (syncAllModal) syncAllModal.hide();
                 } catch (error) {
                     console.error('Error syncing all wines:', error);
-                    showMessage('syncMessage', `Error syncing all wines: ${error.message}`, 'error');
+                    showMessage('syncAllResponse', `Error syncing all wines: ${error.message}`, 'error');
                 }
             });
         }
@@ -548,7 +551,7 @@
         if (confirmResetDbBtn) {
             confirmResetDbBtn.addEventListener('click', async () => {
                 try {
-                    showMessage('inventoryMessage', 'Reinitializing database...', 'info'); // General message
+                    showMessage('reinitResponse', 'Reinitializing database...', 'info'); // Show message in dedicated div
                     const response = await fetch('/reinitialize-database-action', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' }
@@ -557,14 +560,14 @@
                     if (!response.ok) {
                         throw new Error(result.message || 'Failed to reinitialize database');
                     }
-                    showMessage('inventoryMessage', result.message || 'Database reinitialized successfully!', 'info');
+                    showMessage('reinitResponse', result.message || 'Database reinitialized successfully!', 'info');
                     // Close the modal
                     const resetDbModal = bootstrap.Modal.getInstance(document.getElementById('resetDbModal'));
                     if (resetDbModal) resetDbModal.hide();
                     fetchInventory(); // Re-fetch inventory to show empty table
                 } catch (error) {
                     console.error('Error reinitializing database:', error);
-                    showMessage('inventoryMessage', `Error reinitializing database: ${error.message}`, 'error');
+                    showMessage('reinitResponse', `Error reinitializing database: ${error.message}`, 'error');
                 }
             });
         }
