@@ -294,54 +294,47 @@ def clear_ha_todo_list() -> None:
         "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
         "Content-Type": "application/json",
     }
-    
+
     # First, get all items from the To-Do list
     get_items_url = f"{HOME_ASSISTANT_URL}/api/services/todo/get_items"
-    get_items_payload = {"entity_id": TODO_LIST_ENTITY_ID}
+    # Removed get_items_payload as todo.get_items does not accept it.
+    # The entity_id is derived from the context of the service call in Home Assistant.
 
     try:
-        get_response = requests.post(get_items_url, headers=headers, json=get_items_payload)
+        # CORRECTED LINE: Removed 'json=get_items_payload'
+        get_response = requests.post(get_items_url, headers=headers)
         get_response.raise_for_status()
         items_data = get_response.json()
 
-        # The response for get_items is usually a list of states,
-        # with the actual items under `attributes.items` or similar, depending on HA version/integration.
-        # Let's assume the items are directly in the response for now, or require parsing.
-        # Based on typical HA service responses, it might be in a structure like:
-        # [{"entity_id": "todo.my_wine", "state": "not_supported", "attributes": {"items": [...]}}]
-        # We need to extract the actual list of to-do items from this.
-        
-        # More robust way to find the items list, as the structure can vary
         all_todo_items = []
         if isinstance(items_data, list):
             for entry in items_data:
-                if 'attributes' in entry and 'items' in entry['attributes']:
+                # Ensure we are looking at the correct entity_id's attributes.
+                # HA usually returns a list of states. Find the one for our TODO_LIST_ENTITY_ID.
+                if entry.get('entity_id') == TODO_LIST_ENTITY_ID and 'attributes' in entry and 'items' in entry['attributes']:
                     for item in entry['attributes']['items']:
-                        # HA To-Do items can have 'summary' and 'uid'. 'summary' is the visible name.
-                        # We need to pass 'item' which can be either the summary or UID to remove_item.
-                        # Using 'summary' if available, otherwise trying the full item dictionary if needed by HA.
-                        all_todo_items.append(item.get('summary', item)) # Prefer summary, else pass the whole item dict
+                        all_todo_items.append(item) # Append the full item dictionary
 
         if not all_todo_items:
             logger.info(f"No items found in HA To-Do list '{TODO_LIST_ENTITY_ID}' to clear.")
             return
 
         logger.info(f"Found {len(all_todo_items)} items in HA To-Do list '{TODO_LIST_ENTITY_ID}'. Starting clearance.")
-        
+
         # Now, remove each item one by one
         remove_item_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
-        
+
         for item_to_remove in all_todo_items:
-            # item_to_remove could be a string (summary) or a dict (full item object).
-            # The remove_item service expects the 'item' parameter.
-            # If `item_to_remove` is a dict, we might need to decide which key to use (e.g., 'summary' or 'uid').
-            # Assuming 'summary' is the most common and robust way to refer to the item for removal.
-            
-            # If it's a dictionary and has 'summary' or 'uid', use that. Otherwise, use it as is.
-            item_param = item_to_remove
+            item_param = None
             if isinstance(item_to_remove, dict):
+                # HA remove_item service can use 'summary' or 'uid' as the 'item' parameter.
+                # 'summary' is the visible name, 'uid' is a unique identifier.
+                # Prefer 'summary' as it's typically what the user sees,
+                # but 'uid' can be more reliable for removal if summary might not be unique.
                 item_param = item_to_remove.get('summary') or item_to_remove.get('uid')
-            
+            elif isinstance(item_to_remove, str):
+                item_param = item_to_remove # If somehow it's just a string, use it directly
+
             if item_param:
                 remove_payload = {
                     "entity_id": TODO_LIST_ENTITY_ID,
@@ -361,7 +354,6 @@ def clear_ha_todo_list() -> None:
         logger.error(f"Failed to decode JSON response from Home Assistant while getting/removing To-Do items for '{TODO_LIST_ENTITY_ID}'.")
     except Exception as e:
         logger.error(f"An unexpected error occurred while clearing HA To-Do list '{TODO_LIST_ENTITY_ID}': {e}")
-
 
 
 # Sync all wines from DB to HA To-Do list
