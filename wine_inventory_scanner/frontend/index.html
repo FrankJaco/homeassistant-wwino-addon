@@ -232,6 +232,10 @@
             }, 5000); // Hide after 5 seconds
         }
 
+        // --- Global HA Sync Status Variable ---
+        // This variable will hold the current HA sync status to ensure all functions use the same state.
+        let currentHaSyncEnabled = false;
+
         // --- Fetch Inventory ---
         async function fetchInventory() {
             const inventoryTableBody = document.getElementById('inventoryTableBody');
@@ -244,8 +248,11 @@
                     throw new Error(`Failed to get HA sync status: ${haSyncStatusResponse.status}`);
                 }
                 const haSyncStatusData = await haSyncStatusResponse.json();
-                const haSyncEnabled = haSyncStatusData.enabled;
-                console.log('HA Sync status for UI controls:', haSyncEnabled); // For debugging HA Sync display
+                currentHaSyncEnabled = haSyncStatusData.enabled; // Update the global variable
+                console.log('HA Sync status for UI controls (global):', currentHaSyncEnabled);
+
+                // Now, update the main HA Sync button and badge
+                updateHaSyncUiElements(currentHaSyncEnabled);
 
                 // Then, fetch inventory
                 const inventoryResponse = await fetch('/inventory');
@@ -253,8 +260,8 @@
                     throw new Error(`HTTP error! status: ${inventoryResponse.status}`);
                 }
                 const inventory = await inventoryResponse.json();
-                displayInventory(inventory, haSyncEnabled); // Pass sync status to display function
-                setMainControlsEnabled(haSyncEnabled); // Set global scan/search controls
+                displayInventory(inventory, currentHaSyncEnabled); // Pass global sync status to display function
+                setMainControlsEnabled(currentHaSyncEnabled); // Set global scan/search controls
             } catch (error) {
                 console.error('Error fetching inventory or HA sync status:', error);
                 showMessage('inventoryMessage', `Failed to load inventory: ${error.message}`, 'error');
@@ -331,11 +338,7 @@
             document.getElementById('vivinoUrlInput').disabled = !enabled;
             document.getElementById('quantityInput').disabled = !enabled;
             document.getElementById('scanWineButton').disabled = !enabled;
-            // You might want to also disable the Vivino search if sync is off,
-            // but the user's request only mentioned adding/subtracting wine.
-            // For now, let's keep Vivino search enabled as it's purely informational.
-            // document.getElementById('vivinoSearchInput').disabled = !enabled;
-            // document.getElementById('vivinoSearchButton').disabled = !enabled; // If you add an ID to this button
+            // Vivino search will remain enabled as it's purely informational.
         }
 
 
@@ -453,7 +456,7 @@
 
 
         // ===========================================
-        // NEW JAVASCRIPT FOR MAINTENANCE SECTION
+        // JAVASCRIPT FOR MAINTENANCE SECTION
         // ===========================================
 
         const haSyncToggleButton = document.getElementById('haSyncToggleButton');
@@ -472,61 +475,58 @@
         const reinitResponse = document.getElementById('reinitResponse');
 
 
-        // Function to fetch HA Sync Status and update UI (including new text and disabling controls)
-        async function fetchHaSyncStatus() {
-            try {
-                const response = await fetch('/api/ha-sync-status');
-                const data = await response.json();
-                const isEnabled = data.enabled;
-                console.log('HA Sync status received from backend:', isEnabled); // IMPORTANT: Check this in browser console
-
-                if (isEnabled) {
-                    haSyncButtonText.textContent = 'Pause DB Sync';
-                    haSyncStatusBadge.textContent = 'Enabled';
-                    haSyncStatusBadge.className = 'badge bg-success ms-2';
-                    haSyncModalLabel.textContent = 'Home Assistant To-Do Sync (Enabled)'; // Update modal title
-                    haSyncModalBody.innerHTML = `
-                        <p>Home Assistant To-Do Sync is currently <strong class="text-success">ENABLED</strong>.</p>
-                        <p>If you **Pause DB Sync**, the add-on will stop automatically creating/updating/deleting To-Do items in Home Assistant.</p>
-                        <p><strong>Warning:</strong> While paused, all actions to add, consume, set quantity, or delete wines will be disabled to prevent inconsistencies with Home Assistant. You would typically pause sync to manually clean up orphaned items in HA.</p>
-                        <p>Click "Pause DB Sync" to **PAUSE** Home Assistant To-Do Sync.</p>
-                    `;
-                    confirmHaSyncToggleBtn.textContent = 'Pause DB Sync'; // Update confirm button text
-                    confirmHaSyncToggleBtn.className = 'btn btn-danger'; // Red for pause
-                } else {
-                    haSyncButtonText.textContent = 'Resume DB Sync';
-                    haSyncStatusBadge.textContent = 'Disabled';
-                    haSyncStatusBadge.className = 'badge bg-danger ms-2';
-                    haSyncModalLabel.textContent = 'Home Assistant To-Do Sync (Disabled)'; // Update modal title
-                    haSyncModalBody.innerHTML = `
-                        <p>Home Assistant To-Do Sync is currently <strong class="text-danger">DISABLED</strong>.</p>
-                        <p>While **DB Sync is Paused**, the add-on will NOT update your <code>todo.my_wine</code> list in Home Assistant. All wine management actions (add, consume, set quantity, delete) are also currently disabled.</p>
-                        <p><strong>Important:</strong> If you have "orphaned" wine items in your Home Assistant To-Do list (due to previous deletions/changes while sync was paused or during database resets), you should manually clear them from Home Assistant now.</p>
-                        <p>Click "Resume DB Sync" to **RESUME** Home Assistant To-Do Sync and re-enable wine management actions.</p>
-                    `;
-                    confirmHaSyncToggleBtn.textContent = 'Resume DB Sync'; // Update confirm button text
-                    confirmHaSyncToggleBtn.className = 'btn btn-success'; // Green for resume
-                }
-            } catch (error) {
-                console.error('Error fetching HA sync status:', error);
-                haSyncStatusBadge.textContent = 'Error';
+        // Function to update HA Sync UI elements based on passed status
+        function updateHaSyncUiElements(isEnabled) {
+            if (isEnabled) {
+                haSyncButtonText.textContent = 'Pause DB Sync';
+                haSyncStatusBadge.textContent = 'Enabled';
+                haSyncStatusBadge.className = 'badge bg-success ms-2';
+                haSyncModalLabel.textContent = 'Home Assistant To-Do Sync (Enabled)'; // Update modal title
+                haSyncModalBody.innerHTML = `
+                    <p>Home Assistant To-Do Sync is currently <strong class="text-success">ENABLED</strong>.</p>
+                    <p>If you **Pause DB Sync**, the add-on will stop automatically creating/updating/deleting To-Do items in Home Assistant.</p>
+                    <p><strong>Warning:</strong> While paused, all actions to add, consume, set quantity, or delete wines will be disabled to prevent inconsistencies with Home Assistant. You would typically pause sync to manually clean up orphaned items in HA.</p>
+                    <p>Click "Pause DB Sync" to **PAUSE** Home Assistant To-Do Sync.</p>
+                `;
+                confirmHaSyncToggleBtn.textContent = 'Pause DB Sync'; // Update confirm button text
+                confirmHaSyncToggleBtn.className = 'btn btn-danger'; // Red for pause
+            } else {
+                haSyncButtonText.textContent = 'Resume DB Sync';
+                haSyncStatusBadge.textContent = 'Disabled';
                 haSyncStatusBadge.className = 'badge bg-danger ms-2';
-                haSyncButtonText.textContent = 'DB Sync Status Error';
-                haSyncModalBody.innerHTML = '<p class="text-danger">Failed to load HA sync status. Please check add-on logs.</p>';
+                haSyncModalLabel.textContent = 'Home Assistant To-Do Sync (Disabled)'; // Update modal title
+                haSyncModalBody.innerHTML = `
+                    <p>Home Assistant To-Do Sync is currently <strong class="text-danger">DISABLED</strong>.</p>
+                    <p>While **DB Sync is Paused**, the add-on will NOT update your <code>todo.my_wine</code> list in Home Assistant. All wine management actions (add, consume, set quantity, delete) are also currently disabled.</p>
+                    <p><strong>Important:</strong> If you have "orphaned" wine items in your Home Assistant To-Do list (due to previous deletions/changes while sync was paused or during database resets), you should manually clear them from Home Assistant now.</p>
+                    <p>Click "Resume DB Sync" to **RESUME** Home Assistant To-Do Sync and re-enable wine management actions.</p>
+                `;
+                confirmHaSyncToggleBtn.textContent = 'Resume DB Sync'; // Update confirm button text
+                confirmHaSyncToggleBtn.className = 'btn btn-success'; // Green for resume
             }
         }
 
         // Event listener for the HA Sync button to prepare the modal content (and re-fetch status)
         if (haSyncToggleButton) {
-            haSyncToggleButton.addEventListener('click', fetchHaSyncStatus); // Update modal content when clicked
+            haSyncToggleButton.addEventListener('click', async () => {
+                // Fetch status to update modal content *before* opening it
+                try {
+                    const response = await fetch('/api/ha-sync-status');
+                    const data = await response.json();
+                    updateHaSyncUiElements(data.enabled); // Update modal UI based on fresh status
+                } catch (error) {
+                    console.error('Error fetching HA sync status for modal:', error);
+                    haSyncModalBody.innerHTML = '<p class="text-danger">Failed to load HA sync status for modal. Check add-on logs.</p>';
+                    haSyncModalLabel.textContent = 'Error Loading Status';
+                }
+            });
         }
 
         // Event listener for the Confirm HA Sync Toggle button
         if (confirmHaSyncToggleBtn) {
             confirmHaSyncToggleBtn.addEventListener('click', async () => {
-                // Determine new state based on current button text (which was set by fetchHaSyncStatus)
-                const currentStateIsPaused = haSyncButtonText.textContent === 'Resume DB Sync'; // If it says Resume, it's currently Paused/Disabled
-                const newState = currentStateIsPaused; // If current state is Paused, new state is Enabled
+                // Determine new state based on current GLOBAL variable, not button text.
+                const newState = !currentHaSyncEnabled; // Toggle the global state
 
                 try {
                     const response = await fetch('/api/toggle-ha-sync', {
@@ -542,7 +542,10 @@
                     // Close the modal
                     const haSyncModal = bootstrap.Modal.getInstance(document.getElementById('haSyncModal'));
                     if (haSyncModal) haSyncModal.hide();
-                    fetchInventory(); // Re-fetch inventory (which also re-fetches sync status) to update UI controls
+
+                    // After a successful toggle, IMMEDIATELY re-fetch inventory
+                    // This will also update the global HA sync status and refresh all UI controls
+                    fetchInventory();
                 } catch (error) {
                     console.error('Error toggling HA sync:', error);
                     haSyncModalBody.innerHTML += `<p class="text-danger">Error: ${error.message}</p>`; // Show error in modal body
@@ -568,6 +571,7 @@
                     // Close the modal
                     const syncAllModal = bootstrap.Modal.getInstance(document.getElementById('syncAllModal'));
                     if (syncAllModal) syncAllModal.hide();
+                    fetchInventory(); // Refresh inventory in case sync changed something (e.g., quantities if you manually edited HA)
                 } catch (error) {
                     console.error('Error syncing all wines:', error);
                     showMessage('syncAllResponse', `Error syncing all wines: ${error.message}`, 'error');
@@ -605,14 +609,13 @@
 
 
         // ===========================================
-        // END NEW JAVASCRIPT FOR MAINTENANCE SECTION
+        // END JAVASCRIPT FOR MAINTENANCE SECTION
         // ===========================================
 
 
         // Initial fetch of inventory and HA Sync status when the page loads
         document.addEventListener('DOMContentLoaded', () => {
             fetchInventory(); // This now handles fetching sync status and setting controls
-            // fetchHaSyncStatus(); // No longer needed directly here, as fetchInventory calls it
         });
     </script>
 </body>
