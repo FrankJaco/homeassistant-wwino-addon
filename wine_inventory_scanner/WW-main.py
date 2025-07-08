@@ -876,6 +876,25 @@ def save_ha_sync_status():
 
 # --- Flask Routes ---
 
+# --- HA Sync Status API Endpoints ---
+@app.route("/api/ha-sync-status", methods=["GET"])
+def get_ha_sync_status():
+    """Returns the current status of the HA sync flag."""
+    global HA_SYNC_ENABLED # Access the global variable
+    return jsonify({"ha_sync_enabled": HA_SYNC_ENABLED}), 200
+
+@app.route("/api/toggle-ha-sync", methods=["POST"])
+def toggle_ha_sync():
+    """Toggles the HA sync flag and saves its state."""
+    global HA_SYNC_ENABLED
+    HA_SYNC_ENABLED = not HA_SYNC_ENABLED # Flip the boolean state
+    save_ha_sync_status() # Save the new state to the config file
+    logger.info(f"HA Sync toggled. New status: {HA_SYNC_ENABLED}")
+    return jsonify({"message": "HA sync status toggled successfully", "ha_sync_enabled": HA_SYNC_ENABLED}), 200
+
+
+
+
 @app.route('/scan-wine', methods=['POST'])
 def scan_wine():
     data = request.get_json()
@@ -1169,8 +1188,6 @@ def consume_wine():
         return jsonify({'error': 'Database error'}), 500
     finally:
         conn.close()
-
-
 
 
 @app.route('/inventory/wine', methods=['DELETE'])
