@@ -1,5 +1,6 @@
 import os
 import logging
+from logging.handlers import RotatingFileHandler # New import for file logging
 from flask import Flask, request, jsonify, send_from_directory
 import sqlite3
 import requests
@@ -14,36 +15,55 @@ HOME_ASSISTANT_URL = os.environ.get("HOME_ASSISTANT_URL")
 HA_LONG_LIVED_TOKEN = os.environ.get("HA_LONG_LIVED_TOKEN")
 TODO_LIST_ENTITY_ID = os.environ.get("TODO_LIST_ENTITY_ID")
 DB_PATH = os.environ.get("DB_PATH", "/share/wine_inventory.db") # Default to /share if not set
-LOG_LEVEL = os.environ.get("LOG_LEVEL", "debug").upper() # Set to debug for consistent logging
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "info").upper() # Set default to INFO for production
+LOG_FILE_PATH = os.path.join(os.environ.get("DB_PATH", "/share/"), "app.log") # Log file path
 SYNC_CONFIG_FILE = os.path.join(os.environ.get("DB_PATH", "/share/"), 'ha_sync_status.json')
 HA_SYNC_ENABLED = True # Default state if config file doesn't exist or load fails
 
 
-# --- Logging Setup (UPDATED: More verbose and explicit Flask logger config) ---
-logging.basicConfig(level=getattr(logging, LOG_LEVEL),
-                    format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+# --- Logging Setup ---
+# Get the root logger
+root_logger = logging.getLogger()
+root_logger.setLevel(getattr(logging, LOG_LEVEL))
 
+# Clear existing handlers from root logger to prevent duplicate output if Gunicorn/Flask adds its own
+if root_logger.hasHandlers():
+    root_logger.handlers.clear()
+
+# Create a formatter
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+# Console Handler
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(formatter)
+root_logger.addHandler(console_handler)
+
+# File Handler for app.log in /share (Rotates every 1MB, keeps 5 backups)
+file_handler = RotatingFileHandler(LOG_FILE_PATH, maxBytes=1024 * 1024, backupCount=5)
+file_handler.setFormatter(formatter)
+root_logger.addHandler(file_handler)
+
+# Set the Flask app's logger to use the same configuration as the root logger
+# By default, Flask's app.logger is a child of the root logger, so this might be redundant
+# if root_logger is already configured, but it ensures consistency.
 app = Flask(__name__, static_folder="frontend", static_url_path="")
 CORS(app) # Re-enabled CORS initialization
 
-# (NEW ADDITION) Configure Flask's app.logger explicitly
-app.logger.setLevel(logging.DEBUG)
-handler = logging.StreamHandler()
-handler.setLevel(logging.DEBUG)
-formatter = logging.Formatter('[%(asctime)s] %(levelname)s in %(module)s: %(message)s')
-handler.setFormatter(formatter)
-
-# Remove default Flask handler if it exists to avoid duplicate logs or incorrect levels
+# Ensure Flask's default handler is removed if it exists to avoid duplicate logs or incorrect levels
+# And set its level to ensure it processes messages at the desired verbosity
 if app.logger.hasHandlers():
     app.logger.handlers.clear()
 
-app.logger.addHandler(handler)
+# Flask's app.logger will now inherit from the root_logger or can have its own handlers.
+# For simplicity and to avoid duplicates when both gunicorn and flask log,
+# we'll let the root_logger handle everything, and Flask messages will propagate.
+# If logs still appear duplicated, uncomment and configure app.logger.propagate = False
+# app.logger.propagate = False
 
 # (NEW ADDITION) General error handler for ALL uncaught exceptions
 @app.errorhandler(Exception)
 def handle_uncaught_exception(e):
-    app.logger.exception(f"An unhandled exception occurred: {e}")
+    root_logger.exception(f"An unhandled exception occurred: {e}")
     return jsonify({"message": f"An internal server error occurred: {e}"}), 500
 
 
@@ -89,7 +109,7 @@ def format_wine_for_todo(wine: dict) -> str:
 def sync_to_ha_todo(wine: dict, current_quantity: int) -> None:
     global HA_SYNC_ENABLED # Declare global to access the flag
     if not HA_SYNC_ENABLED:
-        logger.info(f"HA Sync is disabled. Skipping synchronization for wine: {wine.get('title', 'N/A')}.")
+        root_logger.info(f"HA Sync is disabled. Skipping synchronization for wine: {wine.get('title', 'N/A')}.")
         return
     # item_text will be just "Name (Vintage)"
     item_text = format_wine_for_todo(wine)
@@ -112,10 +132,10 @@ def sync_to_ha_todo(wine: dict, current_quantity: int) -> None:
     try:
         resp = requests.post(remove_url, json=remove_payload, headers=headers, timeout=5)
         resp.raise_for_status()
-        logger.info(f"HA To-Do removed (or attempted to remove) for update/deletion: {item_text}")
+        root_logger.info(f"HA To-Do removed (or attempted to remove) for update/deletion: {item_text}")
     except Exception as e:
         # Modified log message for clarity
-        logger.warning(
+        root_logger.warning(
             f"HA To-Do remove attempt failed for '{item_text}'. "
             f"This can be ignored if adding a new wine for the first time. "
             f"Check Home Assistant logs if this persists for existing items or indicates a network problem: "
@@ -133,11 +153,11 @@ def sync_to_ha_todo(wine: dict, current_quantity: int) -> None:
         try:
             resp = requests.post(add_url, json=add_payload, headers=headers, timeout=5)
             resp.raise_for_status()
-            logger.info(f"HA To-Do synchronized (re-added/updated) for: {item_text} with quantity {current_quantity}")
+            root_logger.info(f"HA To-Do synchronized (re-added/updated) for: {item_text} with quantity {current_quantity}")
         except Exception as e:
-            logger.error(f"HA To-Do sync failed for add/update: {e} -> {getattr(resp, 'text', '<no response>')}")
+            root_logger.error(f"HA To-Do sync failed for add/update: {e} -> {getattr(resp, 'text', '<no response>')}")
     else:
-        logger.info(f"Wine quantity is 0. Item not re-added to HA To-Do: {item_text}")
+        root_logger.info(f"Wine quantity is 0. Item not re-added to HA To-Do: {item_text}")
 
 def build_markdown_description(wine: dict, current_quantity: int) -> str:
     description_parts = []
@@ -281,7 +301,7 @@ def init_db():
     ''')
     conn.commit()
     conn.close()
-    logger.info(f"SQLite database initialized at {DB_PATH}")
+    root_logger.info(f"SQLite database initialized at {DB_PATH}")
 
 def reinitialize_database():
     """
@@ -292,17 +312,17 @@ def reinitialize_database():
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
 
-        logger.warning("Attempting to reinitialize the database: Dropping existing 'wines' table.")
+        root_logger.warning("Attempting to reinitialize the database: Dropping existing 'wines' table.")
         cursor.execute("DROP TABLE IF EXISTS wines")
         conn.commit()
-        logger.info("Successfully dropped 'wines' table (if it existed).")
+        root_logger.info("Successfully dropped 'wines' table (if it existed).")
 
         # Call your existing database initialization function to recreate tables
         init_db()
-        logger.info("Successfully re-created database tables using init_db().")
+        root_logger.info("Successfully re-created database tables using init_db().")
 
     except sqlite3.Error as e:
-        logger.error(f"Database error during reinitialization: {e}")
+        root_logger.error(f"Database error during reinitialization: {e}")
         if conn:
             conn.rollback()
     finally:
@@ -314,9 +334,9 @@ def reinitialize_database():
 def sync_db_to_ha_todo() -> None:
     global HA_SYNC_ENABLED # Declare global to access the flag
     if not HA_SYNC_ENABLED:
-        logger.info("HA Sync is disabled. Skipping full synchronization of all wines to Home Assistant.")
+        root_logger.info("HA Sync is disabled. Skipping full synchronization of all wines to Home Assistant.")
         return
-    logger.info("Starting full synchronization from database to HA To-Do list.")
+    root_logger.info("Starting full synchronization from database to HA To-Do list.")
     conn = None # Initialize conn
     try:
         conn = sqlite3.connect(DB_PATH) # Directly connect as per your existing code
@@ -335,7 +355,7 @@ def sync_db_to_ha_todo() -> None:
         # combined with `reinitialize_database` clearing everything will suffice for most cases.
 
         if not wines:
-            logger.info("No wines found in database for synchronization. HA To-Do list will remain as is (unless database was just reinitialized).")
+            root_logger.info("No wines found in database for synchronization. HA To-Do list will remain as is (unless database was just reinitialized).")
             return
 
         for wine in wines:
@@ -343,11 +363,11 @@ def sync_db_to_ha_todo() -> None:
             # Pass the current quantity from the fetched wine to the sync function
             sync_to_ha_todo(wine_dict, wine_dict.get('quantity', 0))
 
-        logger.info(f"Completed synchronization of {len(wines)} wines from database to HA To-Do list.")
+        root_logger.info(f"Completed synchronization of {len(wines)} wines from database to HA To-Do list.")
     except sqlite3.Error as e:
-        logger.error(f"Database error during full sync to HA To-Do list: {e}")
+        root_logger.error(f"Database error during full sync to HA To-Do list: {e}")
     except Exception as e: # Catch other potential errors like HA API call issues
-        logger.error(f"An unexpected error occurred during full sync to HA To-Do list: {e}")
+        root_logger.error(f"An unexpected error occurred during full sync to HA To-Do list: {e}")
     finally:
         if conn: # Ensure connection is closed if it was opened
             conn.close()
@@ -360,7 +380,7 @@ def scrape_vivino_data(vivino_url):
     Prioritizes JSON-LD data, falls back to enhanced HTML parsing.
     Returns a dictionary of wine data or None if scraping fails.
     """
-    logger.debug(f"Starting Vivino data scrape for URL: {vivino_url}")
+    root_logger.debug(f"Starting Vivino data scrape for URL: {vivino_url}")
     user_agents = [
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36', # Desktop user agent (seems more reliable for Vivino)
         'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1',
@@ -509,7 +529,7 @@ def scrape_vivino_data(vivino_url):
                                 wine_data['image_url'] = json_ld['image']
 
             except (json.JSONDecodeError, KeyError, TypeError) as json_err:
-                logger.debug(f"Vivino JSON-LD parsing error (may be benign if other schemas exist): {json_err}")
+                root_logger.debug(f"Vivino JSON-LD parsing error (may be benign if other schemas exist): {json_err}")
                 pass
 
         # --- Fallback to HTML parsing for any remaining missing data from Vivino ---
@@ -517,7 +537,7 @@ def scrape_vivino_data(vivino_url):
             name_tag = soup.find('h1', class_='wine-page-header__name')
             if name_tag:
                 wine_data['name'] = " ".join(name_tag.text.strip().split())
-                logger.debug(f"HTML Name found: '{wine_data['name']}'")
+                root_logger.debug(f"HTML Name found: '{wine_data['name']}'")
 
         # Get vintage (from name, or specific elements)
         if wine_data['vintage'] is None and wine_data['name'] and 'Unknown Wine' not in wine_data['name']:
@@ -530,7 +550,7 @@ def scrape_vivino_data(vivino_url):
                         wine_data['vintage'] = year
                         cleaned_name = wine_data['name'].replace(name_vintage_match.group(0), '').strip()
                         wine_data['name'] = " ".join(cleaned_name.split())
-                        logger.debug(f"HTML Vintage (name text) found and removed from name: {wine_data['vintage']}, Cleaned Name: '{wine_data['name']}'")
+                        root_logger.debug(f"HTML Vintage (name text) found and removed from name: {wine_data['vintage']}, Cleaned Name: '{wine_data['name']}'")
                 except ValueError:
                     pass
 
@@ -541,14 +561,14 @@ def scrape_vivino_data(vivino_url):
                 if year_match:
                     try:
                         wine_data['vintage'] = int(year_match.group(0))
-                        logger.debug(f"HTML Vintage (span.vintage) found: {wine_data['vintage']}")
+                        root_logger.debug(f"HTML Vintage (span.vintage) found: {wine_data['vintage']}")
                     except ValueError: pass
 
-        logger.debug(f"Vintage scraping complete. Current data: {wine_data['vintage']}")
+        root_logger.debug(f"Vintage scraping complete. Current data: {wine_data['vintage']}")
 
         # --- NEW & IMPROVED: Get Varietal, Region, and Country from direct links ---
         all_relevant_links = soup.find_all('a', href=re.compile(r'/(wine-countries|wine-regions|grapes)/'))
-        logger.debug(f"Attempting to find country/region/varietal from all relevant links. Found {len(all_relevant_links)} links.")
+        root_logger.debug(f"Attempting to find country/region/varietal from all relevant links. Found {len(all_relevant_links)} links.")
 
         for link in all_relevant_links:
             href = link.get('href', '')
@@ -556,10 +576,10 @@ def scrape_vivino_data(vivino_url):
 
             if '/wine-countries/' in href and wine_data['country'] == 'Unknown Country':
                 wine_data['country'] = text
-                logger.debug(f"HTML Country (direct link) found: {wine_data['country']} from href: {href}")
+                root_logger.debug(f"HTML Country (direct link) found: {wine_data['country']} from href: {href}")
             elif '/wine-regions/' in href and wine_data['region'] == 'Unknown Region':
                 wine_data['region'] = text
-                logger.debug(f"HTML Region (direct link) found: {wine_data['region']} from href: {href}")
+                root_logger.debug(f"HTML Region (direct link) found: {wine_data['region']} from href: {href}")
             elif '/grapes/' in href: # Always try to collect grape names from links
                 if text and 'blend' not in text.lower() and 'wine' not in text.lower():
                     all_grape_names_collected.append(text)
@@ -570,7 +590,7 @@ def scrape_vivino_data(vivino_url):
         # Fallback to definition lists if still not found in direct links or JSON-LD for varietal/region/country
         dl_tags = soup.find_all('dl', class_=re.compile(r'wine-facts|product-details'))
         if dl_tags:
-            logger.debug(f"Attempting to find country/region/varietal from DL elements. Found {len(dl_tags)} definition lists.")
+            root_logger.debug(f"Attempting to find country/region/varietal from DL elements. Found {len(dl_tags)} definition lists.")
         for dl in dl_tags:
             dt_dd_pairs = list(zip(dl.find_all('dt'), dl.find_all('dd')))
             for dt, dd in dt_dd_pairs:
@@ -579,10 +599,10 @@ def scrape_vivino_data(vivino_url):
 
                 if 'Country' in label and wine_data['country'] == 'Unknown Country' and value.strip():
                     wine_data['country'] = value
-                    logger.debug(f"HTML Country (DL) found: {wine_data['country']}")
+                    root_logger.debug(f"HTML Country (DL) found: {wine_data['country']}")
                 elif 'Region' in label and wine_data['region'] == 'Unknown Region' and value.strip():
                     wine_data['region'] = value
-                    logger.debug(f"HTML Region (DL) found: {wine_data['region']}")
+                    root_logger.debug(f"HTML Region (DL) found: {wine_data['region']}")
                 elif ('Grape' in label or 'Varietal' in label):
                     if value.strip():
                         all_grape_names_collected.append(value.strip())
@@ -627,7 +647,7 @@ def scrape_vivino_data(vivino_url):
                             if g not in reordered_grapes:
                                 reordered_grapes.append(g)
                         ordered_unique_grapes = reordered_grapes
-                        logger.debug(f"Bordeaux Right Bank heuristic applied. Ordered grapes: {ordered_unique_grapes}")
+                        root_logger.debug(f"Bordeaux Right Bank heuristic applied. Ordered grapes: {ordered_unique_grapes}")
 
                     elif any(lb_region in region_str for lb_region in ['médoc', 'pauillac', 'margaux', 'haut-médoc', 'saint-estèphe', 'saint-julien', 'listrac', 'moulis', 'graves']):
                         # Left Bank: Prioritize Cabernet Sauvignon, then Merlot, then Cabernet Franc
@@ -643,7 +663,7 @@ def scrape_vivino_data(vivino_url):
                             if g not in reordered_grapes:
                                 reordered_grapes.append(g)
                         ordered_unique_grapes = reordered_grapes
-                        logger.debug(f"Bordeaux Left Bank heuristic applied. Ordered grapes: {ordered_unique_grapes}")
+                        root_logger.debug(f"Bordeaux Left Bank heuristic applied. Ordered grapes: {ordered_unique_grapes}")
 
                 # --- Apply Syrah/Shiraz Renaming Logic ---
                 country_for_shiraz_syrah = wine_data.get('country', '').strip().lower()
@@ -665,25 +685,25 @@ def scrape_vivino_data(vivino_url):
                         transformed_grapes.append(grape)
 
                 wine_data['varietal'] = ", ".join(transformed_grapes)
-                logger.debug(f"Final Varietal set from ordered unique collected sources (Syrah/Shiraz logic applied): {wine_data['varietal']}")
+                root_logger.debug(f"Final Varietal set from ordered unique collected sources (Syrah/Shiraz logic applied): {wine_data['varietal']}")
 
             elif 'blend' in [g.lower() for g in all_grape_names_collected]:
                 wine_data['varietal'] = 'Blend'
-                logger.debug(f"Varietal set to 'Blend' as only generic terms found.")
+                root_logger.debug(f"Varietal set to 'Blend' as only generic terms found.")
             else:
                 wine_data['varietal'] = 'Unknown Varietal'
-                logger.debug(f"All collected varietals were generic. Varietal set to: {wine_data['varietal']}")
+                root_logger.debug(f"All collected varietals were generic. Varietal set to: {wine_data['varietal']}")
         else: # No grape names collected at all
             wine_data['varietal'] = 'Unknown Varietal'
-            logger.debug(f"No grape names were collected from any source. Varietal set to: {wine_data['varietal']}")
+            root_logger.debug(f"No grape names were collected from any source. Varietal set to: {wine_data['varietal']}")
 
 
-        logger.debug(f"Region/Country scraping finished HTML attempts. Current data: Region='{wine_data['region']}', Country='{wine_data['country']}'")
+        root_logger.debug(f"Region/Country scraping finished HTML attempts. Current data: Region='{wine_data['region']}', Country='{wine_data['country']}'")
 
         # --- Specific US Country Fallback (truly a last resort now) ---
         if wine_data['country'] == 'Unknown Country' and "/US/en/" in vivino_url:
             wine_data['country'] = "United States"
-            logger.debug(f"Country defaulted to 'United States' due to URL pattern (final fallback).")
+            root_logger.debug(f"Country defaulted to 'United States' due to URL pattern (final fallback).")
 
         # Get Vivino number of ratings
         if wine_data['vivino_num_ratings'] is None:
@@ -711,7 +731,7 @@ def scrape_vivino_data(vivino_url):
                             elif suffix == 'm':
                                 value *= 1_000_000
                             wine_data['vivino_num_ratings'] = int(value)
-                            logger.debug(f"HTML Num Ratings ({class_name.pattern}) found: {wine_data['vivino_num_ratings']}")
+                            root_logger.debug(f"HTML Num Ratings ({class_name.pattern}) found: {wine_data['vivino_num_ratings']}")
                             break
                         except ValueError: pass
             if wine_data['vivino_num_ratings'] is None:
@@ -720,10 +740,10 @@ def scrape_vivino_data(vivino_url):
                     value_str = match.group(1).replace(',', '.')
                     try:
                         wine_data['vivino_num_ratings'] = int(float(value_str))
-                        logger.debug(f"HTML Num Ratings (text match) found: {wine_data['vivino_num_ratings']}")
+                        root_logger.debug(f"HTML Num Ratings (text match) found: {wine_data['vivino_num_ratings']}")
                         break
                     except ValueError: pass
-        logger.debug(f"Vivino Num Ratings scraping complete. Current data: {wine_data['vivino_num_ratings']}")
+        root_logger.debug(f"Vivino Num Ratings scraping complete. Current data: {wine_data['vivino_num_ratings']}")
 
         # Get Vivino rating
         if wine_data['vivino_rating'] is None:
@@ -733,10 +753,10 @@ def scrape_vivino_data(vivino_url):
                     rating_text = rating_tag.text.strip().replace(',', '.')
                     if rating_text:
                         wine_data['vivino_rating'] = float(rating_text)
-                        logger.debug(f"HTML Vivino Rating found: {wine_data['vivino_rating']}")
+                        root_logger.debug(f"HTML Vivino Rating found: {wine_data['vivino_rating']}")
                         break
                 except ValueError: pass
-        logger.debug(f"Vivino Rating scraping complete. Current data: {wine_data['vivino_rating']}")
+        root_logger.debug(f"Vivino Rating scraping complete. Current data: {wine_data['vivino_rating']}")
 
         # Get image URL
         if wine_data['image_url'] is None:
@@ -744,17 +764,17 @@ def scrape_vivino_data(vivino_url):
             if image_tag:
                 if image_tag.has_attr('src') and 'vivino.com' in image_tag['src']:
                     wine_data['image_url'] = image_tag['src']
-                    logger.debug(f"HTML Image URL (src) found: {wine_data['image_url']}")
+                    root_logger.debug(f"HTML Image URL (src) found: {wine_data['image_url']}")
                 elif image_tag.has_attr('data-src') and 'vivino.com' in image_tag['data-src']:
                     wine_data['image_url'] = image_tag['data-src']
-                    logger.debug(f"HTML Image URL (data-src) found: {wine_data['image_url']}")
+                    root_logger.debug(f"HTML Image URL (data-src) found: {wine_data['image_url']}")
                 elif image_tag.has_attr('src'): # Generic fallback for any src
                     wine_data['image_url'] = image_tag['src']
-                    logger.debug(f"HTML Image URL (generic src) found: {wine_data['image_url']}")
+                    root_logger.debug(f"HTML Image URL (generic src) found: {wine_data['image_url']}")
                 elif image_tag.has_attr('data-src'): # Generic fallback for any data-src
                     wine_data['image_url'] = image_tag['data-src']
-                    logger.debug(f"HTML Image URL (generic data-src) found: {wine_data['image_url']}")
-        logger.debug(f"Image URL scraping complete. Current data: {wine_data['image_url']}")
+                    root_logger.debug(f"HTML Image URL (generic data-src) found: {wine_data['image_url']}")
+        root_logger.debug(f"Image URL scraping complete. Current data: {wine_data['image_url']}")
 
         # Get price
         if wine_data['price_usd'] is None:
@@ -765,7 +785,7 @@ def scrape_vivino_data(vivino_url):
                 if price_match:
                     try: wine_data['price_usd'] = float(price_match.group(1).replace(',', ''));
                     except ValueError: pass
-        logger.debug(f"Price scraping complete. Current data: {wine_data['price_usd']}")
+        root_logger.debug(f"Price scraping complete. Current data: {wine_data['price_usd']}")
 
         # --- Final Fallback Layer: Parse the URL itself ---
         # This runs only if the above methods failed to find the data.
@@ -778,19 +798,19 @@ def scrape_vivino_data(vivino_url):
                 if 'year' in query_params:
                     year_str = query_params['year'][0]
                     wine_data['vintage'] = int(year_str)
-                    logger.debug(f"Vintage (URL Fallback) found: {wine_data['vintage']}")
+                    root_logger.debug(f"Vintage (URL Fallback) found: {wine_data['vintage']}")
             except (ValueError, IndexError):
-                logger.debug("Could not parse vintage from URL query parameter.")
+                root_logger.debug("Could not parse vintage from URL query parameter.")
                 pass # Ignore errors if 'year' param is not present or invalid
 
     except requests.exceptions.RequestException as e:
-        logger.error(f"HTTP/Network error during Vivino scrape for {vivino_url}: {e}")
+        root_logger.error(f"HTTP/Network error during Vivino scrape for {vivino_url}: {e}")
         return None
     except Exception as e:
-        logger.error(f"An unexpected error occurred during Vivino scrape for {vivino_url}: {e}")
+        root_logger.error(f"An unexpected error occurred during Vivino scrape for {vivino_url}: {e}")
         return None
 
-    logger.info(f"Successfully scraped Vivino data for {wine_data.get('name', 'Unknown')} ({wine_data.get('vintage', 'NV')})")
+    root_logger.info(f"Successfully scraped Vivino data for {wine_data.get('name', 'Unknown')} ({wine_data.get('vintage', 'NV')})")
     return wine_data
 
 # Modified to accept quantity
@@ -836,7 +856,7 @@ def insert_wine_data(wine_data, quantity=1):
                 wine_data['image_url'],
                 wine_id
             ))
-            logger.info(f"Updated quantity for '{wine_data['name']}' to {new_quantity}.")
+            root_logger.info(f"Updated quantity for '{wine_data['name']}' to {new_quantity}.")
         else:
             # Insert new wine with specified quantity
             cursor.execute('''
@@ -855,12 +875,12 @@ def insert_wine_data(wine_data, quantity=1):
                 wine_data['image_url'],
                 quantity # Use the provided quantity for new inserts
             ))
-            logger.info(f"New wine '{wine_data['name']}' inserted with quantity {quantity}.")
+            root_logger.info(f"New wine '{wine_data['name']}' inserted with quantity {quantity}.")
 
         conn.commit()
         return True
     except sqlite3.Error as e:
-        logger.error(f"Database error inserting/updating wine data for {wine_data.get('name', 'N/A')}: {e}")
+        root_logger.error(f"Database error inserting/updating wine data for {wine_data.get('name', 'N/A')}: {e}")
         conn.rollback()
         return False
     finally:
@@ -876,12 +896,12 @@ def load_ha_sync_status():
                 # (UPDATED) Explicitly cast to boolean to be safe
                 HA_SYNC_ENABLED = bool(config.get('ha_sync_enabled', True)) # Default to True if key not found
                 # (UPDATED) Added type to log message
-                logger.info(f"Loaded HA sync status from {SYNC_CONFIG_FILE}: {HA_SYNC_ENABLED} (Type: {type(HA_SYNC_ENABLED)})")
+                root_logger.info(f"Loaded HA sync status from {SYNC_CONFIG_FILE}: {HA_SYNC_ENABLED} (Type: {type(HA_SYNC_ENABLED)})")
         else:
-            logger.info(f"HA sync config file not found at {SYNC_CONFIG_FILE}. Initializing HA_SYNC_ENABLED to default ({HA_SYNC_ENABLED}).")
+            root_logger.info(f"HA sync config file not found at {SYNC_CONFIG_FILE}. Initializing HA_SYNC_ENABLED to default ({HA_SYNC_ENABLED}).")
             save_ha_sync_status() # Create the file with the default state
     except Exception as e:
-        logger.error(f"Error loading HA sync status from {SYNC_CONFIG_FILE}: {e}. Defaulting to enabled.")
+        root_logger.error(f"Error loading HA sync status from {SYNC_CONFIG_FILE}: {e}. Defaulting to enabled.")
         HA_SYNC_ENABLED = True # Ensure it's enabled if there's an error during load
 
 def save_ha_sync_status():
@@ -889,9 +909,9 @@ def save_ha_sync_status():
     try:
         with open(SYNC_CONFIG_FILE, 'w') as f:
             json.dump({'ha_sync_enabled': HA_SYNC_ENABLED}, f)
-        logger.info(f"Saved HA sync status to {SYNC_CONFIG_FILE}: {HA_SYNC_ENABLED}")
+        root_logger.info(f"Saved HA sync status to {SYNC_CONFIG_FILE}: {HA_SYNC_ENABLED}")
     except Exception as e:
-        logger.error(f"Error saving HA sync status to {SYNC_CONFIG_FILE}: {e}")
+        root_logger.error(f"Error saving HA sync status to {SYNC_CONFIG_FILE}: {e}")
 
 
 
@@ -903,7 +923,7 @@ def get_ha_sync_status():
     """Returns the current status of the HA sync flag."""
     global HA_SYNC_ENABLED # Access the global variable
     # (UPDATED) Added type to log message
-    app.logger.info(f"Returning HA sync status: {HA_SYNC_ENABLED} (Type: {type(HA_SYNC_ENABLED)})")
+    root_logger.info(f"Returning HA sync status: {HA_SYNC_ENABLED} (Type: {type(HA_SYNC_ENABLED)})")
     return jsonify({"ha_sync_enabled": HA_SYNC_ENABLED}), 200
 
 @app.route("/api/toggle-ha-sync", methods=["POST"])
@@ -914,34 +934,57 @@ def toggle_ha_sync():
     enable = data.get('enable') # (UPDATED) Expect 'enable' parameter
 
     if enable is None:
-        app.logger.warning("Invalid request: 'enable' parameter missing for toggle-ha-sync.")
+        root_logger.warning("Invalid request: 'enable' parameter missing for toggle-ha-sync.")
         return jsonify({"message": "Invalid request: 'enable' parameter missing."}), 400
 
     # (UPDATED) Set HA_SYNC_ENABLED directly from the 'enable' parameter, ensuring it's a boolean
     HA_SYNC_ENABLED = bool(enable)
     save_ha_sync_status() # Save the new state to the config file
     # (UPDATED) Added type to log message
-    logger.info(f"HA Sync toggled. New status: {HA_SYNC_ENABLED} (Type: {type(HA_SYNC_ENABLED)})")
+    root_logger.info(f"HA Sync toggled. New status: {HA_SYNC_ENABLED} (Type: {type(HA_SYNC_ENABLED)})")
     return jsonify({"message": "HA sync status toggled successfully", "ha_sync_enabled": HA_SYNC_ENABLED}), 200
 
 
+# New endpoint to view logs from the log file
+@app.route("/logs", methods=["GET"])
+def get_logs():
+    """
+    Returns the last N lines of the application log file.
+    Takes an optional 'lines' query parameter (defaulting to 200).
+    """
+    lines_param = request.args.get("lines", type=int, default=200)
+    if lines_param <= 0:
+        return jsonify({"error": "Lines parameter must be a positive integer."}), 400
+
+    try:
+        with open(LOG_FILE_PATH, "r") as f:
+            # Read all lines and then take the last 'lines_param'
+            all_lines = f.readlines()
+            last_lines = all_lines[-lines_param:]
+        return jsonify({"logs": [line.strip() for line in last_lines]})
+    except FileNotFoundError:
+        root_logger.error(f"Log file not found at: {LOG_FILE_PATH}")
+        return jsonify({"error": f"Log file not found at {LOG_FILE_PATH}"}), 404
+    except Exception as e:
+        root_logger.exception(f"Error reading log file at {LOG_FILE_PATH}")
+        return jsonify({"error": f"Error reading log file: {str(e)}"}), 500
 
 
 @app.route('/scan-wine', methods=['POST'])
 def scan_wine():
     data = request.get_json()
     if not data or 'vivino_url' not in data:
-        logger.warning("Received invalid data for /scan-wine endpoint: %s", data)
+        root_logger.warning("Received invalid data for /scan-wine endpoint: %s", data)
         return jsonify({"status": "error", "message": "Missing 'vivino_url' in request body"}), 400
 
     vivino_url = data['vivino_url']
     # Get quantity from request, default to 1 if not provided
     quantity = data.get('quantity', 1)
     if not isinstance(quantity, int) or quantity < 1:
-        logger.warning(f"Invalid quantity provided: {quantity}. Defaulting to 1.")
+        root_logger.warning(f"Invalid quantity provided: {quantity}. Defaulting to 1.")
         quantity = 1
 
-    logger.info(f"Received request to process Vivino URL: {vivino_url} with quantity: {quantity}")
+    root_logger.info(f"Received request to process Vivino URL: {vivino_url} with quantity: {quantity}")
 
     wine_data = scrape_vivino_data(vivino_url)
     if wine_data:
@@ -1020,10 +1063,10 @@ def get_inventory():
                 "quantity": wine[10], # Include quantity in the returned data
                 "added_at": wine[11]
             })
-        logger.info(f"Returning {len(wine_list)} wines from inventory.")
+        root_logger.info(f"Returning {len(wine_list)} wines from inventory.")
         return jsonify(wine_list), 200
     except sqlite3.Error as e:
-        logger.error(f"Database error retrieving inventory: {e}")
+        root_logger.error(f"Database error retrieving inventory: {e}")
         return jsonify({"status": "error", "message": "Database error retrieving inventory."}), 500
     finally:
         conn.close()
@@ -1033,7 +1076,7 @@ def get_inventory():
 def set_wine_quantity():
     data = request.get_json()
     if not data or 'vivino_url' not in data or 'quantity' not in data:
-        logger.warning("Received invalid data for /inventory/wine/set_quantity endpoint: %s", data)
+        root_logger.warning("Received invalid data for /inventory/wine/set_quantity endpoint: %s", data)
         return jsonify({"status": "error", "message": "Missing 'vivino_url' or 'quantity' in request body"}), 400
 
     vivino_url = data['vivino_url']
@@ -1057,28 +1100,28 @@ def set_wine_quantity():
                 cursor.execute("DELETE FROM wines WHERE vivino_url = ?", (vivino_url,))
                 conn.commit()
                 if cursor.rowcount > 0:
-                    logger.info(f"Successfully deleted wine {vivino_url} as quantity was set to 0.")
+                    root_logger.info(f"Successfully deleted wine {vivino_url} as quantity was set to 0.")
                     sync_to_ha_todo(wine_data_dict, 0) # Sync with HA to ensure removal
                     return jsonify({"status": "success", "message": "Wine deleted as quantity was set to 0."}), 200
                 else:
-                    logger.warning(f"Wine {vivino_url} not found for deletion after setting quantity to 0.")
+                    root_logger.warning(f"Wine {vivino_url} not found for deletion after setting quantity to 0.")
                     return jsonify({"status": "error", "message": "Wine not found for quantity update/deletion."}), 404
             else:
                 cursor.execute("UPDATE wines SET quantity = ? WHERE vivino_url = ?", (new_quantity, vivino_url))
                 conn.commit()
                 if cursor.rowcount > 0:
-                    logger.info(f"Successfully set quantity for wine {vivino_url} to {new_quantity}.")
+                    root_logger.info(f"Successfully set quantity for wine {vivino_url} to {new_quantity}.")
                     sync_to_ha_todo(wine_data_dict, new_quantity) # Sync with HA
                     return jsonify({"status": "success", "message": f"Quantity for wine set to {new_quantity}."}), 200
                 else:
-                    logger.warning(f"No wine found to set quantity for URL: {vivino_url}")
+                    root_logger.warning(f"No wine found to set quantity for URL: {vivino_url}")
                     return jsonify({"status": "error", "message": "Wine not found for quantity update."}), 404
         else:
-            logger.warning(f"No wine found for quantity update for URL: {vivino_url}")
+            root_logger.warning(f"No wine found for quantity update for URL: {vivino_url}")
             return jsonify({"status": "error", "message": "Wine not found for quantity update."}), 404
 
     except sqlite3.Error as e:
-        logger.error(f"Database error setting wine quantity: {e}")
+        root_logger.error(f"Database error setting wine quantity: {e}")
         conn.rollback()
         return jsonify({"status": "error", "message": "Database error setting wine quantity."}), 500
     finally:
@@ -1089,11 +1132,11 @@ def set_wine_quantity():
 def consume_wine_from_webhook():
     data = request.get_json()
     if not data or "item" not in data:
-        logger.warning("Malformed webhook: missing 'item' field.")
+        root_logger.warning("Malformed webhook: missing 'item' field.")
         return jsonify({"status": "error", "message": "Missing 'item' in request body."}), 400
 
     item_text = data["item"]
-    logger.info(f"Webhook received for consumed wine: {item_text}")
+    root_logger.info(f"Webhook received for consumed wine: {item_text}")
 
     # The item_text from HA will now be "Wine Name (Vintage)" (no 'xN')
     parsed_name = None
@@ -1105,7 +1148,7 @@ def consume_wine_from_webhook():
         parsed_name = match.group(1).strip()
         parsed_vintage = int(match.group(2))
     else:
-        logger.warning(f"Failed to parse wine name and vintage from item: {item_text}. Expected 'Name (Vintage)' format.")
+        root_logger.warning(f"Failed to parse wine name and vintage from item: {item_text}. Expected 'Name (Vintage)' format.")
         return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
 
     name = parsed_name
@@ -1140,7 +1183,7 @@ def consume_wine_from_webhook():
                         (name, vintage)
                     )
                     conn.commit()
-                    logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                    root_logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
                     # Sync with HA to ensure removal from To-Do list
                     sync_to_ha_todo(wine_data_dict_for_sync, 0)
                     return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
@@ -1150,18 +1193,18 @@ def consume_wine_from_webhook():
                         (new_quantity, name, vintage)
                     )
                     conn.commit()
-                    logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                    root_logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
                     # Sync with HA to update description
                     sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
                     return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
             else:
-                logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                root_logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
                 return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
         else:
-            logger.warning(f"No matching wine found in DB for '{name} ({vintage})'.")
+            root_logger.warning(f"No matching wine found in DB for '{name} ({vintage})'.")
             return jsonify({"status": "warning", "message": "No matching wine found in inventory."}), 404
     except sqlite3.Error as e:
-        logger.error(f"Database error consuming wine: {e}")
+        root_logger.error(f"Database error consuming wine: {e}")
         conn.rollback()
         return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
     finally:
@@ -1186,7 +1229,7 @@ def consume_wine():
         wine_data_row = cursor.fetchone()
 
         if not wine_data_row:
-            logger.warning(f"Wine not found for consumption: {vivino_url}")
+            root_logger.warning(f"Wine not found for consumption: {vivino_url}")
             return jsonify({'error': 'Wine not found in inventory'}), 404
 
         # Prepare wine_data_dict for sync_to_ha_todo using fetched data and columns
@@ -1202,20 +1245,20 @@ def consume_wine():
         if current_quantity > 1:
             new_quantity = current_quantity - 1
             cursor.execute("UPDATE wines SET quantity = ?, added_at = CURRENT_TIMESTAMP WHERE id = ?", (new_quantity, wine_id))
-            logger.info(f"Decremented quantity for wine {vivino_url} to {new_quantity}.")
+            root_logger.info(f"Decremented quantity for wine {vivino_url} to {new_quantity}.")
             # Sync with HA for updated quantity
             sync_to_ha_todo(wine_data_dict, new_quantity)
         else: # Quantity is 1, so it becomes 0 after decrement (delete)
             new_quantity = 0 # Explicitly set to 0 for HA sync
             cursor.execute("DELETE FROM wines WHERE id = ?", (wine_id,))
-            logger.info(f"Successfully consumed and deleted wine {vivino_url} as quantity reached 0.")
+            root_logger.info(f"Successfully consumed and deleted wine {vivino_url} as quantity reached 0.")
             # Sync with HA to remove item
             sync_to_ha_todo(wine_data_dict, new_quantity)
 
         conn.commit()
         return jsonify({'status': 'success', 'new_quantity': new_quantity}) # Added new_quantity to response for clarity
     except sqlite3.Error as e:
-        logger.error(f"Database error during consumption: {e}")
+        root_logger.error(f"Database error during consumption: {e}")
         conn.rollback()
         return jsonify({'error': 'Database error'}), 500
     finally:
@@ -1226,7 +1269,7 @@ def consume_wine():
 def delete_wine():
     data = request.get_json()
     if not data or 'vivino_url' not in data:
-        logger.warning("Received invalid data for /inventory/wine DELETE endpoint: %s", data)
+        root_logger.warning("Received invalid data for /inventory/wine DELETE endpoint: %s", data)
         return jsonify({"status": "error", "message": "Missing 'vivino_url' in request body"}), 400
 
     vivino_url = data['vivino_url']
@@ -1246,7 +1289,7 @@ def delete_wine():
         cursor.execute("DELETE FROM wines WHERE vivino_url = ?", (vivino_url,))
         conn.commit()
         if cursor.rowcount > 0:
-            logger.info(f"Successfully deleted wine with URL: {vivino_url}")
+            root_logger.info(f"Successfully deleted wine with URL: {vivino_url}")
 
             # If wine was deleted, remove it from HA To-Do list
             if wine_to_delete and wine_columns_description: # Ensure both exist
@@ -1256,10 +1299,10 @@ def delete_wine():
 
             return jsonify({"status": "success", "message": "Wine deleted successfully."}), 200
         else:
-            logger.warning(f"No wine found to delete for URL: {vivino_url}")
+            root_logger.warning(f"No wine found to delete for URL: {vivino_url}")
             return jsonify({"status": "error", "message": "Wine not found for deletion."}), 404
     except sqlite3.Error as e:
-        logger.error(f"Database error deleting wine: {e}")
+        root_logger.error(f"Database error deleting wine: {e}")
         conn.rollback()
         return jsonify({"status": "error", "message": "Database error deleting wine."}), 500
     finally:
@@ -1267,22 +1310,22 @@ def delete_wine():
 
 @app.route("/sync-all-wines", methods=["POST"])
 def sync_all_wines_to_ha():
-    logger.info("Received request to sync all wines to Home Assistant.")
+    root_logger.info("Received request to sync all wines to Home Assistant.")
     try:
         sync_db_to_ha_todo() # Sync all wines from DB to HA
         return jsonify({"status": "success", "message": "All wines synchronized to Home Assistant."}), 200
     except Exception as e:
-        logger.error(f"Error during full synchronization to Home Assistant: {e}")
+        root_logger.error(f"Error during full synchronization to Home Assistant: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route("/reinitialize-database-action", methods=["POST"])
 def reinitialize_db_endpoint():
-    logger.warning("Received request to reinitialize database from web UI.")
+    root_logger.warning("Received request to reinitialize database from web UI.")
     try:
         reinitialize_database() # Call your existing function
         return jsonify({"status": "success", "message": "Database reinitialized successfully. Please restart add-on from Home Assistant if needed."}), 200
     except Exception as e:
-        logger.error(f"Error reinitializing database from web UI: {e}")
+        root_logger.error(f"Error reinitializing database from web UI: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route("/")
@@ -1300,19 +1343,19 @@ if __name__ == '__main__':
     # Check if REINITIALIZE_DATABASE environment variable is set to trigger a fresh start
     reinitialize_flag = os.environ.get("REINITIALIZE_DATABASE", "false").lower()
 
-    logger.debug(f"DEBUG: REINITIALIZE_DATABASE as read by app: '{reinitialize_flag}' (Type: {type(reinitialize_flag)})")
+    root_logger.debug(f"DEBUG: REINITIALIZE_DATABASE as read by app: '{reinitialize_flag}' (Type: {type(reinitialize_flag)})")
 
     if reinitialize_flag == 'true':
-        logger.warning("REINITIALIZE_DATABASE flag is set to 'true'. Reinitializing the database...")
+        root_logger.warning("REINITIALIZE_DATABASE flag is set to 'true'. Reinitializing the database...")
         reinitialize_database()
         # After reinitialization, you should go back to the Home Assistant Add-on configuration
         # and set REINITIALIZE_DATABASE back to 'false' to prevent accidental re-wipes on future restarts.
     else:
-        logger.info("REINITIALIZE_DATABASE flag not set or set to 'false'. Ensuring tables exist.")
+        root_logger.info("REINITIALIZE_DATABASE flag not set or set to 'false'. Ensuring tables exist.")
         init_db() # Call your existing init_db function
 
     # Load Home Assistant sync status on startup
     load_ha_sync_status()
 
-    logger.info("Flask app starting on port 5000...")
+    root_logger.info("Flask app starting on port 5000...")
     app.run(host='0.0.0.0', port=5000)
