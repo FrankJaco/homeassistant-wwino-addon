@@ -303,6 +303,11 @@ def clear_ha_todo_list() -> None:
         get_response = requests.get(get_state_url, headers=headers)
         get_response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
         state_data = get_response.json()
+        logger.debug(f"Raw HA To-Do list state data received: {json.dumps(state_data, indent=2)}") 
+
+    # Home Assistant To-Do entity state has items under 'attributes.items'
+    all_todo_items = state_data.get('attributes', {}).get('items', [])
+
 
         # Home Assistant To-Do entity state has items under 'attributes.items'
         all_todo_items = state_data.get('attributes', {}).get('items', [])
