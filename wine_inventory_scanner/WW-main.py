@@ -19,14 +19,33 @@ SYNC_CONFIG_FILE = os.path.join(os.environ.get("DB_PATH", "/share/"), 'ha_sync_s
 HA_SYNC_ENABLED = True # Default state if config file doesn't exist or load fails
 
 
-
-# --- Logging Setup ---
+# --- Logging Setup (UPDATED: More verbose and explicit Flask logger config) ---
 logging.basicConfig(level=getattr(logging, LOG_LEVEL),
                     format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__, static_folder="frontend", static_url_path="")
 CORS(app) # Re-enabled CORS initialization
+
+# (NEW ADDITION) Configure Flask's app.logger explicitly
+app.logger.setLevel(logging.DEBUG)
+handler = logging.StreamHandler()
+handler.setLevel(logging.DEBUG)
+formatter = logging.Formatter('[%(asctime)s] %(levelname)s in %(module)s: %(message)s')
+handler.setFormatter(formatter)
+
+# Remove default Flask handler if it exists to avoid duplicate logs or incorrect levels
+if app.logger.hasHandlers():
+    app.logger.handlers.clear()
+
+app.logger.addHandler(handler)
+
+# (NEW ADDITION) General error handler for ALL uncaught exceptions
+@app.errorhandler(Exception)
+def handle_uncaught_exception(e):
+    app.logger.exception(f"An unhandled exception occurred: {e}")
+    return jsonify({"message": f"An internal server error occurred: {e}"}), 500
+
 
 # Dictionary for common country abbreviations for display purposes
 COUNTRY_ABBREVIATIONS = {
@@ -56,7 +75,7 @@ COUNTRY_ABBREVIATIONS = {
 }
 
 
-def format_wine_for_todo(wine: dict) -> str: 
+def format_wine_for_todo(wine: dict) -> str:
     name = wine.get("name") or "n/a"
     vintage = wine.get("vintage")
 
@@ -73,7 +92,7 @@ def sync_to_ha_todo(wine: dict, current_quantity: int) -> None:
         logger.info(f"HA Sync is disabled. Skipping synchronization for wine: {wine.get('title', 'N/A')}.")
         return
     # item_text will be just "Name (Vintage)"
-    item_text = format_wine_for_todo(wine) 
+    item_text = format_wine_for_todo(wine)
     description = build_markdown_description(wine, current_quantity) # Quantity in description
     entity_id = TODO_LIST_ENTITY_ID
     headers = {
@@ -303,10 +322,10 @@ def sync_db_to_ha_todo() -> None:
         conn = sqlite3.connect(DB_PATH) # Directly connect as per your existing code
         conn.row_factory = sqlite3.Row # Ensure row_factory is set for named column access
         cursor = conn.cursor()
-        
+
         cursor.execute("SELECT * FROM wines")
         wines = cursor.fetchall()
-        
+
         # We need to know what's currently in HA to remove items that are no longer in DB,
         # but the HA API doesn't easily give us the *text* of all current items.
         # So, the current strategy is to push all DB items. `sync_to_ha_todo` handles existing.
@@ -593,11 +612,11 @@ def scrape_vivino_data(vivino_url):
                 # --- Apply Bordeaux Region Heuristics for ordering ---
                 if 'region' in wine_data and isinstance(wine_data['region'], str):
                     region_str = wine_data['region'].lower()
-                    
+
                     if 'saint-émilion' in region_str or 'pomerol' in region_str or 'fronsac' in region_str or 'canon-fronsac' in region_str:
                         # Right Bank: Prioritize Merlot, then Cabernet Franc, then Cabernet Sauvignon
                         preferred_order = ['Merlot', 'Cabernet Franc', 'Cabernet Sauvignon']
-                        
+
                         reordered_grapes = []
                         for preferred_grape in preferred_order:
                             for g in ordered_unique_grapes:
@@ -613,7 +632,7 @@ def scrape_vivino_data(vivino_url):
                     elif any(lb_region in region_str for lb_region in ['médoc', 'pauillac', 'margaux', 'haut-médoc', 'saint-estèphe', 'saint-julien', 'listrac', 'moulis', 'graves']):
                         # Left Bank: Prioritize Cabernet Sauvignon, then Merlot, then Cabernet Franc
                         preferred_order = ['Cabernet Sauvignon', 'Merlot', 'Cabernet Franc']
-                        
+
                         reordered_grapes = []
                         for preferred_grape in preferred_order:
                             for g in ordered_unique_grapes:
@@ -854,8 +873,10 @@ def load_ha_sync_status():
         if os.path.exists(SYNC_CONFIG_FILE):
             with open(SYNC_CONFIG_FILE, 'r') as f:
                 config = json.load(f)
-                HA_SYNC_ENABLED = config.get('ha_sync_enabled', True) # Default to True if key not found
-                logger.info(f"Loaded HA sync status from {SYNC_CONFIG_FILE}: {HA_SYNC_ENABLED}")
+                # (UPDATED) Explicitly cast to boolean to be safe
+                HA_SYNC_ENABLED = bool(config.get('ha_sync_enabled', True)) # Default to True if key not found
+                # (UPDATED) Added type to log message
+                logger.info(f"Loaded HA sync status from {SYNC_CONFIG_FILE}: {HA_SYNC_ENABLED} (Type: {type(HA_SYNC_ENABLED)})")
         else:
             logger.info(f"HA sync config file not found at {SYNC_CONFIG_FILE}. Initializing HA_SYNC_ENABLED to default ({HA_SYNC_ENABLED}).")
             save_ha_sync_status() # Create the file with the default state
@@ -881,15 +902,26 @@ def save_ha_sync_status():
 def get_ha_sync_status():
     """Returns the current status of the HA sync flag."""
     global HA_SYNC_ENABLED # Access the global variable
+    # (UPDATED) Added type to log message
+    app.logger.info(f"Returning HA sync status: {HA_SYNC_ENABLED} (Type: {type(HA_SYNC_ENABLED)})")
     return jsonify({"ha_sync_enabled": HA_SYNC_ENABLED}), 200
 
 @app.route("/api/toggle-ha-sync", methods=["POST"])
 def toggle_ha_sync():
     """Toggles the HA sync flag and saves its state."""
     global HA_SYNC_ENABLED
-    HA_SYNC_ENABLED = not HA_SYNC_ENABLED # Flip the boolean state
+    data = request.get_json() # (UPDATED) Get JSON data from request body
+    enable = data.get('enable') # (UPDATED) Expect 'enable' parameter
+
+    if enable is None:
+        app.logger.warning("Invalid request: 'enable' parameter missing for toggle-ha-sync.")
+        return jsonify({"message": "Invalid request: 'enable' parameter missing."}), 400
+
+    # (UPDATED) Set HA_SYNC_ENABLED directly from the 'enable' parameter, ensuring it's a boolean
+    HA_SYNC_ENABLED = bool(enable)
     save_ha_sync_status() # Save the new state to the config file
-    logger.info(f"HA Sync toggled. New status: {HA_SYNC_ENABLED}")
+    # (UPDATED) Added type to log message
+    logger.info(f"HA Sync toggled. New status: {HA_SYNC_ENABLED} (Type: {type(HA_SYNC_ENABLED)})")
     return jsonify({"message": "HA sync status toggled successfully", "ha_sync_enabled": HA_SYNC_ENABLED}), 200
 
 
@@ -1261,7 +1293,7 @@ def serve_frontend():
 def serve_static(path):
     return send_from_directory("frontend", path)
 
-    
+
 # Application Entry Point and Initialization
 if __name__ == '__main__':
     # --- Database Initialization / Reinitialization ---
@@ -1283,14 +1315,4 @@ if __name__ == '__main__':
     load_ha_sync_status()
 
     logger.info("Flask app starting on port 5000...")
-    app.run(host='0.0.0.0', port=5000)    
-    
-    
-    
-    
-    
-    
-
-    
-    
-    
+    app.run(host='0.0.0.0', port=5000)
