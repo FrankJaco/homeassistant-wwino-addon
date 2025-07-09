@@ -216,12 +216,16 @@
             const inventoryTableBody = document.getElementById('inventoryTableBody');
             try {
                 inventoryTableBody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-gray-500">Loading inventory...</td></tr>';
-                // Use BASE_URL for the fetch call
                 const response = await fetch(`${BASE_URL}/inventory`);
                 if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    // Try to read response text even if not OK, for debugging
+                    const errorText = await response.text();
+                    console.error('Error fetching inventory - Raw Response:', errorText);
+                    throw new Error(`HTTP error! status: ${response.status} - ${errorText.substring(0, 100)}...`);
                 }
-                const inventory = await response.json();
+                const responseText = await response.text(); // Read as text first
+                console.log('Raw response for /inventory:', responseText); // Log raw response
+                const inventory = JSON.parse(responseText); // Then parse as JSON
                 displayInventory(inventory);
             } catch (error) {
                 console.error('Error fetching inventory:', error);
@@ -342,14 +346,16 @@
 
                 try {
                     scanMessage.style.display = 'none'; // Hide previous messages
-                    // Use BASE_URL for the fetch call
                     const response = await fetch(`${BASE_URL}/scan-wine`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ vivino_url: vivinoUrl, quantity: parseInt(quantity, 10) || 1 })
                     });
 
-                    const result = await response.json();
+                    const responseText = await response.text(); // Read as text first
+                    console.log('Raw response for /scan-wine:', responseText); // Log raw response
+                    const result = JSON.parse(responseText); // Then parse as JSON
+
                     if (!response.ok) {
                         throw new Error(result.message || 'Failed to scan wine');
                     }
@@ -370,13 +376,15 @@
                 return;
             }
             try {
-                // Use BASE_URL for the fetch call
                 const response = await fetch(`${BASE_URL}/inventory/wine/consume`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ vivino_url: vivinoUrl })
                 });
-                const result = await response.json();
+                const responseText = await response.text(); // Read as text first
+                console.log('Raw response for /inventory/wine/consume:', responseText); // Log raw response
+                const result = JSON.parse(responseText); // Then parse as JSON
+
                 if (!response.ok) {
                     throw new Error(result.message || 'Failed to consume wine');
                 }
@@ -391,13 +399,15 @@
         // --- Set Wine Quantity ---
         async function setWineQuantity(vivinoUrl, newQuantity) {
             try {
-                // Use BASE_URL for the fetch call
                 const response = await fetch(`${BASE_URL}/inventory/wine/set_quantity`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ vivino_url: vivinoUrl, quantity: newQuantity })
                 });
-                const result = await response.json();
+                const responseText = await response.text(); // Read as text first
+                console.log('Raw response for /inventory/wine/set_quantity:', responseText); // Log raw response
+                const result = JSON.parse(responseText); // Then parse as JSON
+
                 if (!response.ok) {
                     throw new Error(result.message || 'Failed to set wine quantity');
                 }
@@ -415,13 +425,15 @@
                 return;
             }
             try {
-                // Use BASE_URL for the fetch call
                 const response = await fetch(`${BASE_URL}/inventory/wine`, {
                     method: 'DELETE',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ vivino_url: vivinoUrl })
                 });
-                const result = await response.json();
+                const responseText = await response.text(); // Read as text first
+                console.log('Raw response for /inventory/wine (DELETE):', responseText); // Log raw response
+                const result = JSON.parse(responseText); // Then parse as JSON
+
                 if (!response.ok) {
                     throw new Error(result.message || 'Failed to delete wine');
                 }
@@ -446,14 +458,15 @@
                 reinitializeDbMessage.className = 'mt-3 text-center font-medium text-blue-600';
 
                 try {
-                    // Use BASE_URL for the fetch call
                     const response = await fetch(`${BASE_URL}/reinitialize-database-action`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
                         }
                     });
-                    const data = await response.json();
+                    const responseText = await response.text(); // Read as text first
+                    console.log('Raw response for /reinitialize-database-action:', responseText); // Log raw response
+                    const data = JSON.parse(responseText); // Then parse as JSON
 
                     if (response.ok) {
                         reinitializeDbMessage.textContent = data.message;
@@ -485,14 +498,15 @@
                 syncMessage.textContent = 'Synchronizing wines...';
                 syncMessage.className = 'mt-3 text-center font-medium text-blue-600';
                 try {
-                    // Use BASE_URL for the fetch call
                     const response = await fetch(`${BASE_URL}/sync-all-wines`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
                         }
                     });
-                    const data = await response.json();
+                    const responseText = await response.text(); // Read as text first
+                    console.log('Raw response for /sync-all-wines:', responseText); // Log raw response
+                    const data = JSON.parse(responseText); // Then parse as JSON
 
                     if (response.ok) {
                         syncMessage.textContent = data.message;
@@ -517,7 +531,6 @@
             vivinoSearchForm.addEventListener('submit', function(event) {
                 event.preventDefault();
                 const query = vivinoSearchInput.value;
-                // Vivino URL is external, so no BASE_URL prefix needed here
                 const vivinoUrl = `https://www.vivino.com/search/wines?q=${encodeURIComponent(query)}`;
                 window.open(vivinoUrl, '_blank');
                 vivinoSearchInput.value = ''; // Clear the search input after opening Vivino
