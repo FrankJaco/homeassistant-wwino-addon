@@ -66,7 +66,7 @@ def format_wine_for_todo(wine: dict) -> str: # Removed quantity parameter from s
 def sync_to_ha_todo(wine: dict, current_quantity: int) -> None:
     # item_text will be just "Name (Vintage)" as per the new format_wine_for_todo
     item_text = format_wine_for_todo(wine) # No quantity in summary
-    description = build_markdown_description(wine, current_quantity) # Quantity in description
+    description = build_markdown_description(wine, current_quantity, is_for_todo=True) # Quantity in description
     entity_id = TODO_LIST_ENTITY_ID
     headers = {
         "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
@@ -112,12 +112,11 @@ def sync_to_ha_todo(wine: dict, current_quantity: int) -> None:
     else:
         logger.info(f"Wine quantity is 0. Item not re-added to HA To-Do: {item_text}")
 
-def build_markdown_description(wine: dict, current_quantity: int) -> str:
+def build_markdown_description(wine: dict, current_quantity: int, is_for_todo: bool = True) -> str:
     description_parts = []
 
-    # Line 1: Varietals (bold first, 32 char limit, 60% truncation)
+    # Line 1: Varietals
     varietal_str = wine.get("varietal")
-
     rendered_varietal_line_markdown = []
     current_visual_length = 0
 
@@ -129,43 +128,48 @@ def build_markdown_description(wine: dict, current_quantity: int) -> str:
         individual_varietals = [v.strip() for v in varietal_str.split(',')]
 
         if individual_varietals:
-            # --- Handle the first grape (bolded) ---
-            first_grape = individual_varietals[0]
+            if is_for_todo:
+                # --- Handle the first grape (bolded) for ToDo truncation ---
+                first_grape = individual_varietals[0]
+                visual_len_first_grape = len(first_grape)
 
-            visual_len_first_grape = len(first_grape)
-
-            if visual_len_first_grape <= MAX_VISUAL_LINE_LENGTH_FOR_VARIETAL:
-                rendered_varietal_line_markdown.append(f"**{first_grape}**")
-                current_visual_length += visual_len_first_grape
-            else:
-                chars_for_truncated_grape = MAX_VISUAL_LINE_LENGTH_FOR_VARIETAL - ELLIPSIS_LENGTH
-                if chars_for_truncated_grape > 0:
-                    truncated_grape = first_grape[:chars_for_truncated_grape]
-                    rendered_varietal_line_markdown.append(f"**{truncated_grape}**")
-                    current_visual_length += len(truncated_grape)
-
-            # --- Handle subsequent grapes ---
-            for i, grape in enumerate(individual_varietals[1:]):
-                if not rendered_varietal_line_markdown and i > 0:
-                    break
-
-                separator_text = " " if i == 0 else ", "
-                visual_len_grape = len(grape)
-
-                remaining_line_space = MAX_VISUAL_LINE_LENGTH_FOR_VARIETAL - current_visual_length
-
-                if remaining_line_space >= (len(separator_text) + visual_len_grape):
-                    rendered_varietal_line_markdown.append(f"{separator_text}{grape}")
-                    current_visual_length += len(separator_text) + visual_len_grape
+                if visual_len_first_grape <= MAX_VISUAL_LINE_LENGTH_FOR_VARIETAL:
+                    rendered_varietal_line_markdown.append(f"**{first_grape}**")
+                    current_visual_length += visual_len_first_grape
                 else:
-                    space_for_grape_body = remaining_line_space - len(separator_text)
+                    chars_for_truncated_grape = MAX_VISUAL_LINE_LENGTH_FOR_VARIETAL - ELLIPSIS_LENGTH
+                    if chars_for_truncated_grape > 0:
+                        truncated_grape = first_grape[:chars_for_truncated_grape]
+                        rendered_varietal_line_markdown.append(f"**{truncated_grape}**")
+                        current_visual_length += len(truncated_grape)
 
-                    if space_for_grape_body > 0:
-                        if (space_for_grape_body / visual_len_grape) >= TRUNCATION_THRESHOLD_PERCENT:
-                            truncated_grape = grape[:space_for_grape_body]
-                            rendered_varietal_line_markdown.append(f"{separator_text}{truncated_grape}")
-                            current_visual_length += len(separator_text) + len(truncated_grape)
-                    break
+                # --- Handle subsequent grapes for ToDo truncation ---
+                for i, grape in enumerate(individual_varietals[1:]):
+                    if not rendered_varietal_line_markdown and i > 0:
+                        break
+
+                    separator_text = " " if i == 0 else ", "
+                    visual_len_grape = len(grape)
+
+                    remaining_line_space = MAX_VISUAL_LINE_LENGTH_FOR_VARIETAL - current_visual_length
+
+                    if remaining_line_space >= (len(separator_text) + visual_len_grape):
+                        rendered_varietal_line_markdown.append(f"{separator_text}{grape}")
+                        current_visual_length += len(separator_text) + visual_len_grape
+                    else:
+                        space_for_grape_body = remaining_line_space - len(separator_text)
+
+                        if space_for_grape_body > 0:
+                            if (space_for_grape_body / visual_len_grape) >= TRUNCATION_THRESHOLD_PERCENT:
+                                truncated_grape = grape[:space_for_grape_body]
+                                rendered_varietal_line_markdown.append(f"{separator_text}{truncated_grape}")
+                                current_visual_length += len(separator_text) + len(truncated_grape)
+                        break
+            else:
+                # For full display on frontend, join all varietals without truncation
+                rendered_varietal_line_markdown.append(f"**{individual_varietals[0]}**")
+                if len(individual_varietals) > 1:
+                    rendered_varietal_line_markdown.append(f", {', '.join(individual_varietals[1:])}")
 
     if rendered_varietal_line_markdown:
         description_parts.append("".join(rendered_varietal_line_markdown))
@@ -190,24 +194,28 @@ def build_markdown_description(wine: dict, current_quantity: int) -> str:
     if country_str and country_str != "Unknown Country":
         separator_rc = " " # Always a single space between region and country
 
-        # First, try to add the full country name
-        potential_full_country_segment = f"{separator_rc}{country_str}"
-        if (current_rc_visual_length + len(potential_full_country_segment)) <= MAX_VISUAL_LINE_LENGTH_FOR_REGION_COUNTRY:
-            region_country_display.append(potential_full_country_segment)
-        else:
-            # Full country doesn't fit. Try abbreviation.
-            abbreviated_country = COUNTRY_ABBREVIATIONS.get(country_str, country_str)
-            potential_abbr_country_segment = f"{separator_rc}{abbreviated_country}"
-
-            if (current_rc_visual_length + len(potential_abbr_country_segment)) <= MAX_VISUAL_LINE_LENGTH_FOR_REGION_COUNTRY:
-                region_country_display.append(potential_abbr_country_segment)
+        if is_for_todo:
+            # First, try to add the full country name
+            potential_full_country_segment = f"{separator_rc}{country_str}"
+            if (current_rc_visual_length + len(potential_full_country_segment)) <= MAX_VISUAL_LINE_LENGTH_FOR_REGION_COUNTRY:
+                region_country_display.append(potential_full_country_segment)
             else:
-                # Even abbreviation doesn't fit, or no abbreviation. Truncate country.
-                space_for_country_body = MAX_VISUAL_LINE_LENGTH_FOR_REGION_COUNTRY - current_rc_visual_length - len(separator_rc)
-                if space_for_country_body > 0:
-                    truncated_country = country_str[:space_for_country_body]
-                    region_country_display.append(f"{separator_rc}{truncated_country}")
-                # If no space for "X", then country won't be added to this line.
+                # Full country doesn't fit. Try abbreviation.
+                abbreviated_country = COUNTRY_ABBREVIATIONS.get(country_str, country_str)
+                potential_abbr_country_segment = f"{separator_rc}{abbreviated_country}"
+
+                if (current_rc_visual_length + len(potential_abbr_country_segment)) <= MAX_VISUAL_LINE_LENGTH_FOR_REGION_COUNTRY:
+                    region_country_display.append(potential_abbr_country_segment)
+                else:
+                    # Even abbreviation doesn't fit, or no abbreviation. Truncate country.
+                    space_for_country_body = MAX_VISUAL_LINE_LENGTH_FOR_REGION_COUNTRY - current_rc_visual_length - len(separator_rc)
+                    if space_for_country_body > 0:
+                        truncated_country = country_str[:space_for_country_body]
+                        region_country_display.append(f"{separator_rc}{truncated_country}")
+                    # If no space for "X", then country won't be added to this line.
+        else:
+            # For full display on frontend, just add full country name without abbreviation
+            region_country_display.append(f"{separator_rc}{country_str}")
 
     if region_country_display:
         description_parts.append("".join(region_country_display))
@@ -229,7 +237,13 @@ def build_markdown_description(wine: dict, current_quantity: int) -> str:
     description_parts.append("&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;".join(rating_qty_line_parts))
 
     # Join the main parts with two spaces and a newline for proper Markdown line breaks
-    return "  \n".join(description_parts[:3]) # Ensure we only join up to the first 3 elements
+    # For ToDo, ensure we only join up to the first 3 elements
+    if is_for_todo:
+        return "  \n".join(description_parts[:3])
+    else:
+        # For frontend, return all parts generated (which is 3 in this case now, without price/added_at)
+        return "  \n".join(description_parts)
+
 
 # --- Database Initialization ---
 def init_db():
@@ -910,12 +924,14 @@ def scan_wine():
 @app.route('/inventory', methods=['GET'])
 def get_inventory():
     conn = sqlite3.connect(DB_PATH)
+    # Ensure row_factory is set to sqlite3.Row for dictionary-like access
+    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     name_filter = request.args.get('name')
     vintage_filter = request.args.get('vintage')
 
-    # Select the new quantity column
-    query = "SELECT vivino_url, name, vintage, varietal, region, country, vivino_rating, vivino_num_ratings, price_usd, image_url, quantity, added_at FROM wines"
+    # Select all columns
+    query = "SELECT * FROM wines"
     params = []
     conditions = []
 
@@ -937,21 +953,13 @@ def get_inventory():
         conn.close()
 
         wine_list = []
-        for wine in wines:
-            wine_list.append({
-                "vivino_url": wine[0],
-                "name": wine[1],
-                "vintage": wine[2],
-                "varietal": wine[3],
-                "region": wine[4],
-                "country": wine[5],
-                "vivino_rating": wine[6],
-                "vivino_num_ratings": wine[7],
-                "price_usd": wine[8],
-                "image_url": wine[9],
-                "quantity": wine[10], # Include quantity in the returned data
-                "added_at": wine[11]
-            })
+        for wine_row in wines:
+            wine_dict = dict(wine_row) # Convert Row object to dict
+            # Generate the full description for the frontend display (no truncation, no price/added_at)
+            full_description_markdown = build_markdown_description(wine_dict, wine_dict.get('quantity', 0), is_for_todo=False)
+            wine_dict['full_description'] = full_description_markdown
+            wine_list.append(wine_dict)
+
         logger.info(f"Returning {len(wine_list)} wines from inventory.")
         return jsonify(wine_list), 200
     except sqlite3.Error as e:
@@ -1139,7 +1147,7 @@ def consume_wine():
             sync_to_ha_todo(wine_data_dict, new_quantity)
         else: # Quantity is 1, so it becomes 0 after decrement (delete)
             new_quantity = 0 # Explicitly set to 0 for HA sync
-            cursor.execute("DELETE FROM wines WHERE id = ?", (wine_id,))
+            cursor.execute("DELETE FROM wines WHERE id = ?", (wine_id,)) # Corrected SQL syntax for DELETE
             logger.info(f"Successfully consumed and deleted wine {vivino_url} as quantity reached 0.")
             # Sync with HA to remove item
             sync_to_ha_todo(wine_data_dict, new_quantity)
@@ -1184,7 +1192,7 @@ def delete_wine():
 
             # If wine was deleted, remove it from HA To-Do list
             if wine_to_delete and wine_columns_description: # Ensure both exist
-                columns = [description[0] for description in wine_columns_description] # FIX: Use captured description
+                columns = [description[0] for description in wine_columns_description] # Use captured description
                 wine_data_dict = dict(zip(columns, wine_to_delete))
                 sync_to_ha_todo(wine_data_dict, 0) # Call with quantity 0 to ensure removal from HA
 
@@ -1246,16 +1254,3 @@ if __name__ == '__main__':
 
     logger.info("Flask app starting on port 5000...")
     app.run(host='0.0.0.0', port=5000)
-
-    
-    
-    
-    
-    
-    
-    
-    
-
-    
-    
-    

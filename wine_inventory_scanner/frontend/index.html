@@ -267,11 +267,10 @@
                     imageCell.textContent = 'No Image';
                 }
 
-                // Wine Details Cell (using the new 'description' field for rich markdown)
+                // Wine Details Cell (now using 'full_description' for rich markdown)
                 const detailsCell = row.insertCell();
                 detailsCell.className = 'px-6 py-4 text-sm font-medium text-gray-900 markdown-cell';
-                // Using innerHTML to render markdown (Flask's backend converts it to HTML)
-                detailsCell.innerHTML = item.description || `${item.name} (${item.vintage})`; // Fallback if description is somehow missing
+                detailsCell.innerHTML = item.full_description || `${item.name} (${item.vintage})`; // Use full_description
 
                 // Actions Cell
                 const actionsCell = row.insertCell();
@@ -398,10 +397,10 @@
                 showMessage('inventoryMessage', result.message || 'Wine deleted successfully!');
                 fetchInventory(); // Refresh inventory list
             } catch (error) {
-                console.error('Error deleting wine:', error);
-                showMessage('inventoryMessage', `Error: ${error.message}`, 'error');
+                    console.error('Error deleting wine:', error);
+                    showMessage('inventoryMessage', `Error: ${error.message}`, 'error');
+                }
             }
-        }
 
         // --- Reinitialize Database Functionality (now "Reset DB") ---
         const reinitializeDbButton = document.getElementById('reinitializeDbButton');
