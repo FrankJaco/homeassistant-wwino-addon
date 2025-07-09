@@ -197,6 +197,9 @@
     </div>
 
     <script>
+        // Define BASE_URL for API calls, using __ingress_url if available
+        const BASE_URL = typeof __ingress_url !== 'undefined' ? __ingress_url : '';
+
         // --- Utility Functions for Messaging ---
         function showMessage(elementId, message, type = 'info') {
             const element = document.getElementById(elementId);
@@ -213,7 +216,8 @@
             const inventoryTableBody = document.getElementById('inventoryTableBody');
             try {
                 inventoryTableBody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-gray-500">Loading inventory...</td></tr>';
-                const response = await fetch('/inventory');
+                // Use BASE_URL for the fetch call
+                const response = await fetch(`${BASE_URL}/inventory`);
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
@@ -237,7 +241,7 @@
             }
 
             inventory.forEach(item => {
-                const row = tbody.insertRow(); // Corrected from insertCell() to insertRow()
+                const row = tbody.insertRow();
                 row.className = 'border-b border-gray-200 hover:bg-gray-50';
 
                 // Image Cell
@@ -320,7 +324,7 @@
                 actionsCell.appendChild(setQuantityButton);
 
                 const deleteButton = document.createElement('button');
-                deleteButton.textContent = 'Delete Wine'; // Changed text here
+                deleteButton.textContent = 'Delete Wine';
                 deleteButton.className = 'text-red-600 hover:text-red-900';
                 deleteButton.onclick = () => deleteWine(item.vivino_url);
                 actionsCell.appendChild(deleteButton);
@@ -338,7 +342,8 @@
 
                 try {
                     scanMessage.style.display = 'none'; // Hide previous messages
-                    const response = await fetch('/scan-wine', {
+                    // Use BASE_URL for the fetch call
+                    const response = await fetch(`${BASE_URL}/scan-wine`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ vivino_url: vivinoUrl, quantity: parseInt(quantity, 10) || 1 })
@@ -365,7 +370,8 @@
                 return;
             }
             try {
-                const response = await fetch('/inventory/wine/consume', {
+                // Use BASE_URL for the fetch call
+                const response = await fetch(`${BASE_URL}/inventory/wine/consume`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ vivino_url: vivinoUrl })
@@ -385,7 +391,8 @@
         // --- Set Wine Quantity ---
         async function setWineQuantity(vivinoUrl, newQuantity) {
             try {
-                const response = await fetch('/inventory/wine/set_quantity', {
+                // Use BASE_URL for the fetch call
+                const response = await fetch(`${BASE_URL}/inventory/wine/set_quantity`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ vivino_url: vivinoUrl, quantity: newQuantity })
@@ -408,7 +415,8 @@
                 return;
             }
             try {
-                const response = await fetch('/inventory/wine', {
+                // Use BASE_URL for the fetch call
+                const response = await fetch(`${BASE_URL}/inventory/wine`, {
                     method: 'DELETE',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ vivino_url: vivinoUrl })
@@ -438,7 +446,8 @@
                 reinitializeDbMessage.className = 'mt-3 text-center font-medium text-blue-600';
 
                 try {
-                    const response = await fetch('/reinitialize-database-action', {
+                    // Use BASE_URL for the fetch call
+                    const response = await fetch(`${BASE_URL}/reinitialize-database-action`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -476,7 +485,8 @@
                 syncMessage.textContent = 'Synchronizing wines...';
                 syncMessage.className = 'mt-3 text-center font-medium text-blue-600';
                 try {
-                    const response = await fetch('/sync-all-wines', {
+                    // Use BASE_URL for the fetch call
+                    const response = await fetch(`${BASE_URL}/sync-all-wines`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -507,6 +517,7 @@
             vivinoSearchForm.addEventListener('submit', function(event) {
                 event.preventDefault();
                 const query = vivinoSearchInput.value;
+                // Vivino URL is external, so no BASE_URL prefix needed here
                 const vivinoUrl = `https://www.vivino.com/search/wines?q=${encodeURIComponent(query)}`;
                 window.open(vivinoUrl, '_blank');
                 vivinoSearchInput.value = ''; // Clear the search input after opening Vivino
