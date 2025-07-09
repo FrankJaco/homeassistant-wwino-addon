@@ -198,7 +198,11 @@
 
     <script>
         // Define BASE_URL for API calls, using __ingress_url if available
-        const BASE_URL = typeof __ingress_url !== 'undefined' ? __ingress_url : '';
+        let BASE_URL = '';
+        if (typeof window !== 'undefined' && typeof window.__ingress_url !== 'undefined') {
+            BASE_URL = window.__ingress_url;
+        }
+        console.log('Calculated BASE_URL:', BASE_URL); // Log the calculated BASE_URL
 
         // --- Utility Functions for Messaging ---
         function showMessage(elementId, message, type = 'info') {
@@ -216,16 +220,17 @@
             const inventoryTableBody = document.getElementById('inventoryTableBody');
             try {
                 inventoryTableBody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-gray-500">Loading inventory...</td></tr>';
-                const response = await fetch(`${BASE_URL}/inventory`);
+                const url = `${BASE_URL}/inventory`;
+                console.log('Requesting URL for /inventory:', url); // Log the full URL
+                const response = await fetch(url);
                 if (!response.ok) {
-                    // Try to read response text even if not OK, for debugging
                     const errorText = await response.text();
                     console.error('Error fetching inventory - Raw Response:', errorText);
                     throw new Error(`HTTP error! status: ${response.status} - ${errorText.substring(0, 100)}...`);
                 }
-                const responseText = await response.text(); // Read as text first
-                console.log('Raw response for /inventory:', responseText); // Log raw response
-                const inventory = JSON.parse(responseText); // Then parse as JSON
+                const responseText = await response.text();
+                console.log('Raw response for /inventory:', responseText);
+                const inventory = JSON.parse(responseText);
                 displayInventory(inventory);
             } catch (error) {
                 console.error('Error fetching inventory:', error);
@@ -264,13 +269,6 @@
 
                 // Wine Name (and Vintage)
                 detailsHtml += `<h4>${item.name || 'N/A'} ${item.vintage ? `(${item.vintage})` : ''}</h4>`;
-
-                // Producer (if available) - Note: 'producer' field is not in the DB schema provided.
-                // If you want to display producer, you'd need to add it to your DB and scraping logic.
-                // For now, I'll comment this out or ensure it gracefully handles missing data.
-                // if (item.producer && item.producer !== "Unknown Producer") {
-                //     detailsHtml += `<p><strong>Producer:</strong> ${item.producer}</p>`;
-                // }
 
                 // Varietal (all of them)
                 if (item.varietal && item.varietal !== "Unknown Varietal") {
@@ -346,15 +344,17 @@
 
                 try {
                     scanMessage.style.display = 'none'; // Hide previous messages
-                    const response = await fetch(`${BASE_URL}/scan-wine`, {
+                    const url = `${BASE_URL}/scan-wine`;
+                    console.log('Requesting URL for /scan-wine:', url); // Log the full URL
+                    const response = await fetch(url, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ vivino_url: vivinoUrl, quantity: parseInt(quantity, 10) || 1 })
                     });
 
-                    const responseText = await response.text(); // Read as text first
-                    console.log('Raw response for /scan-wine:', responseText); // Log raw response
-                    const result = JSON.parse(responseText); // Then parse as JSON
+                    const responseText = await response.text();
+                    console.log('Raw response for /scan-wine:', responseText);
+                    const result = JSON.parse(responseText);
 
                     if (!response.ok) {
                         throw new Error(result.message || 'Failed to scan wine');
@@ -376,14 +376,16 @@
                 return;
             }
             try {
-                const response = await fetch(`${BASE_URL}/inventory/wine/consume`, {
+                const url = `${BASE_URL}/inventory/wine/consume`;
+                console.log('Requesting URL for /inventory/wine/consume:', url); // Log the full URL
+                const response = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ vivino_url: vivinoUrl })
                 });
-                const responseText = await response.text(); // Read as text first
-                console.log('Raw response for /inventory/wine/consume:', responseText); // Log raw response
-                const result = JSON.parse(responseText); // Then parse as JSON
+                const responseText = await response.text();
+                console.log('Raw response for /inventory/wine/consume:', responseText);
+                const result = JSON.parse(responseText);
 
                 if (!response.ok) {
                     throw new Error(result.message || 'Failed to consume wine');
@@ -399,14 +401,16 @@
         // --- Set Wine Quantity ---
         async function setWineQuantity(vivinoUrl, newQuantity) {
             try {
-                const response = await fetch(`${BASE_URL}/inventory/wine/set_quantity`, {
+                const url = `${BASE_URL}/inventory/wine/set_quantity`;
+                console.log('Requesting URL for /inventory/wine/set_quantity:', url); // Log the full URL
+                const response = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ vivino_url: vivinoUrl, quantity: newQuantity })
                 });
-                const responseText = await response.text(); // Read as text first
-                console.log('Raw response for /inventory/wine/set_quantity:', responseText); // Log raw response
-                const result = JSON.parse(responseText); // Then parse as JSON
+                const responseText = await response.text();
+                console.log('Raw response for /inventory/wine/set_quantity:', responseText);
+                const result = JSON.parse(responseText);
 
                 if (!response.ok) {
                     throw new Error(result.message || 'Failed to set wine quantity');
@@ -425,14 +429,16 @@
                 return;
             }
             try {
-                const response = await fetch(`${BASE_URL}/inventory/wine`, {
+                const url = `${BASE_URL}/inventory/wine`;
+                console.log('Requesting URL for /inventory/wine (DELETE):', url); // Log the full URL
+                const response = await fetch(url, {
                     method: 'DELETE',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ vivino_url: vivinoUrl })
                 });
-                const responseText = await response.text(); // Read as text first
-                console.log('Raw response for /inventory/wine (DELETE):', responseText); // Log raw response
-                const result = JSON.parse(responseText); // Then parse as JSON
+                const responseText = await response.text();
+                console.log('Raw response for /inventory/wine (DELETE):', responseText);
+                const result = JSON.parse(responseText);
 
                 if (!response.ok) {
                     throw new Error(result.message || 'Failed to delete wine');
@@ -458,15 +464,17 @@
                 reinitializeDbMessage.className = 'mt-3 text-center font-medium text-blue-600';
 
                 try {
-                    const response = await fetch(`${BASE_URL}/reinitialize-database-action`, {
+                    const url = `${BASE_URL}/reinitialize-database-action`;
+                    console.log('Requesting URL for /reinitialize-database-action:', url); // Log the full URL
+                    const response = await fetch(url, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
                         }
                     });
-                    const responseText = await response.text(); // Read as text first
-                    console.log('Raw response for /reinitialize-database-action:', responseText); // Log raw response
-                    const data = JSON.parse(responseText); // Then parse as JSON
+                    const responseText = await response.text();
+                    console.log('Raw response for /reinitialize-database-action:', responseText);
+                    const data = JSON.parse(responseText);
 
                     if (response.ok) {
                         reinitializeDbMessage.textContent = data.message;
@@ -498,15 +506,17 @@
                 syncMessage.textContent = 'Synchronizing wines...';
                 syncMessage.className = 'mt-3 text-center font-medium text-blue-600';
                 try {
-                    const response = await fetch(`${BASE_URL}/sync-all-wines`, {
+                    const url = `${BASE_URL}/sync-all-wines`;
+                    console.log('Requesting URL for /sync-all-wines:', url); // Log the full URL
+                    const response = await fetch(url, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
                         }
                     });
-                    const responseText = await response.text(); // Read as text first
-                    console.log('Raw response for /sync-all-wines:', responseText); // Log raw response
-                    const data = JSON.parse(responseText); // Then parse as JSON
+                    const responseText = await response.text();
+                    console.log('Raw response for /sync-all-wines:', responseText);
+                    const data = JSON.parse(responseText);
 
                     if (response.ok) {
                         syncMessage.textContent = data.message;
