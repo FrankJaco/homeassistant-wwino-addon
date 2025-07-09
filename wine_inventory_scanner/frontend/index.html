@@ -53,6 +53,9 @@
             max-width: 500px;
             width: 90%;
             position: relative;
+            /* Added for scrollability on smaller screens */
+            max-height: 90vh; /* Limit height to 90% of viewport height */
+            overflow-y: auto; /* Enable vertical scrolling if content overflows */
         }
         .modal-close-button {
             position: absolute;
@@ -234,7 +237,7 @@
             }
 
             inventory.forEach(item => {
-                const row = tbody.insertRow(); // FIX: Changed from insertCell() to insertRow()
+                const row = tbody.insertRow(); // Corrected from insertCell() to insertRow()
                 row.className = 'border-b border-gray-200 hover:bg-gray-50';
 
                 // Image Cell
