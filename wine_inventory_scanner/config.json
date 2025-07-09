@@ -10,6 +10,11 @@
   "init": false,
   "boot": "auto",
   "host_network": true,
+  "ingress": true,
+  "ingress_port": 5000,
+  "panel_icon": "mdi:glass-wine",
+  "panel_title": "Wonderful Wino",
+  "panel_admin": false,
   "map": ["share:rw"],
   "options": {
     "HOME_ASSISTANT_URL": "http://homeassistant.local:8123",
@@ -31,4 +36,3 @@
   },
   "webui": "http://[HOST]:[PORT:5000]"
 }
-
