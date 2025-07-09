@@ -79,81 +79,26 @@ COUNTRY_ABBREVIATIONS = {
 }
 
 
-def format_wine_for_todo(wine: dict) -> str: # Removed quantity parameter from signature
+def format_wine_for_todo(wine: dict) -> str:
+    """
+    Formats the wine name and vintage for display in the Home Assistant To-Do list item summary.
+    This format is also used for matching items for removal/update.
+    Example: "Wine Name (2020)"
+    """
     name = wine.get("name") or "n/a"
     vintage = wine.get("vintage")
 
-    # Summary line is now just name and vintage, without quantity
     if vintage:
         return f"{name} ({vintage})"
     else:
         return name # If vintage is missing
 
-# Updated sync_to_ha_todo function
-def sync_to_ha_todo(wine: dict, current_quantity: int) -> None:
-    # item_text will be just "Name (Vintage)" as per the new format_wine_for_todo
-    item_text = format_wine_for_todo(wine) # No quantity in summary
-    description = build_markdown_description(wine, current_quantity, is_for_todo=True) # Quantity in description
-    entity_id = TODO_LIST_ENTITY_ID
-    headers = {
-        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
-        "Content-Type": "application/json",
-    }
-    # Create a redacted headers dictionary for logging
-    redacted_headers = headers.copy()
-    if "Authorization" in redacted_headers:
-        redacted_headers["Authorization"] = "Bearer [REDACTED]"
-
-    # Initialize resp to None to prevent UnboundLocalError
-    resp = None
-
-    # Always attempt to remove the old item first to ensure updates are reflected
-    remove_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
-    remove_payload = {
-        "entity_id": entity_id,
-        "item": item_text
-    }
-    logger.debug(f"HA To-Do remove_item request: URL={remove_url}, Headers={redacted_headers}, Payload={remove_payload}")
-    try:
-        resp = requests.post(remove_url, json=remove_payload, headers=headers, timeout=5)
-        resp.raise_for_status()
-        logger.info(f"HA To-Do removed (or attempted to remove) for update/deletion: {item_text}")
-    except requests.exceptions.HTTPError as http_e:
-        logger.error(
-            f"HA To-Do remove attempt failed (HTTP Error) for '{item_text}'. "
-            f"Status: {http_e.response.status_code}, Response: {http_e.response.text}"
-        )
-    except Exception as e:
-        logger.warning(
-            f"HA To-Do remove attempt failed for '{item_text}'. "
-            f"This can be ignored if adding a new wine for the first time. "
-            f"Check Home Assistant logs if this persists for existing items or indicates a network problem: {e}"
-        )
-
-    if current_quantity > 0:
-        # If quantity > 0, re-add the item with the updated description
-        add_url = f"{HOME_ASSISTANT_URL}/api/services/todo/add_item"
-        add_payload = {
-            "entity_id": entity_id,
-            "item": item_text, # This now does NOT include quantity
-            "description": description # This DOES include quantity
-        }
-        logger.debug(f"HA To-Do add_item request: URL={add_url}, Headers={redacted_headers}, Payload={add_payload}")
-        try:
-            resp = requests.post(add_url, json=add_payload, headers=headers, timeout=5)
-            resp.raise_for_status()
-            logger.info(f"HA To-Do synchronized (re-added/updated) for: {item_text} with quantity {current_quantity}")
-        except requests.exceptions.HTTPError as http_e:
-            logger.error(
-                f"HA To-Do sync failed for add/update (HTTP Error): {item_text}. "
-                f"Status: {http_e.response.status_code}, Response: {http_e.response.text}"
-            )
-        except Exception as e:
-            logger.error(f"HA To-Do sync failed for add/update: {e}")
-    else:
-        logger.info(f"Wine quantity is 0. Item not re-added to HA To-Do: {item_text}")
-
 def build_markdown_description(wine: dict, current_quantity: int, is_for_todo: bool = True) -> str:
+    """
+    Builds a Markdown-formatted description for the wine, used in the To-Do list item's description
+    or for full display in the frontend. Includes varietal, region, country, quantity, and rating.
+    Applies truncation and formatting rules based on 'is_for_todo' flag.
+    """
     description_parts = []
 
     # Line 1: Varietals (bold first, 32 char limit, 60% truncation for ToDo)
@@ -187,7 +132,7 @@ def build_markdown_description(wine: dict, current_quantity: int, is_for_todo: b
 
                 # --- Handle subsequent grapes for ToDo truncation ---
                 for i, grape in enumerate(individual_varietals[1:]):
-                    if not rendered_varietal_line_markdown and i > 0:
+                    if not rendered_varietal_line_markdown and i > 0: # If first grape was too long, don't add more
                         break
 
                     separator_text = " " if i == 0 else ", "
@@ -290,6 +235,7 @@ def build_markdown_description(wine: dict, current_quantity: int, is_for_todo: b
 
 # --- Database Initialization ---
 def init_db():
+    """Initializes the SQLite database, creating the 'wines' table if it doesn't exist."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute('''
@@ -316,6 +262,7 @@ def init_db():
 def reinitialize_database():
     """
     Drops all existing tables and then recreates them by calling init_db().
+    Useful for a clean start of the database.
     """
     conn = None
     try:
@@ -340,37 +287,88 @@ def reinitialize_database():
             conn.close()
 
 
-#Clear all items from HA To-Do list
-def clear_ha_todo_list() -> None:
+def sync_to_ha_todo(wine: dict, current_quantity: int) -> None:
+    """
+    Synchronizes a single wine item with the Home Assistant To-Do list.
+    It first attempts to remove the item (in case of updates or deletion),
+    then re-adds it if the quantity is greater than 0.
+    """
+    item_text = format_wine_for_todo(wine) # Formats as "Name (Vintage)"
+    description = build_markdown_description(wine, current_quantity, is_for_todo=True) # Includes quantity in description
     entity_id = TODO_LIST_ENTITY_ID
     headers = {
         "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
         "Content-Type": "application/json",
     }
-    # Create a redacted headers dictionary for logging
+    # Create a redacted headers dictionary for logging to avoid exposing token
+    redacted_headers = headers.copy()
+    if "Authorization" in redacted_headers:
+        redacted_headers["Authorization"] = "Bearer [REDACTED]"
+
+    # Always attempt to remove the old item first to ensure updates are reflected
+    remove_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+    remove_payload = {
+        "entity_id": entity_id,
+        "item": item_text
+    }
+    logger.debug(f"HA To-Do remove_item request: URL={remove_url}, Headers={redacted_headers}, Payload={remove_payload}")
+    try:
+        resp = requests.post(remove_url, json=remove_payload, headers=headers, timeout=5)
+        resp.raise_for_status()
+        logger.info(f"HA To-Do removed (or attempted to remove) for update/deletion: {item_text}")
+    except requests.exceptions.HTTPError as http_e:
+        logger.error(
+            f"HA To-Do remove attempt failed (HTTP Error) for '{item_text}'. "
+            f"Status: {http_e.response.status_code}, Response: {http_e.response.text}"
+        )
+    except Exception as e:
+        logger.warning(
+            f"HA To-Do remove attempt failed for '{item_text}'. "
+            f"This can be ignored if adding a new wine for the first time. "
+            f"Check Home Assistant logs if this persists for existing items or indicates a network problem: {e}"
+        )
+
+    if current_quantity > 0:
+        # If quantity > 0, re-add the item with the updated description
+        add_url = f"{HOME_ASSISTANT_URL}/api/services/todo/add_item"
+        add_payload = {
+            "entity_id": entity_id,
+            "item": item_text, # This now does NOT include quantity in the summary
+            "description": description # This DOES include quantity in the detailed description
+        }
+        logger.debug(f"HA To-Do add_item request: URL={add_url}, Headers={redacted_headers}, Payload={add_payload}")
+        try:
+            resp = requests.post(add_url, json=add_payload, headers=headers, timeout=5)
+            resp.raise_for_status()
+            logger.info(f"HA To-Do synchronized (re-added/updated) for: {item_text} with quantity {current_quantity}")
+        except requests.exceptions.HTTPError as http_e:
+            logger.error(
+                f"HA To-Do sync failed for add/update (HTTP Error): {item_text}. "
+                f"Status: {http_e.response.status_code}, Response: {http_e.response.text}"
+            )
+        except Exception as e:
+            logger.error(f"HA To-Do sync failed for add/update: {e}")
+    else:
+        logger.info(f"Wine quantity is 0. Item not re-added to HA To-Do: {item_text}")
+
+
+def clear_ha_todo_list() -> None:
+    """
+    Attempts to clear all items from the configured Home Assistant To-Do list.
+    Note: This function might be unreliable with some To-Do list integrations
+    due to API limitations or the need for specific item UIDs for removal.
+    It is currently commented out in the full sync process.
+    """
+    entity_id = TODO_LIST_ENTITY_ID
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
     redacted_headers = headers.copy()
     if "Authorization" in redacted_headers:
         redacted_headers["Authorization"] = "Bearer [REDACTED]"
 
     clear_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_all"
-    # The payload for todo.remove_all should NOT include entity_id in the JSON body
-    # It should be part of the service call itself, but the API endpoint expects just the service name.
-    # The entity_id is implied by the service call context for this specific service.
-    # We are calling a service endpoint, not a state endpoint.
-    # Correct payload for /api/services/todo/remove_all is just an empty dict, or a dict with entity_id at the top level
-    # if it were a service call from within HA. But for the REST API, it's simpler.
-    # Given the 400 Bad Request, it's likely the payload is incorrect.
-    # Let's try sending an empty payload, or just the entity_id at the top level as a service call expects.
-    # For a service call via /api/services/<domain>/<service>, the entity_id should be in the payload.
-    # The HA documentation for todo.remove_all shows it takes an entity_id parameter.
-    # https://developers.home-assistant.io/docs/api/rest/#post-apidomainservice
-    # This means the payload should be: {"entity_id": "todo.your_list"}
-    # The previous code was correct for the payload structure.
-    # The 400 must be about something else. Let's try removing the payload entirely, as a test.
-    # No, that's not right. The HA API expects the entity_id in the payload for service calls.
-    # The 400 for remove_all is very strange if add_item is working.
-    # Let's assume the payload is correct and the issue is elsewhere for now, or a very specific HA version quirk.
-    # Reverting payload for remove_all to include entity_id as it was before, as it's standard for HA service calls.
     payload = {
         "entity_id": entity_id
     }
@@ -391,13 +389,17 @@ def clear_ha_todo_list() -> None:
             f"Failed to clear all items from HA To-Do list '{entity_id}': {e}"
         )
 
-# NEW FUNCTION: Sync all wines from DB to HA To-Do list
 def sync_db_to_ha_todo() -> None:
+    """
+    Performs a full synchronization of all wines from the local database
+    to the Home Assistant To-Do list. It iterates through each wine and
+    calls sync_to_ha_todo to ensure each item is correctly represented.
+    """
     logger.info("Starting full synchronization from database to HA To-Do list.")
-    conn = None # Initialize conn
+    conn = None
     try:
-        conn = sqlite3.connect(DB_PATH) # Directly connect as per your existing code
-        conn.row_factory = sqlite3.Row # Ensure row_factory is set for named column access
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
         cursor.execute("SELECT * FROM wines")
@@ -408,17 +410,16 @@ def sync_db_to_ha_todo() -> None:
             return
 
         for wine in wines:
-            wine_dict = dict(wine) # Convert Row object to dict
-            # Pass the current quantity from the fetched wine to the sync function
+            wine_dict = dict(wine)
             sync_to_ha_todo(wine_dict, wine_dict.get('quantity', 0))
 
         logger.info(f"Completed synchronization of {len(wines)} wines from database to HA To-Do list.")
     except sqlite3.Error as e:
         logger.error(f"Database error during full sync to HA To-Do list: {e}")
-    except Exception as e: # Catch other potential errors like HA API call issues
+    except Exception as e:
         logger.error(f"An unexpected error occurred during full sync to HA To-Do list: {e}")
     finally:
-        if conn: # Ensure connection is closed if it was opened
+        if conn:
             conn.close()
 
 
@@ -940,6 +941,10 @@ def insert_wine_data(wine_data, quantity=1):
 
 @app.route('/scan-wine', methods=['POST'])
 def scan_wine():
+    """
+    Endpoint to receive a Vivino URL, scrape wine data, and store/update it in the database.
+    Also triggers synchronization with Home Assistant To-Do list.
+    """
     data = request.get_json()
     if not data or 'vivino_url' not in data:
         logger.warning("Received invalid data for /scan-wine endpoint: %s", data)
@@ -988,14 +993,16 @@ def scan_wine():
 
 @app.route('/inventory', methods=['GET'])
 def get_inventory():
+    """
+    Endpoint to retrieve the current wine inventory from the database.
+    Supports filtering by name and vintage.
+    """
     conn = sqlite3.connect(DB_PATH)
-    # Ensure row_factory is set to sqlite3.Row for dictionary-like access
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     name_filter = request.args.get('name')
     vintage_filter = request.args.get('vintage')
 
-    # Select all columns
     query = "SELECT * FROM wines"
     params = []
     conditions = []
@@ -1019,9 +1026,7 @@ def get_inventory():
 
         wine_list = []
         for wine_row in wines:
-            wine_dict = dict(wine_row) # Convert Row object to dict
-            # The backend will NOT add a 'full_description' here.
-            # The frontend will now construct its display from individual fields.
+            wine_dict = dict(wine_row)
             wine_list.append(wine_dict)
 
         logger.info(f"Returning {len(wine_list)} wines from inventory.")
@@ -1032,9 +1037,13 @@ def get_inventory():
     finally:
         conn.close()
 
-# New endpoint to modify wine quantity
 @app.route('/inventory/wine/set_quantity', methods=['POST'])
 def set_wine_quantity():
+    """
+    Endpoint to set the quantity of a specific wine in the inventory.
+    If quantity is set to 0, the wine is deleted.
+    Triggers synchronization with Home Assistant To-Do list.
+    """
     data = request.get_json()
     if not data or 'vivino_url' not in data or 'quantity' not in data:
         logger.warning("Received invalid data for /inventory/wine/set_quantity endpoint: %s", data)
@@ -1091,6 +1100,11 @@ def set_wine_quantity():
 
 @app.route('/api/consume-wine', methods=['POST'])
 def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list.
+    """
     try:
         data = request.get_json()
         if not data or "item" not in data:
@@ -1176,9 +1190,12 @@ def consume_wine_from_webhook():
         return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
 
 
-# New endpoint to consume (decrement) wine quantity
 @app.route('/inventory/wine/consume', methods=['POST'])
 def consume_wine():
+    """
+    Endpoint for the frontend to consume (decrement quantity) a wine by its Vivino URL.
+    Triggers synchronization with Home Assistant To-Do list.
+    """
     data = request.get_json()
     vivino_url = data.get('vivino_url')
 
@@ -1189,7 +1206,6 @@ def consume_wine():
     cursor = conn.cursor()
     try:
         # Fetch the current wine data to pass to sync_to_ha_todo later
-        # Select all columns to get a complete wine_data_dict
         cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url,))
         wine_data_row = cursor.fetchone()
 
@@ -1197,31 +1213,27 @@ def consume_wine():
             logger.warning(f"Wine not found for consumption: {vivino_url}")
             return jsonify({'error': 'Wine not found in inventory'}), 404
 
-        # Prepare wine_data_dict for sync_to_ha_todo using fetched data and columns
         columns = [description[0] for description in cursor.description]
         wine_data_dict = dict(zip(columns, wine_data_row))
 
-        # Get current quantity from the fetched row
         current_quantity = wine_data_dict['quantity']
-        wine_id = wine_data_dict['id'] # Assuming 'id' is one of the selected columns
+        wine_id = wine_data_dict['id']
 
-        new_quantity = 0 # Initialize new_quantity
+        new_quantity = 0
 
         if current_quantity > 1:
             new_quantity = current_quantity - 1
             cursor.execute("UPDATE wines SET quantity = ?, added_at = CURRENT_TIMESTAMP WHERE id = ?", (new_quantity, wine_id))
             logger.info(f"Decremented quantity for wine {vivino_url} to {new_quantity}.")
-            # Sync with HA for updated quantity
             sync_to_ha_todo(wine_data_dict, new_quantity)
         else: # Quantity is 1, so it becomes 0 after decrement (delete)
-            new_quantity = 0 # Explicitly set to 0 for HA sync
-            cursor.execute("DELETE FROM wines WHERE id = ?", (wine_id,)) # Corrected SQL syntax for DELETE
+            new_quantity = 0
+            cursor.execute("DELETE FROM wines WHERE id = ?", (wine_id,))
             logger.info(f"Successfully consumed and deleted wine {vivino_url} as quantity reached 0.")
-            # Sync with HA to remove item
             sync_to_ha_todo(wine_data_dict, new_quantity)
 
         conn.commit()
-        return jsonify({'status': 'success', 'new_quantity': new_quantity}) # Added new_quantity to response for clarity
+        return jsonify({'status': 'success', 'new_quantity': new_quantity})
     except sqlite3.Error as e:
         logger.error(f"Database error during consumption: {e}")
         conn.rollback()
@@ -1230,10 +1242,12 @@ def consume_wine():
         conn.close()
 
 
-
-
 @app.route('/inventory/wine', methods=['DELETE'])
 def delete_wine():
+    """
+    Endpoint to delete a wine from the inventory by its Vivino URL.
+    Triggers synchronization with Home Assistant To-Do list to remove the item.
+    """
     data = request.get_json()
     if not data or 'vivino_url' not in data:
         logger.warning("Received invalid data for /inventory/wine DELETE endpoint: %s", data)
@@ -1247,8 +1261,6 @@ def delete_wine():
         cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url,))
         wine_to_delete = cursor.fetchone()
 
-        # Capture description immediately after the SELECT query, if a result was found
-        # This description will be used to form the dictionary later
         wine_columns_description = None
         if wine_to_delete:
             wine_columns_description = cursor.description
@@ -1258,9 +1270,8 @@ def delete_wine():
         if cursor.rowcount > 0:
             logger.info(f"Successfully deleted wine with URL: {vivino_url}")
 
-            # If wine was deleted, remove it from HA To-Do list
-            if wine_to_delete and wine_columns_description: # Ensure both exist
-                columns = [description[0] for description in wine_columns_description] # Use captured description
+            if wine_to_delete and wine_columns_description:
+                columns = [description[0] for description in wine_columns_description]
                 wine_data_dict = dict(zip(columns, wine_to_delete))
                 sync_to_ha_todo(wine_data_dict, 0) # Call with quantity 0 to ensure removal from HA
 
@@ -1277,10 +1288,14 @@ def delete_wine():
 
 @app.route("/sync-all-wines", methods=["POST"])
 def sync_all_wines_to_ha():
+    """
+    Endpoint to trigger a full synchronization of all wines from the database
+    to the Home Assistant To-Do list.
+    """
     logger.info("Received request to sync all wines to Home Assistant.")
     try:
-        clear_ha_todo_list() # Clear existing To-Do items
-        sync_db_to_ha_todo() # Then re-add all wines from DB
+        # clear_ha_todo_list() # Commented out due to persistent 400 Bad Request and API limitations
+        sync_db_to_ha_todo() # Then re-add/update all wines from DB
         return jsonify({"status": "success", "message": "All wines synchronized to Home Assistant."}), 200
     except Exception as e:
         logger.error(f"Error during full synchronization to Home Assistant: {e}")
@@ -1288,9 +1303,13 @@ def sync_all_wines_to_ha():
 
 @app.route("/reinitialize-database-action", methods=["POST"])
 def reinitialize_db_endpoint():
+    """
+    Endpoint to reinitialize the database from the web UI.
+    This will delete all existing wine data.
+    """
     logger.warning("Received request to reinitialize database from web UI.")
     try:
-        reinitialize_database() # Call your existing function
+        reinitialize_database()
         return jsonify({"status": "success", "message": "Database reinitialized successfully. Please restart add-on from Home Assistant if needed."}), 200
     except Exception as e:
         logger.error(f"Error reinitializing database from web UI: {e}")
@@ -1298,10 +1317,12 @@ def reinitialize_db_endpoint():
 
 @app.route("/")
 def serve_frontend():
+    """Serves the main frontend HTML file."""
     return send_from_directory("frontend", "index.html")
 
 @app.route("/<path:path>")
 def serve_static(path):
+    """Serves static files (CSS, JS, images) from the 'frontend' directory."""
     return send_from_directory("frontend", path)
 
 
