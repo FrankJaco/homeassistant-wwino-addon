@@ -109,12 +109,13 @@ def sync_to_ha_todo(wine: dict, current_quantity: int) -> None:
         "entity_id": entity_id,
         "item": item_text
     }
+    logger.debug(f"HA To-Do remove_item request: URL={remove_url}, Headers={headers}, Payload={remove_payload}")
     try:
+        # Removed verify=False - should not be needed for http://supervisor
         resp = requests.post(remove_url, json=remove_payload, headers=headers, timeout=5)
         resp.raise_for_status()
         logger.info(f"HA To-Do removed (or attempted to remove) for update/deletion: {item_text}")
     except Exception as e:
-        # Modified log message for clarity
         logger.warning(
             f"HA To-Do remove attempt failed for '{item_text}'. "
             f"This can be ignored if adding a new wine for the first time. "
@@ -130,7 +131,9 @@ def sync_to_ha_todo(wine: dict, current_quantity: int) -> None:
             "item": item_text, # This now does NOT include quantity
             "description": description # This DOES include quantity
         }
+        logger.debug(f"HA To-Do add_item request: URL={add_url}, Headers={headers}, Payload={add_payload}")
         try:
+            # Removed verify=False - should not be needed for http://supervisor
             resp = requests.post(add_url, json=add_payload, headers=headers, timeout=5)
             resp.raise_for_status()
             logger.info(f"HA To-Do synchronized (re-added/updated) for: {item_text} with quantity {current_quantity}")
@@ -337,8 +340,10 @@ def clear_ha_todo_list() -> None:
     payload = {
         "entity_id": entity_id
     }
+    logger.debug(f"HA To-Do remove_all request: URL={clear_url}, Headers={headers}, Payload={payload}")
     resp = None
     try:
+        # Removed verify=False
         resp = requests.post(clear_url, json=payload, headers=headers, timeout=10)
         resp.raise_for_status()
         logger.info(f"Successfully sent request to clear all items from HA To-Do list: {entity_id}")
@@ -726,7 +731,6 @@ def scrape_vivino_data(vivino_url):
                 re.compile(r'vivinoRating_ratings'),
                 re.compile(r'vivinoRating_summary__reviewerAndActions'),
                 re.compile(r'community-score__total-ratings'),
-                re.compile(r'community-score__reviews-count'),
                 re.compile(r'review-score__count')
             ]
             for class_name in ratings_elements_classes:
@@ -1239,12 +1243,8 @@ def delete_wine():
 def sync_all_wines_to_ha():
     logger.info("Received request to sync all wines to Home Assistant.")
     try:
-        # The clear_ha_todo_list() function attempts to remove all items.
-        # However, due to HA's API design, it might only remove items that match
-        # the format it expects. The sync_db_to_ha_todo() will ensure existing
-        # DB items are updated/re-added, effectively handling "matching" items.
-        # clear_ha_todo_list() # Removed this as it might be too aggressive or fail on non-matching items.
-        # Instead, rely on sync_to_ha_todo's internal remove-then-add logic.
+        # Re-enable clear_ha_todo_list() here.
+        clear_ha_todo_list()
         sync_db_to_ha_todo() # Sync all wines from DB to HA
         return jsonify({"status": "success", "message": "All wines synchronized to Home Assistant."}), 200
     except Exception as e:
