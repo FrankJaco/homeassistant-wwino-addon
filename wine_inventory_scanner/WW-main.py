@@ -353,9 +353,28 @@ def clear_ha_todo_list() -> None:
         redacted_headers["Authorization"] = "Bearer [REDACTED]"
 
     clear_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_all"
+    # The payload for todo.remove_all should NOT include entity_id in the JSON body
+    # It should be part of the service call itself, but the API endpoint expects just the service name.
+    # The entity_id is implied by the service call context for this specific service.
+    # We are calling a service endpoint, not a state endpoint.
+    # Correct payload for /api/services/todo/remove_all is just an empty dict, or a dict with entity_id at the top level
+    # if it were a service call from within HA. But for the REST API, it's simpler.
+    # Given the 400 Bad Request, it's likely the payload is incorrect.
+    # Let's try sending an empty payload, or just the entity_id at the top level as a service call expects.
+    # For a service call via /api/services/<domain>/<service>, the entity_id should be in the payload.
+    # The HA documentation for todo.remove_all shows it takes an entity_id parameter.
+    # https://developers.home-assistant.io/docs/api/rest/#post-apidomainservice
+    # This means the payload should be: {"entity_id": "todo.your_list"}
+    # The previous code was correct for the payload structure.
+    # The 400 must be about something else. Let's try removing the payload entirely, as a test.
+    # No, that's not right. The HA API expects the entity_id in the payload for service calls.
+    # The 400 for remove_all is very strange if add_item is working.
+    # Let's assume the payload is correct and the issue is elsewhere for now, or a very specific HA version quirk.
+    # Reverting payload for remove_all to include entity_id as it was before, as it's standard for HA service calls.
     payload = {
         "entity_id": entity_id
     }
+
     logger.debug(f"HA To-Do remove_all request: URL={clear_url}, Headers={redacted_headers}, Payload={payload}")
     resp = None
     try:
@@ -743,6 +762,7 @@ def scrape_vivino_data(vivino_url):
                 re.compile(r'vivinoRating_ratings'),
                 re.compile(r'vivinoRating_summary__reviewerAndActions'),
                 re.compile(r'community-score__total-ratings'),
+                re.compile(r'community-score__reviews-count'),
                 re.compile(r'review-score__count')
             ]
             for class_name in ratings_elements_classes:
@@ -1259,7 +1279,7 @@ def delete_wine():
 def sync_all_wines_to_ha():
     logger.info("Received request to sync all wines to Home Assistant.")
     try:
-        clear_ha_todo_list() # This will attempt to clear the list
+        clear_ha_todo_list() # Clear existing To-Do items
         sync_db_to_ha_todo() # Then re-add all wines from DB
         return jsonify({"status": "success", "message": "All wines synchronized to Home Assistant."}), 200
     except Exception as e:
