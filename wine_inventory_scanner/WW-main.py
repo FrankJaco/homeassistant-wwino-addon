@@ -317,10 +317,18 @@ def sync_to_ha_todo(wine: dict, current_quantity: int) -> None:
         resp.raise_for_status()
         logger.info(f"HA To-Do removed (or attempted to remove) for update/deletion: {item_text}")
     except requests.exceptions.HTTPError as http_e:
-        logger.error(
-            f"HA To-Do remove attempt failed (HTTP Error) for '{item_text}'. "
-            f"Status: {http_e.response.status_code}, Response: {http_e.response.text}"
-        )
+        # Check for specific ServiceValidationError related to item not found
+        if http_e.response.status_code == 500 and "Unable to find to-do list item" in http_e.response.text:
+            logger.warning(
+                f"HA To-Do remove attempt failed (Item Not Found) for '{item_text}'. "
+                f"This can be ignored if adding a new wine for the first time or item was already removed. "
+                f"Status: {http_e.response.status_code}, Response: {http_e.response.text}"
+            )
+        else:
+            logger.error(
+                f"HA To-Do remove attempt failed (HTTP Error) for '{item_text}'. "
+                f"Status: {http_e.response.status_code}, Response: {http_e.response.text}"
+            )
     except Exception as e:
         logger.warning(
             f"HA To-Do remove attempt failed for '{item_text}'. "
