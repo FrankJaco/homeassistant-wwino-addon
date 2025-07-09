@@ -199,8 +199,23 @@
     <script>
         // Define BASE_URL for API calls, using __ingress_url if available
         let BASE_URL = '';
-        if (typeof window !== 'undefined' && typeof window.__ingress_url !== 'undefined') {
+        if (typeof window !== 'undefined' && typeof window.__ingress_url !== 'undefined' && window.__ingress_url !== '') {
             BASE_URL = window.__ingress_url;
+        } else {
+            // Fallback for when __ingress_url is not injected or is empty.
+            // This attempts to derive the base path from the current URL's pathname.
+            // Home Assistant's ingress path typically looks like /api/hassio_ingress/LONG_TOKEN/
+            // If the current URL is /api/hassio_ingress/LONG_TOKEN/index.html, we need to get /api/hassio_ingress/LONG_TOKEN/
+            const pathParts = window.location.pathname.split('/');
+            // Remove 'index.html' or any other filename at the end
+            if (pathParts.length > 0 && pathParts[pathParts.length - 1].includes('.')) {
+                pathParts.pop();
+            }
+            // Join parts and ensure it ends with a slash if it's not empty, for consistent URL joining
+            BASE_URL = pathParts.join('/');
+            if (BASE_URL !== '' && !BASE_URL.endsWith('/')) {
+                BASE_URL += '/';
+            }
         }
         console.log('Calculated BASE_URL:', BASE_URL); // Log the calculated BASE_URL
 
@@ -220,7 +235,7 @@
             const inventoryTableBody = document.getElementById('inventoryTableBody');
             try {
                 inventoryTableBody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-gray-500">Loading inventory...</td></tr>';
-                const url = `${BASE_URL}/inventory`;
+                const url = `${BASE_URL}inventory`; // Removed leading slash as BASE_URL now ends with one
                 console.log('Requesting URL for /inventory:', url); // Log the full URL
                 const response = await fetch(url);
                 if (!response.ok) {
@@ -344,8 +359,8 @@
 
                 try {
                     scanMessage.style.display = 'none'; // Hide previous messages
-                    const url = `${BASE_URL}/scan-wine`;
-                    console.log('Requesting URL for /scan-wine:', url); // Log the full URL
+                    const url = `${BASE_URL}scan-wine`; // Removed leading slash
+                    console.log('Requesting URL for /scan-wine:', url);
                     const response = await fetch(url, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -376,8 +391,8 @@
                 return;
             }
             try {
-                const url = `${BASE_URL}/inventory/wine/consume`;
-                console.log('Requesting URL for /inventory/wine/consume:', url); // Log the full URL
+                const url = `${BASE_URL}inventory/wine/consume`; // Removed leading slash
+                console.log('Requesting URL for /inventory/wine/consume:', url);
                 const response = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -401,8 +416,8 @@
         // --- Set Wine Quantity ---
         async function setWineQuantity(vivinoUrl, newQuantity) {
             try {
-                const url = `${BASE_URL}/inventory/wine/set_quantity`;
-                console.log('Requesting URL for /inventory/wine/set_quantity:', url); // Log the full URL
+                const url = `${BASE_URL}inventory/wine/set_quantity`; // Removed leading slash
+                console.log('Requesting URL for /inventory/wine/set_quantity:', url);
                 const response = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -429,8 +444,8 @@
                 return;
             }
             try {
-                const url = `${BASE_URL}/inventory/wine`;
-                console.log('Requesting URL for /inventory/wine (DELETE):', url); // Log the full URL
+                const url = `${BASE_URL}inventory/wine`; // Removed leading slash
+                console.log('Requesting URL for /inventory/wine (DELETE):', url);
                 const response = await fetch(url, {
                     method: 'DELETE',
                     headers: { 'Content-Type': 'application/json' },
@@ -464,8 +479,8 @@
                 reinitializeDbMessage.className = 'mt-3 text-center font-medium text-blue-600';
 
                 try {
-                    const url = `${BASE_URL}/reinitialize-database-action`;
-                    console.log('Requesting URL for /reinitialize-database-action:', url); // Log the full URL
+                    const url = `${BASE_URL}reinitialize-database-action`; // Removed leading slash
+                    console.log('Requesting URL for /reinitialize-database-action:', url);
                     const response = await fetch(url, {
                         method: 'POST',
                         headers: {
@@ -506,8 +521,8 @@
                 syncMessage.textContent = 'Synchronizing wines...';
                 syncMessage.className = 'mt-3 text-center font-medium text-blue-600';
                 try {
-                    const url = `${BASE_URL}/sync-all-wines`;
-                    console.log('Requesting URL for /sync-all-wines:', url); // Log the full URL
+                    const url = `${BASE_URL}sync-all-wines`; // Removed leading slash
+                    console.log('Requesting URL for /sync-all-wines:', url);
                     const response = await fetch(url, {
                         method: 'POST',
                         headers: {
