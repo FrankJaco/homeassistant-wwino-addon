@@ -1,6 +1,6 @@
 {
   "name": "Wonderful Wino",
-  "version": "0.1.0b",
+  "version": "0.1.1b",
   "slug": "wonderful_wino",
   "description": "Access your wines from Home Assistant ToDo list. Yes, a nod to both George Carlin and the Mothers of Invention",
   "url": "https://github.com/frankjaco/homeassistant-wwino-addon",

@@ -1276,10 +1276,11 @@ if __name__ == '__main__':
     # Check if REINITIALIZE_DATABASE environment variable is set to trigger a fresh start
     reinitialize_flag = os.environ.get("REINITIALIZE_DATABASE", "false").lower()
 
-    # CORRECTED LINE: Ensure this line is exactly as shown below, with correct quotes and parentheses.
     logger.debug(f"DEBUG: REINITIALIZE_DATABASE as read by app: '{reinitialize_flag}' (Type: {type(reinitialize_flag)})")
 
-# Application Entry Point and Initialization
+    # Log the HOME_ASSISTANT_URL being used by the Flask app
+    logger.info(f"Flask app using HOME_ASSISTANT_URL: '{HOME_ASSISTANT_URL}'")
+
     if __name__ == '__main__':
         # --- Database Initialization ---
         logger.info("Ensuring database tables exist.")
