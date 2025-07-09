@@ -99,6 +99,10 @@ def sync_to_ha_todo(wine: dict, current_quantity: int) -> None:
         "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
         "Content-Type": "application/json",
     }
+    # Create a redacted headers dictionary for logging
+    redacted_headers = headers.copy()
+    if "Authorization" in redacted_headers:
+        redacted_headers["Authorization"] = "Bearer [REDACTED]"
 
     # Initialize resp to None to prevent UnboundLocalError
     resp = None
@@ -109,9 +113,8 @@ def sync_to_ha_todo(wine: dict, current_quantity: int) -> None:
         "entity_id": entity_id,
         "item": item_text
     }
-    logger.debug(f"HA To-Do remove_item request: URL={remove_url}, Headers={headers}, Payload={remove_payload}")
+    logger.debug(f"HA To-Do remove_item request: URL={remove_url}, Headers={redacted_headers}, Payload={remove_payload}")
     try:
-        # Removed verify=False - should not be needed for http://supervisor
         resp = requests.post(remove_url, json=remove_payload, headers=headers, timeout=5)
         resp.raise_for_status()
         logger.info(f"HA To-Do removed (or attempted to remove) for update/deletion: {item_text}")
@@ -131,9 +134,8 @@ def sync_to_ha_todo(wine: dict, current_quantity: int) -> None:
             "item": item_text, # This now does NOT include quantity
             "description": description # This DOES include quantity
         }
-        logger.debug(f"HA To-Do add_item request: URL={add_url}, Headers={headers}, Payload={add_payload}")
+        logger.debug(f"HA To-Do add_item request: URL={add_url}, Headers={redacted_headers}, Payload={add_payload}")
         try:
-            # Removed verify=False - should not be needed for http://supervisor
             resp = requests.post(add_url, json=add_payload, headers=headers, timeout=5)
             resp.raise_for_status()
             logger.info(f"HA To-Do synchronized (re-added/updated) for: {item_text} with quantity {current_quantity}")
@@ -336,14 +338,18 @@ def clear_ha_todo_list() -> None:
         "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
         "Content-Type": "application/json",
     }
+    # Create a redacted headers dictionary for logging
+    redacted_headers = headers.copy()
+    if "Authorization" in redacted_headers:
+        redacted_headers["Authorization"] = "Bearer [REDACTED]"
+
     clear_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_all"
     payload = {
         "entity_id": entity_id
     }
-    logger.debug(f"HA To-Do remove_all request: URL={clear_url}, Headers={headers}, Payload={payload}")
+    logger.debug(f"HA To-Do remove_all request: URL={clear_url}, Headers={redacted_headers}, Payload={payload}")
     resp = None
     try:
-        # Removed verify=False
         resp = requests.post(clear_url, json=payload, headers=headers, timeout=10)
         resp.raise_for_status()
         logger.info(f"Successfully sent request to clear all items from HA To-Do list: {entity_id}")
@@ -364,14 +370,6 @@ def sync_db_to_ha_todo() -> None:
         cursor.execute("SELECT * FROM wines")
         wines = cursor.fetchall()
         
-        # We need to know what's currently in HA to remove items that are no longer in DB,
-        # but the HA API doesn't easily give us the *text* of all current items.
-        # So, the current strategy is to push all DB items. `sync_to_ha_todo` handles existing.
-        # If an item is in HA but no longer in DB, it won't be explicitly removed by this loop alone.
-        # For a truly robust "sync", we'd fetch HA items, diff with DB, then add/remove.
-        # For now, let's assume `sync_to_ha_todo` (which first attempts to remove then re-add/update)
-        # combined with `reinitialize_database` clearing everything will suffice for most cases.
-
         if not wines:
             logger.info("No wines found in database for synchronization. HA To-Do list will remain as is (unless database was just reinitialized).")
             return
@@ -1243,9 +1241,8 @@ def delete_wine():
 def sync_all_wines_to_ha():
     logger.info("Received request to sync all wines to Home Assistant.")
     try:
-        # Re-enable clear_ha_todo_list() here.
-        clear_ha_todo_list()
-        sync_db_to_ha_todo() # Sync all wines from DB to HA
+        clear_ha_todo_list() # This will attempt to clear the list
+        sync_db_to_ha_todo() # Then re-add all wines from DB
         return jsonify({"status": "success", "message": "All wines synchronized to Home Assistant."}), 200
     except Exception as e:
         logger.error(f"Error during full synchronization to Home Assistant: {e}")
