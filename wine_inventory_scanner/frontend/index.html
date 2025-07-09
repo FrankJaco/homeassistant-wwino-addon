@@ -52,6 +52,42 @@
         .markdown-cell th {
             background-color: #f1f5f9;
         }
+
+        /* Modal specific styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            max-width: 500px;
+            width: 90%;
+            position: relative;
+        }
+        .modal-close-button {
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #6b7280;
+        }
+        .modal-close-button:hover {
+            color: #1f2937;
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col items-center py-8">
@@ -82,11 +118,14 @@
             <!-- Scan Wine Form -->
             <div class="border-t pt-6 mt-6 border-gray-200">
                 <p class="text-gray-700 mb-2">Once you find the wine on Vivino, paste its URL below to add it to your inventory:</p>
-                <form id="scanWineForm" class="flex flex-col sm:flex-row gap-4">
+                <form id="scanWineForm" class="flex flex-col sm:flex-row gap-4 items-center">
                     <input type="text" id="vivinoUrlInput" placeholder="Paste Vivino URL (e.g., https://www.vivino.com/w/1234567)"
                            class="flex-grow px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500" required>
-                    <input type="number" id="quantityInput" placeholder="Quantity (default 1)" min="1" value="1"
-                           class="w-full sm:w-32 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    <div class="flex items-center gap-2 w-full sm:w-auto">
+                        <label for="quantityInput" class="text-gray-700 font-medium whitespace-nowrap">Qty:</label>
+                        <input type="number" id="quantityInput" placeholder="1" min="1" value="1"
+                               class="w-20 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    </div>
                     <button type="submit"
                             class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500">
                         Add Wine
@@ -126,14 +165,18 @@
         <section class="mt-12 w-full max-w-xl p-6 bg-white rounded-lg shadow-md mx-auto">
             <h2 class="text-2xl font-bold text-gray-800 mb-4">Maintenance</h2>
 
-            <div class="flex flex-col sm:flex-row gap-4 mb-4">
+            <div class="flex flex-col sm:flex-row gap-4 mb-4 items-center">
                 <button id="syncAllWinesButton"
-                        class="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        class="w-full sm:flex-grow bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
                     Sync ToDo to DB
                 </button>
                 <button id="reinitializeDbButton"
-                        class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 focus:outline-none focus:ring-4 focus:ring-red-300">
+                        class="w-full sm:flex-grow bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 focus:outline-none focus:ring-4 focus:ring-red-300">
                     Reset DB
+                </button>
+                <button id="helpButton"
+                        class="w-12 h-12 flex items-center justify-center bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg transition duration-300 focus:outline-none focus:ring-4 focus:ring-green-300 flex-shrink-0">
+                    ?
                 </button>
             </div>
             <div id="reinitializeDbMessage" class="mt-3 text-center font-medium"></div>
@@ -147,6 +190,29 @@
     <footer class="mt-8 text-center text-gray-500 text-sm px-4">
         <p>&copy; 2025 Wonderful-Wino. All rights reserved.</p>
     </footer>
+
+    <!-- Help Modal Structure -->
+    <div id="helpModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <button class="modal-close-button" onclick="closeHelpModal()">&times;</button>
+            <h3 class="text-xl font-semibold text-gray-800 mb-4">Maintenance Help</h3>
+            <p class="text-gray-700">
+                This section provides tools to manage your wine inventory database and its synchronization with Home Assistant.
+            </p>
+            <ul class="list-disc pl-5 mt-3 text-gray-700">
+                <li><strong>Sync ToDo to DB:</strong> This button will synchronize your entire wine inventory from the Wonderful-Wino database to your Home Assistant To-Do list. It will first clear all existing items in the configured Home Assistant To-Do list and then re-add all wines from your inventory. Use this if your To-Do list in Home Assistant gets out of sync with your inventory.</li>
+                <li><strong>Reset DB:</strong> <span class="font-bold text-red-600">WARNING:</span> This action will permanently delete ALL your wine data from the Wonderful-Wino database. This cannot be undone. Use this only if you want to start your wine inventory from scratch.</li>
+            </ul>
+            <p class="text-gray-700 mt-3">
+                For more detailed information on troubleshooting or advanced usage, please refer to the add-on documentation.
+            </p>
+            <div class="mt-6 text-right">
+                <button onclick="closeHelpModal()" class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
 
     <script>
         // --- Utility Functions for Messaging ---
@@ -226,7 +292,6 @@
                     if (newQuantity !== null && !isNaN(newQuantity) && newQuantity.trim() !== '') {
                         setWineQuantity(item.vivino_url, parseInt(newQuantity, 10));
                     } else if (newQuantity !== null) {
-                        // Changed from alert to a custom message for consistency
                         showMessage('inventoryMessage', 'Please enter a valid number for quantity.', 'error');
                     }
                 };
@@ -242,7 +307,6 @@
 
         // --- Scan Wine ---
         const scanWineForm = document.getElementById('scanWineForm');
-        // Ensure scanWineForm exists before adding event listener
         if (scanWineForm) {
             scanWineForm.addEventListener('submit', async function(event) {
                 event.preventDefault();
@@ -275,7 +339,6 @@
 
         // --- Consume Wine ---
         async function consumeWine(vivinoUrl) {
-            // Replaced confirm with a custom message approach for consistency
             if (!confirm('Are you sure you want to consume one unit of this wine?')) {
                 return;
             }
@@ -319,7 +382,6 @@
 
         // --- Delete Wine ---
         async function deleteWine(vivinoUrl) {
-            // Replaced confirm with a custom message approach for consistency
             if (!confirm('Are you sure you want to delete this wine from your inventory? This action cannot be undone.')) {
                 return;
             }
@@ -345,9 +407,8 @@
         const reinitializeDbButton = document.getElementById('reinitializeDbButton');
         const reinitializeDbMessage = document.getElementById('reinitializeDbMessage');
 
-        if (reinitializeDbButton) { // Ensure button exists before adding listener
+        if (reinitializeDbButton) {
             reinitializeDbButton.addEventListener('click', async () => {
-                // Replaced confirm with a custom message approach for consistency
                 if (!confirm('Are you absolutely sure you want to reinitialize the database? This action will PERMANENTLY DELETE ALL YOUR WINE DATA and cannot be undone!')) {
                     return;
                 }
@@ -381,9 +442,9 @@
 
         // --- Sync All Wines to Home Assistant To-Do List (now "Sync ToDo to DB") ---
         const syncAllWinesButton = document.getElementById('syncAllWinesButton');
-        const syncMessage = document.getElementById('syncMessage'); // syncMessage is already declared above
+        const syncMessage = document.getElementById('syncMessage');
 
-        if (syncAllWinesButton) { // Ensure button exists before adding listener
+        if (syncAllWinesButton) {
             syncAllWinesButton.addEventListener('click', async () => {
                 syncMessage.textContent = 'Synchronizing wines...';
                 syncMessage.className = 'mt-3 text-center font-medium text-blue-600';
@@ -411,18 +472,32 @@
             });
         }
 
-
         // --- Vivino Search Form Functionality ---
         const vivinoSearchForm = document.getElementById('vivinoSearchForm');
         const vivinoSearchInput = document.getElementById('vivinoSearchInput');
 
-        if (vivinoSearchForm) { // Ensure form exists before adding listener
+        if (vivinoSearchForm) {
             vivinoSearchForm.addEventListener('submit', function(event) {
                 event.preventDefault();
                 const query = vivinoSearchInput.value;
                 const vivinoUrl = `https://www.vivino.com/search/wines?q=${encodeURIComponent(query)}`;
                 window.open(vivinoUrl, '_blank');
+                vivinoSearchInput.value = ''; // Clear the search input after opening Vivino
             });
+        }
+
+        // --- Help Modal Functionality ---
+        const helpButton = document.getElementById('helpButton');
+        const helpModal = document.getElementById('helpModal');
+
+        if (helpButton) {
+            helpButton.addEventListener('click', () => {
+                helpModal.classList.remove('hidden');
+            });
+        }
+
+        function closeHelpModal() {
+            helpModal.classList.add('hidden');
         }
 
         // Initial fetch of inventory when the page loads
