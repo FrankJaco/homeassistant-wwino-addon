@@ -147,7 +147,7 @@
             <div class="flex flex-col sm:flex-row gap-4 mb-4 items-center">
                 <button id="syncAllWinesButton"
                         class="w-full sm:flex-grow bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    Sync ToDo to DB
+                    Sync Todo from DB
                 </button>
                 <button id="reinitializeDbButton"
                         class="w-full sm:flex-grow bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 focus:outline-none focus:ring-4 focus:ring-red-300">
@@ -179,7 +179,7 @@
                 This section provides tools to manage your wine inventory database and its synchronization with Home Assistant.
             </p>
             <ul class="list-disc pl-5 mt-3 text-gray-700">
-                <li><strong>Sync ToDo to DB:</strong> This button will synchronize your entire wine inventory from the Wonderful-Wino database to your Home Assistant To-Do list. It will first clear all existing items in the configured Home Assistant To-Do list and then re-add all wines from your inventory. Use this if your To-Do list in Home Assistant gets out of sync with your inventory.</li>
+                <li><strong>Sync Todo from DB:</strong> This button will synchronize your entire wine inventory from the Wonderful-Wino database to your Home Assistant To-Do list. When clicked, a confirmation dialog will appear explaining that it will first clear all existing items in the configured Home Assistant To-Do list and then re-add all wines from your inventory. You will have the option to cancel this operation. Use this if your To-Do list in Home Assistant gets out of sync with your inventory.</li>
                 <li><strong>Reset DB:</strong> <span class="font-bold text-red-600">WARNING:</span> This action will permanently delete ALL your wine data from the Wonderful-Wino database. This cannot be undone. Use this only if you want to start your wine inventory from scratch.</li>
             </ul>
             <p class="text-gray-700 mt-3">
@@ -234,7 +234,7 @@
             }
 
             inventory.forEach(item => {
-                const row = tbody.insertRow();
+                const row = tbody.insertCell();
                 row.className = 'border-b border-gray-200 hover:bg-gray-50';
 
                 // Image Cell
@@ -317,7 +317,7 @@
                 actionsCell.appendChild(setQuantityButton);
 
                 const deleteButton = document.createElement('button');
-                deleteButton.textContent = 'Delete';
+                deleteButton.textContent = 'Delete Wine'; // Changed text here
                 deleteButton.className = 'text-red-600 hover:text-red-900';
                 deleteButton.onclick = () => deleteWine(item.vivino_url);
                 actionsCell.appendChild(deleteButton);
@@ -459,12 +459,17 @@
             });
         }
 
-        // --- Sync All Wines to Home Assistant To-Do List (now "Sync ToDo to DB") ---
+        // --- Sync All Wines to Home Assistant To-Do List (now "Sync Todo from DB") ---
         const syncAllWinesButton = document.getElementById('syncAllWinesButton');
         const syncMessage = document.getElementById('syncMessage');
 
         if (syncAllWinesButton) {
             syncAllWinesButton.addEventListener('click', async () => {
+                const confirmationMessage = "Are you sure you want to synchronize your wine inventory to Home Assistant? This will first clear all existing items in your Home Assistant To-Do list and then re-add all wines from your Wonderful-Wino inventory.";
+                if (!confirm(confirmationMessage)) {
+                    return; // User cancelled the operation
+                }
+
                 syncMessage.textContent = 'Synchronizing wines...';
                 syncMessage.className = 'mt-3 text-center font-medium text-blue-600';
                 try {
