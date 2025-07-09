@@ -15,42 +15,21 @@
             box-sizing: border-box;
             background-color: #f8f5ed; /* A light, warm background color for the whole page */
         }
-        /* Style for markdown-rendered content within the table */
-        .markdown-cell h4 {
+        /* Style for wine details in the table */
+        .wine-details-cell h4 {
             font-weight: 600; /* Semi-bold for wine name */
             margin-bottom: 0.25rem;
             color: #4a0e4e; /* Darker purple for headings */
         }
-        .markdown-cell p {
+        .wine-details-cell p {
             margin-top: 0.25rem;
             margin-bottom: 0.25rem;
             line-height: 1.3;
             color: #333;
         }
-        .markdown-cell strong {
+        .wine-details-cell strong {
             font-weight: 700; /* Bold for important text */
             color: #6b21a8; /* A darker purple for bold elements */
-        }
-        .markdown-cell ul {
-            list-style: disc;
-            margin-left: 1.25rem;
-            margin-top: 0.5rem;
-        }
-        .markdown-cell li {
-            margin-bottom: 0.25rem;
-        }
-        .markdown-cell table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 0.5rem;
-        }
-        .markdown-cell th, .markdown-cell td {
-            border: 1px solid #e2e8f0;
-            padding: 0.5rem;
-            text-align: left;
-        }
-        .markdown-cell th {
-            background-color: #f1f5f9;
         }
 
         /* Modal specific styles */
@@ -267,10 +246,51 @@
                     imageCell.textContent = 'No Image';
                 }
 
-                // Wine Details Cell (now using 'full_description' for rich markdown)
+                // Wine Details Cell - Rebuilding from individual fields
                 const detailsCell = row.insertCell();
-                detailsCell.className = 'px-6 py-4 text-sm font-medium text-gray-900 markdown-cell';
-                detailsCell.innerHTML = item.full_description || `${item.name} (${item.vintage})`; // Use full_description
+                detailsCell.className = 'px-6 py-4 text-sm font-medium text-gray-900 wine-details-cell';
+                let detailsHtml = '';
+
+                // Wine Name (and Vintage)
+                detailsHtml += `<h4>${item.name || 'N/A'} ${item.vintage ? `(${item.vintage})` : ''}</h4>`;
+
+                // Producer (if available) - Note: 'producer' field is not in the DB schema provided.
+                // If you want to display producer, you'd need to add it to your DB and scraping logic.
+                // For now, I'll comment this out or ensure it gracefully handles missing data.
+                // if (item.producer && item.producer !== "Unknown Producer") {
+                //     detailsHtml += `<p><strong>Producer:</strong> ${item.producer}</p>`;
+                // }
+
+                // Varietal (all of them)
+                if (item.varietal && item.varietal !== "Unknown Varietal") {
+                    detailsHtml += `<p><strong>Varietal:</strong> ${item.varietal}</p>`;
+                }
+
+                // Region, Country
+                let location = [];
+                if (item.region && item.region !== "Unknown Region") {
+                    location.push(item.region);
+                }
+                if (item.country && item.country !== "Unknown Country") {
+                    location.push(item.country);
+                }
+                if (location.length > 0) {
+                    detailsHtml += `<p><strong>Origin:</strong> ${location.join(', ')}</p>`;
+                }
+
+                // Vivino Rating and Number of Ratings
+                if (item.vivino_rating && item.vivino_num_ratings) {
+                    detailsHtml += `<p><strong>Rating:</strong> ${item.vivino_rating.toFixed(1)} ⭐ (${item.vivino_num_ratings} ratings)</p>`;
+                } else if (item.vivino_rating) {
+                    detailsHtml += `<p><strong>Rating:</strong> ${item.vivino_rating.toFixed(1)} ⭐</p>`;
+                }
+                
+                // Quantity
+                detailsHtml += `<p><strong>Quantity:</strong> ${item.quantity}</p>`;
+
+
+                detailsCell.innerHTML = detailsHtml;
+
 
                 // Actions Cell
                 const actionsCell = row.insertCell();
