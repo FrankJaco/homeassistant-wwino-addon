@@ -118,12 +118,16 @@ def sync_to_ha_todo(wine: dict, current_quantity: int) -> None:
         resp = requests.post(remove_url, json=remove_payload, headers=headers, timeout=5)
         resp.raise_for_status()
         logger.info(f"HA To-Do removed (or attempted to remove) for update/deletion: {item_text}")
+    except requests.exceptions.HTTPError as http_e:
+        logger.error(
+            f"HA To-Do remove attempt failed (HTTP Error) for '{item_text}'. "
+            f"Status: {http_e.response.status_code}, Response: {http_e.response.text}"
+        )
     except Exception as e:
         logger.warning(
             f"HA To-Do remove attempt failed for '{item_text}'. "
             f"This can be ignored if adding a new wine for the first time. "
-            f"Check Home Assistant logs if this persists for existing items or indicates a network problem: "
-            f"{e} -> {getattr(resp, 'text', '<no response>')}"
+            f"Check Home Assistant logs if this persists for existing items or indicates a network problem: {e}"
         )
 
     if current_quantity > 0:
@@ -139,8 +143,13 @@ def sync_to_ha_todo(wine: dict, current_quantity: int) -> None:
             resp = requests.post(add_url, json=add_payload, headers=headers, timeout=5)
             resp.raise_for_status()
             logger.info(f"HA To-Do synchronized (re-added/updated) for: {item_text} with quantity {current_quantity}")
+        except requests.exceptions.HTTPError as http_e:
+            logger.error(
+                f"HA To-Do sync failed for add/update (HTTP Error): {item_text}. "
+                f"Status: {http_e.response.status_code}, Response: {http_e.response.text}"
+            )
         except Exception as e:
-            logger.error(f"HA To-Do sync failed for add/update: {e} -> {getattr(resp, 'text', '<no response>')}")
+            logger.error(f"HA To-Do sync failed for add/update: {e}")
     else:
         logger.info(f"Wine quantity is 0. Item not re-added to HA To-Do: {item_text}")
 
@@ -353,9 +362,14 @@ def clear_ha_todo_list() -> None:
         resp = requests.post(clear_url, json=payload, headers=headers, timeout=10)
         resp.raise_for_status()
         logger.info(f"Successfully sent request to clear all items from HA To-Do list: {entity_id}")
+    except requests.exceptions.HTTPError as http_e:
+        logger.error(
+            f"Failed to clear all items from HA To-Do list '{entity_id}' (HTTP Error). "
+            f"Status: {http_e.response.status_code}, Response: {http_e.response.text}"
+        )
     except Exception as e:
         logger.error(
-            f"Failed to clear all items from HA To-Do list '{entity_id}': {e} -> {getattr(resp, 'text', '<no response>')}"
+            f"Failed to clear all items from HA To-Do list '{entity_id}': {e}"
         )
 
 # NEW FUNCTION: Sync all wines from DB to HA To-Do list
@@ -1057,85 +1071,89 @@ def set_wine_quantity():
 
 @app.route('/api/consume-wine', methods=['POST'])
 def consume_wine_from_webhook():
-    data = request.get_json()
-    if not data or "item" not in data:
-        logger.warning("Malformed webhook: missing 'item' field.")
-        return jsonify({"status": "error", "message": "Missing 'item' in request body."}), 400
-
-    item_text = data["item"]
-    logger.info(f"Webhook received for consumed wine: {item_text}")
-
-    # The item_text from HA will now be "Wine Name (Vintage)" (no 'xN')
-    parsed_name = None
-    parsed_vintage = None
-
-    # Regex to extract "Name (Vintage)"
-    match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
-    if match:
-        parsed_name = match.group(1).strip()
-        parsed_vintage = int(match.group(2))
-    else:
-        logger.warning(f"Failed to parse wine name and vintage from item: {item_text}. Expected 'Name (Vintage)' format.")
-        return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
-
-    name = parsed_name
-    vintage = parsed_vintage
-
-    # Decrement quantity in DB
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
     try:
-        # Get current quantity and vivino_url before decrementing
-        cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
-        result = cursor.fetchone()
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
 
-        if result:
-            current_db_quantity, vivino_url_for_sync = result
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
 
-            # Fetch the full wine data for sync_to_ha_todo (before potential deletion)
-            cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
-            wine_data_row_for_sync = cursor.fetchone()
-            wine_data_dict_for_sync = {}
-            if wine_data_row_for_sync:
-                columns = [description[0] for description in cursor.description]
-                wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+        # The item_text from HA will now be "Wine Name (Vintage)" (no 'xN')
+        parsed_name = None
+        parsed_vintage = None
 
-
-            if current_db_quantity > 0:
-                new_quantity = current_db_quantity - 1
-
-                if new_quantity == 0:
-                    cursor.execute(
-                        "DELETE FROM wines WHERE name = ? AND vintage = ?",
-                        (name, vintage)
-                    )
-                    conn.commit()
-                    logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
-                    # Sync with HA to ensure removal from To-Do list
-                    sync_to_ha_todo(wine_data_dict_for_sync, 0)
-                    return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
-                else:
-                    cursor.execute(
-                        "UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?",
-                        (new_quantity, name, vintage)
-                    )
-                    conn.commit()
-                    logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
-                    # Sync with HA to update description
-                    sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
-                    return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
-            else:
-                logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
-                return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
         else:
-            logger.warning(f"No matching wine found in DB for '{name} ({vintage})'.")
-            return jsonify({"status": "warning", "message": "No matching wine found in inventory."}), 404
-    except sqlite3.Error as e:
-        logger.error(f"Database error consuming wine: {e}")
-        conn.rollback()
-        return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
-    finally:
-        conn.close()
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        # Decrement quantity in DB
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Get current quantity and vivino_url before decrementing
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch the full wine data for sync_to_ha_todo (before potential deletion)
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute(
+                            "DELETE FROM wines WHERE name = ? AND vintage = ?",
+                            (name, vintage)
+                        )
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        # Sync with HA to ensure removal from To-Do list
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute(
+                            "UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?",
+                            (new_quantity, name, vintage)
+                        )
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        # Sync with HA to update description
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No matching wine found in DB for '{name} ({vintage})'.")
+                return jsonify({"status": "warning", "message": "No matching wine found in inventory."}), 404
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
 
 
 # New endpoint to consume (decrement) wine quantity
