@@ -1111,7 +1111,8 @@ def consume_wine_from_webhook():
     """
     Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
     Parses the wine name and vintage from the item, decrements its quantity in the DB,
-    and updates the To-Do list.
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
     """
     try:
         data = request.get_json()
@@ -1122,7 +1123,6 @@ def consume_wine_from_webhook():
         item_text = data["item"]
         logger.info(f"Webhook received for consumed wine: {item_text}")
 
-        # The item_text from HA will now be "Wine Name (Vintage)" (no 'xN')
         parsed_name = None
         parsed_vintage = None
 
@@ -1138,18 +1138,17 @@ def consume_wine_from_webhook():
         name = parsed_name
         vintage = parsed_vintage
 
-        # Decrement quantity in DB
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         try:
-            # Get current quantity and vivino_url before decrementing
+            # Try to find an exact wine match
             cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
             result = cursor.fetchone()
 
             if result:
                 current_db_quantity, vivino_url_for_sync = result
 
-                # Fetch the full wine data for sync_to_ha_todo (before potential deletion)
+                # Fetch wine data for syncing
                 cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
                 wine_data_row_for_sync = cursor.fetchone()
                 wine_data_dict_for_sync = {}
@@ -1157,45 +1156,8116 @@ def consume_wine_from_webhook():
                     columns = [description[0] for description in cursor.description]
                     wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
 
-
                 if current_db_quantity > 0:
                     new_quantity = current_db_quantity - 1
 
                     if new_quantity == 0:
-                        cursor.execute(
-                            "DELETE FROM wines WHERE name = ? AND vintage = ?",
-                            (name, vintage)
-                        )
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
                         conn.commit()
                         logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
-                        # Sync with HA to ensure removal from To-Do list
                         sync_to_ha_todo(wine_data_dict_for_sync, 0)
                         return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
                     else:
-                        cursor.execute(
-                            "UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?",
-                            (new_quantity, name, vintage)
-                        )
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
                         conn.commit()
                         logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
-                        # Sync with HA to update description
                         sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
                         return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
                 else:
                     logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
                     return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
             else:
-                logger.warning(f"No matching wine found in DB for '{name} ({vintage})'.")
-                return jsonify({"status": "warning", "message": "No matching wine found in inventory."}), 404
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
         except sqlite3.Error as e:
             logger.error(f"Database error consuming wine: {e}")
             conn.rollback()
             return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
         finally:
             conn.close()
+
     except Exception as e:
         logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
         return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+rmat."}), 400
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
+@app.route('/api/consume-wine', methods=['POST'])
+def consume_wine_from_webhook():
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list. If the name does not match any wine in the DB but an
+    "Unknown Wine" entry with matching vintage and quantity exists, it is renamed.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        parsed_name = None
+        parsed_vintage = None
+
+        # Regex to extract "Name (Vintage)"
+        match = re.match(r'^(.*)\s*\((\d{4})\)$', item_text)
+        if match:
+            parsed_name = match.group(1).strip()
+            parsed_vintage = int(match.group(2))
+        else:
+            logger.warning(f"Failed to parse wine name and vintage from item: '{item_text}'. Expected 'Name (Vintage)' format.")
+            return jsonify({"status": "error", "message": "Could not parse item name and vintage from To-Do item. Expected 'Name (Vintage)' format."}), 400
+
+        name = parsed_name
+        vintage = parsed_vintage
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        try:
+            # Try to find an exact wine match
+            cursor.execute("SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+            result = cursor.fetchone()
+
+            if result:
+                current_db_quantity, vivino_url_for_sync = result
+
+                # Fetch wine data for syncing
+                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
+                wine_data_row_for_sync = cursor.fetchone()
+                wine_data_dict_for_sync = {}
+                if wine_data_row_for_sync:
+                    columns = [description[0] for description in cursor.description]
+                    wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
+
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
+
+                    if new_quantity == 0:
+                        cursor.execute("DELETE FROM wines WHERE name = ? AND vintage = ?", (name, vintage))
+                        conn.commit()
+                        logger.info(f"Deleted wine '{name} ({vintage})' as quantity reached 0.")
+                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
+                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
+                    else:
+                        cursor.execute("UPDATE wines SET quantity = ? WHERE name = ? AND vintage = ?", (new_quantity, name, vintage))
+                        conn.commit()
+                        logger.info(f"Decremented quantity for '{name} ({vintage})' to {new_quantity}")
+                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
+                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
+            else:
+                logger.warning(f"No exact match found in DB for '{name} ({vintage})'. Attempting unknown wine fallback...")
+
+                cursor.execute("""
+                    SELECT id, quantity FROM wines
+                    WHERE name = 'Unknown Wine' AND vintage = ?
+                """, (vintage,))
+                unknown_matches = cursor.fetchall()
+                one_bottle_matches = [row for row in unknown_matches if row[1] == 1]
+
+                if len(one_bottle_matches) == 1:
+                    wine_id = one_bottle_matches[0][0]
+                    cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (name, wine_id))
+                    conn.commit()
+                    logger.info(f"Renamed 'Unknown Wine ({vintage})' to '{name} ({vintage})'. Quantity unchanged.")
+                    return jsonify({"status": "success", "message": "Unknown wine renamed. Quantity unchanged."}), 200
+                elif len(one_bottle_matches) > 1:
+                    logger.warning(f"Multiple 'Unknown Wine' matches found with vintage {vintage} and quantity=1. Rename skipped.")
+                else:
+                    logger.warning(f"No 'Unknown Wine' found with vintage {vintage} and quantity=1.")
+
+                return jsonify({"status": "warning", "message": "No matching wine found or renamed."}), 404
+
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+
 
 
 @app.route('/inventory/wine/consume', methods=['POST'])
