@@ -6,8 +6,6 @@
     <title>Wonderful-Wino Inventory</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Font Awesome for Icons - Corrected link without excessive integrity attribute -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         /* Custom styles to ensure Inter font is applied universally and for basic body reset */
         body {
@@ -29,513 +27,531 @@
             line-height: 1.3;
             color: #333;
         }
-        /* Custom scrollbar for better aesthetics */
-        ::-webkit-scrollbar {
-            width: 8px;
+        .wine-details-cell strong {
+            font-weight: 700; /* Bold for important text */
+            color: #6b21a8; /* A darker purple for bold elements */
         }
-        ::-webkit-scrollbar-track {
-            background: #f8f5ed;
-            border-radius: 10px;
+
+        /* Modal specific styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
         }
-        ::-webkit-scrollbar-thumb {
-            background: #d4b499; /* A soft brown for the thumb */
-            border-radius: 10px;
+        .modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            max-width: 500px;
+            width: 90%;
+            position: relative;
+            /* Added for scrollability on smaller screens */
+            max-height: 90vh; /* Limit height to 90% of viewport height */
+            overflow-y: auto; /* Enable vertical scrolling if content overflows */
         }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #c2a085;
+        .modal-close-button {
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #6b7280;
+        }
+        .modal-close-button:hover {
+            color: #1f2937;
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col items-center py-8 px-4 sm:px-6 lg:px-8">
+<body class="min-h-screen flex flex-col items-center py-8">
 
-    <!-- Main Container -->
-    <div class="max-w-4xl w-full bg-white rounded-xl shadow-lg p-6 sm:p-8 border border-gray-200">
+    <header class="text-center mb-8 px-4 w-full max-w-4xl">
+        <h1 class="text-4xl font-extrabold text-purple-800 tracking-tight">Wonderful-Wino Inventory</h1>
+        <p class="text-lg text-gray-600 mt-2">Manage your wine collection with ease!</p>
+    </header>
 
-        <!-- Header Section -->
-        <header class="text-center mb-8">
-            <h1 class="text-4xl sm:text-5xl font-bold text-gray-800 mb-2">Wonderful-Wino</h1>
-            <p class="text-xl text-gray-600">Your Personal Wine Inventory</p>
-        </header>
+    <main class="w-full max-w-4xl px-4">
+        <!-- Combined Add/Scan Wine Section -->
+        <section class="bg-white p-6 rounded-lg shadow-md mb-8">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">Add/Scan Wine</h2>
 
-        <!-- User ID Display -->
-        <div id="userIdDisplay" class="text-center text-sm text-gray-500 mb-6">
-            Loading user ID...
-        </div>
-
-        <!-- Add Wine Form -->
-        <section class="mb-8 p-6 bg-purple-50 rounded-lg shadow-inner border border-purple-100">
-            <h2 class="text-2xl font-semibold text-purple-800 mb-4 flex items-center">
-                <i class="fas fa-wine-bottle mr-2 text-purple-600"></i> Add New Wine
-            </h2>
-            <form id="addWineForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label for="wineName" class="block text-sm font-medium text-gray-700">Wine Name</label>
-                    <input type="text" id="wineName" name="wineName" required
-                           class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm">
-                </div>
-                <div>
-                    <label for="wineVintage" class="block text-sm font-medium text-gray-700">Vintage</label>
-                    <input type="number" id="wineVintage" name="wineVintage" placeholder="e.g., 2018"
-                           class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm">
-                </div>
-                <div>
-                    <label for="wineType" class="block text-sm font-medium text-gray-700">Type</label>
-                    <select id="wineType" name="wineType"
-                            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm">
-                        <option value="">Select Type</option>
-                        <option value="Red">Red</option>
-                        <option value="White">White</option>
-                        <option value="Rose">Rosé</option>
-                        <option value="Sparkling">Sparkling</option>
-                        <option value="Dessert">Dessert</option>
-                        <option value="Fortified">Fortified</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="wineRegion" class="block text-sm font-medium text-gray-700">Region</label>
-                    <input type="text" id="wineRegion" name="wineRegion" placeholder="e.g., Napa Valley"
-                           class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm">
-                </div>
-                <div>
-                    <label for="wineQuantity" class="block text-sm font-medium text-gray-700">Quantity</label>
-                    <input type="number" id="wineQuantity" name="wineQuantity" required value="1" min="1"
-                           class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm">
-                </div>
-                <div>
-                    <label for="wineNotes" class="block text-sm font-medium text-gray-700">Notes (Optional)</label>
-                    <textarea id="wineNotes" name="wineNotes" rows="2"
-                              class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm"></textarea>
-                </div>
-                <div class="md:col-span-2 flex justify-center mt-4">
+            <!-- Vivino Search Form -->
+            <div class="mb-6">
+                <p class="text-gray-700 mb-2">First, search Vivino to find your wine's page. Remember to include the vintage!</p>
+                <form id="vivinoSearchForm" class="flex flex-col sm:flex-row gap-4">
+                    <input type="text" id="vivinoSearchInput" placeholder="Search Vivino (e.g., 'Chateau Lafite 2010')"
+                           class="flex-grow px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
                     <button type="submit"
-                            class="px-6 py-3 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition ease-in-out duration-150">
-                        <i class="fas fa-plus-circle mr-2"></i> Add Wine
+                            class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                        Search Vivino
                     </button>
-                </div>
-            </form>
-            <p id="addMessage" class="mt-4 text-center text-sm font-medium"></p>
+                </form>
+            </div>
+
+            <!-- Scan Wine Form -->
+            <div class="border-t pt-6 mt-6 border-gray-200">
+                <p class="text-gray-700 mb-2">Once you find the wine on Vivino, paste its URL below to add it to your inventory:</p>
+                <form id="scanWineForm" class="flex flex-col sm:flex-row gap-4 items-center">
+                    <input type="text" id="vivinoUrlInput" placeholder="Paste Vivino URL (e.g., https://www.vivino.com/w/1234567)"
+                           class="flex-grow px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500" required>
+                    <div class="flex items-center gap-2 w-full sm:w-auto">
+                        <label for="quantityInput" class="text-gray-700 font-medium whitespace-nowrap">Qty:</label>
+                        <input type="number" id="quantityInput" placeholder="1" min="1" value="1"
+                               class="w-20 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    </div>
+                    <button type="submit"
+                            class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                        Add Wine
+                    </button>
+                </form>
+                <div id="scanMessage" class="mt-4 text-center hidden"></div>
+            </div>
         </section>
 
-        <!-- Inventory List Section -->
-        <section class="mb-8">
-            <h2 class="text-2xl font-semibold text-gray-800 mb-4 flex items-center">
-                <i class="fas fa-list-alt mr-2 text-gray-600"></i> Your Wine Inventory
-            </h2>
-            <div class="overflow-x-auto rounded-lg shadow-md border border-gray-200">
+        <section class="bg-white p-6 rounded-lg shadow-md mb-8">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">Your Wine Inventory</h2>
+
+            <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wine Details</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
-                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Image
+                            </th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Wine Details
+                            </th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Actions
+                            </th>
                         </tr>
                     </thead>
-                    <tbody id="wineList" class="bg-white divide-y divide-gray-200">
-                        <!-- Wine items will be loaded here by JavaScript -->
-                        <tr>
-                            <td colspan="3" class="px-6 py-4 whitespace-nowrap text-center text-gray-500">Loading inventory...</td>
-                        </tr>
+                    <tbody id="inventoryTableBody" class="bg-white divide-y divide-gray-200">
+                        <tr><td colspan="3" class="py-4 text-center text-gray-500">Loading inventory...</td></tr>
                     </tbody>
                 </table>
             </div>
-            <p id="inventoryMessage" class="mt-4 text-center text-sm font-medium"></p>
+            <div id="inventoryMessage" class="mt-4 text-center hidden"></div>
         </section>
 
-        <!-- Vivino Search Section -->
-        <section class="mb-8 p-6 bg-green-50 rounded-lg shadow-inner border border-green-100">
-            <h2 class="text-2xl font-semibold text-green-800 mb-4 flex items-center">
-                <i class="fas fa-search mr-2 text-green-600"></i> Search Vivino
-            </h2>
-            <form id="vivinoSearchForm" class="flex flex-col sm:flex-row gap-4">
-                <input type="text" id="vivinoSearchInput" placeholder="Search for a wine on Vivino..." required
-                       class="flex-grow px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm">
-                <button type="submit"
-                        class="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition ease-in-out duration-150">
-                    <i class="fas fa-external-link-alt mr-2"></i> Go to Vivino
+        <!-- Updated Maintenance Section -->
+        <section class="mt-12 w-full max-w-xl p-6 bg-white rounded-lg shadow-md mx-auto">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">Maintenance</h2>
+
+            <div class="flex flex-col sm:flex-row gap-4 mb-4 items-center">
+                <button id="syncAllWinesButton"
+                        class="w-full sm:flex-grow bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    Sync Todo from DB
                 </button>
-            </form>
-        </section>
-
-        <!-- Sync Data Section -->
-        <section class="mb-8 p-6 bg-blue-50 rounded-lg shadow-inner border border-blue-100">
-            <h2 class="text-2xl font-semibold text-blue-800 mb-4 flex items-center">
-                <i class="fas fa-cloud-upload-alt mr-2 text-blue-600"></i> Sync Data
-            </h2>
-            <p class="text-gray-700 mb-4">You can sync your inventory with another user by entering their User ID below. This will merge their public inventory with yours.</p>
-            <form id="syncForm" class="flex flex-col sm:flex-row gap-4">
-                <input type="text" id="syncUserIdInput" placeholder="Enter User ID to sync with..." required
-                       class="flex-grow px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
-                <button type="submit"
-                        class="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition ease-in-out duration-150">
-                    <i class="fas fa-sync-alt mr-2"></i> Sync Inventory
+                <button id="reinitializeDbButton"
+                        class="w-full sm:flex-grow bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 focus:outline-none focus:ring-4 focus:ring-red-300">
+                    Reset DB
                 </button>
-            </form>
-            <p id="syncMessage" class="mt-4 text-center text-sm font-medium"></p>
+                <button id="helpButton"
+                        class="w-12 h-12 flex items-center justify-center bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg transition duration-300 focus:outline-none focus:ring-4 focus:ring-green-300 flex-shrink-0">
+                    ?
+                </button>
+            </div>
+            <div id="reinitializeDbMessage" class="mt-3 text-center font-medium"></div>
+            <div id="syncMessage" class="mt-3 text-center font-medium"></div>
         </section>
 
-        <!-- Help Button -->
-        <div class="text-center mt-8">
-            <button id="helpButton"
-                    class="px-6 py-3 bg-gray-200 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 transition ease-in-out duration-150">
-                <i class="fas fa-question-circle mr-2"></i> Help
-            </button>
-        </div>
+        <div id="root" class="w-full max-w-4xl px-4">
+            </div>
+    </main>
 
-    </div>
+    <footer class="mt-8 text-center text-gray-500 text-sm px-4">
+        <p>&copy; 2025 Wonderful-Wino. All rights reserved.</p>
+    </footer>
 
-    <!-- Help Modal -->
-    <div id="helpModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center hidden z-50">
-        <div class="bg-white rounded-lg shadow-xl p-8 max-w-md w-full mx-4">
-            <h3 class="text-2xl font-bold text-gray-800 mb-4">How to Use Wonderful-Wino</h3>
-            <p class="text-gray-700 mb-4">
-                Welcome to Wonderful-Wino, your personal wine inventory management tool!
+    <!-- Help Modal Structure -->
+    <div id="helpModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <button class="modal-close-button" onclick="closeHelpModal()">&times;</button>
+            <h3 class="text-xl font-semibold text-gray-800 mb-4">Maintenance Help</h3>
+            <p class="text-gray-700">
+                This section provides tools to manage your wine inventory database and its synchronization with Home Assistant.
             </p>
-            <ul class="list-disc list-inside text-gray-700 mb-4 space-y-2">
-                <li><strong>Add New Wine:</strong> Use the form at the top to add wines to your inventory. Fill in the details and click "Add Wine".</li>
-                <li><strong>Manage Inventory:</strong> Your wines will appear in the "Your Wine Inventory" table.
-                    <ul>
-                        <li><i class="fas fa-plus-circle text-green-500"></i>: Increase quantity.</li>
-                        <li><i class="fas fa-minus-circle text-orange-500"></i>: Decrease quantity.</li>
-                        <li><i class="fas fa-trash-alt text-red-500"></i>: Delete the wine entry.</li>
-                    </ul>
-                </li>
-                <li><strong>Search Vivino:</strong> Use the "Search Vivino" section to quickly look up wines on Vivino.com.</li>
-                <li><strong>Sync Data:</strong> Share or merge your public inventory with another user! Enter their User ID and click "Sync Inventory". This will add their public wines to your inventory.</li>
-                <li><strong>Your User ID:</strong> Your unique User ID is displayed at the top. Share this with others if you want to sync your public inventory with them.</li>
+            <ul class="list-disc pl-5 mt-3 text-gray-700">
+                <li><strong>Sync Todo from DB:</strong> This button will synchronize your entire wine inventory from the Wonderful-Wino database to your Home Assistant To-Do list. When clicked, a confirmation dialog will appear explaining that it will first clear all existing <strong>matching</strong> items in the configured Home Assistant To-Do list and then re-add all wines from your inventory. You will have the option to cancel this operation. Use this if your To-Do list in Home Assistant gets out of sync with your inventory.</li>
+                <li><strong>Reset DB:</strong> <span class="font-bold text-red-600">WARNING:</span> This action will permanently delete ALL your wine data from the Wonderful-Wino database. This cannot be undone. Use this only if you want to start your wine inventory from scratch.</li>
             </ul>
-            <button onclick="closeHelpModal()"
-                    class="mt-6 px-6 py-3 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition ease-in-out duration-150">
-                Got It!
-            </button>
+            <p class="text-gray-700 mt-3">
+                <span class="font-bold">Important Note for To-Do List Cleanup:</span> If your Home Assistant To-Do list contains wine items that are <strong>not</strong> in your Wonderful-Wino database, the "Sync Todo from DB" operation will <strong>not</strong> remove them. To clean these up, you may need to manually click on these items in your Home Assistant To-Do list to mark them as completed, and then use Home Assistant's "Remove all completed items" feature for that To-Do list.
+            </p>
+            <div class="mt-6 text-right">
+                <button onclick="closeHelpModal()" class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    Close
+                </button>
+            </div>
         </div>
     </div>
 
-    <!-- Firebase SDKs -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Firebase Configuration (provided by environment)
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-
-        // Initialize Firebase
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-
-        let userId = null; // To store the authenticated user's ID
-        let isAuthReady = false; // Flag to ensure auth is ready before Firestore ops
-
-        // UI Elements
-        const addWineForm = document.getElementById('addWineForm');
-        const wineList = document.getElementById('wineList');
-        const addMessage = document.getElementById('addMessage');
-        const inventoryMessage = document.getElementById('inventoryMessage');
-        const userIdDisplay = document.getElementById('userIdDisplay');
-        const vivinoSearchForm = document.getElementById('vivinoSearchForm');
-        const vivinoSearchInput = document.getElementById('vivinoSearchInput');
-        const helpButton = document.getElementById('helpButton');
-        const helpModal = document.getElementById('helpModal');
-        const syncForm = document.getElementById('syncForm');
-        const syncUserIdInput = document.getElementById('syncUserIdInput');
-        const syncMessage = document.getElementById('syncMessage');
-
-        // --- Firebase Authentication ---
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                userId = user.uid;
-                console.log("Authenticated user ID:", userId);
-            } else {
-                // If __initial_auth_token is not defined, sign in anonymously
-                if (typeof __initial_auth_token !== 'undefined') {
-                    try {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                        userId = auth.currentUser.uid;
-                        console.log("Signed in with custom token. User ID:", userId);
-                    } catch (error) {
-                        console.error("Error signing in with custom token:", error);
-                        // Fallback to anonymous if custom token fails
-                        await signInAnonymously(auth);
-                        userId = auth.currentUser.uid;
-                        console.log("Signed in anonymously. User ID:", userId);
-                    }
-                } else {
-                    await signInAnonymously(auth);
-                    userId = auth.currentUser.uid;
-                    console.log("Signed in anonymously. User ID:", userId);
-                }
+    <script>
+        // Define BASE_URL for API calls, using __ingress_url if available
+        let BASE_URL = '';
+        if (typeof window !== 'undefined' && typeof window.__ingress_url !== 'undefined' && window.__ingress_url !== '') {
+            BASE_URL = window.__ingress_url;
+        } else {
+            // Fallback for when __ingress_url is not injected or is empty.
+            // This attempts to derive the base path from the current URL's pathname.
+            // Home Assistant's ingress path typically looks like /api/hassio_ingress/LONG_TOKEN/
+            // If the current URL is /api/hassio_ingress/LONG_TOKEN/index.html, we need to get /api/hassio_ingress/LONG_TOKEN/
+            const pathParts = window.location.pathname.split('/');
+            // Remove 'index.html' or any other filename at the end
+            if (pathParts.length > 0 && pathParts[pathParts.length - 1].includes('.')) {
+                pathParts.pop();
             }
-            isAuthReady = true;
-            userIdDisplay.textContent = `Your User ID: ${userId}`;
-            fetchInventory(); // Fetch inventory once authentication is ready
-        });
+            // Join parts and ensure it ends with a slash if it's not empty, for consistent URL joining
+            BASE_URL = pathParts.join('/');
+            if (BASE_URL !== '' && !BASE_URL.endsWith('/')) {
+                BASE_URL += '/';
+            }
+        }
+        console.log('Calculated BASE_URL:', BASE_URL); // Log the calculated BASE_URL
 
-        // --- Firestore Operations ---
+        // --- Utility Functions for Messaging ---
+        function showMessage(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `mt-4 text-center p-2 rounded-md ${type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`;
+            element.style.display = 'block';
+            setTimeout(() => {
+                element.style.display = 'none';
+            }, 5000); // Hide after 5 seconds
+        }
 
-        /**
-         * Fetches and displays the wine inventory for the current user.
-         * Uses onSnapshot for real-time updates.
-         */
+        // --- Fetch Inventory ---
         async function fetchInventory() {
-            if (!isAuthReady || !userId) {
-                console.log("Authentication not ready, delaying fetchInventory.");
-                return;
-            }
-
-            const userInventoryRef = collection(db, `artifacts/${appId}/users/${userId}/inventory`);
-            const publicInventoryRef = collection(db, `artifacts/${appId}/public/data/inventory`);
-
-            // Clear existing list and show loading
-            wineList.innerHTML = '<tr><td colspan="3" class="px-6 py-4 whitespace-nowrap text-center text-gray-500">Loading inventory...</td></tr>';
-            inventoryMessage.textContent = '';
-
+            const inventoryTableBody = document.getElementById('inventoryTableBody');
             try {
-                // Listen to private inventory
-                onSnapshot(userInventoryRef, (snapshot) => {
-                    renderWineList(snapshot.docs);
-                }, (error) => {
-                    console.error("Error listening to private inventory:", error);
-                    inventoryMessage.textContent = `Error loading your inventory: ${error.message}`;
-                    inventoryMessage.className = 'mt-3 text-center font-medium text-red-600';
-                });
-
-                // Listen to public inventory (optional, could be merged or displayed separately)
-                // For this app, we'll assume public data is synced, not constantly monitored separately for display
-                // If you wanted to display public items too, you'd add another onSnapshot here.
-
+                inventoryTableBody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-gray-500">Loading inventory...</td></tr>';
+                const url = `${BASE_URL}inventory`; // Removed leading slash as BASE_URL now ends with one
+                console.log('Requesting URL for /inventory:', url); // Log the full URL
+                const response = await fetch(url);
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Error fetching inventory - Raw Response:', errorText);
+                    throw new Error(`HTTP error! status: ${response.status} - ${errorText.substring(0, 100)}...`);
+                }
+                const responseText = await response.text();
+                console.log('Raw response for /inventory:', responseText);
+                const inventory = JSON.parse(responseText);
+                displayInventory(inventory);
             } catch (error) {
-                console.error("Error setting up inventory listener:", error);
-                inventoryMessage.textContent = `Failed to set up inventory listener: ${error.message}`;
-                inventoryMessage.className = 'mt-3 text-center font-medium text-red-600';
+                console.error('Error fetching inventory:', error);
+                showMessage('inventoryMessage', `Failed to load inventory: ${error.message}`, 'error');
+                inventoryTableBody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-gray-500">Error loading inventory.</td></tr>';
             }
         }
 
-        /**
-         * Renders the wine list in the table.
-         * @param {Array} docs - Array of Firestore document snapshots.
-         */
-        function renderWineList(docs) {
-            wineList.innerHTML = ''; // Clear current list
+        // --- Display Inventory ---
+        function displayInventory(inventory) {
+            const tbody = document.getElementById('inventoryTableBody');
+            tbody.innerHTML = ''; // Clear existing rows
 
-            if (docs.length === 0) {
-                wineList.innerHTML = '<tr><td colspan="3" class="px-6 py-4 whitespace-nowrap text-center text-gray-500">No wines in your inventory yet. Add some!</td></tr>';
+            if (inventory.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-gray-500">No wines in your inventory yet!</td></tr>';
                 return;
             }
 
-            docs.forEach(docSnap => {
-                const wine = docSnap.data();
-                const wineId = docSnap.id;
+            inventory.forEach(item => {
+                const row = tbody.insertRow();
+                row.className = 'border-b border-gray-200 hover:bg-gray-50';
 
-                const row = document.createElement('tr');
-                row.className = 'hover:bg-gray-50';
-                row.innerHTML = `
-                    <td class="px-6 py-4 whitespace-nowrap wine-details-cell">
-                        <h4 class="text-sm font-semibold text-gray-900">${wine.name} (${wine.vintage || 'N/A'})</h4>
-                        <p class="text-xs text-gray-600">${wine.type || 'Unknown Type'} - ${wine.region || 'Unknown Region'}</p>
-                        ${wine.notes ? `<p class="text-xs text-gray-500 italic">Notes: ${wine.notes}</p>` : ''}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        ${wine.quantity}
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button data-id="${wineId}" data-action="increase"
-                                class="text-green-600 hover:text-green-900 mr-2 p-2 rounded-full hover:bg-green-100 transition duration-150 ease-in-out">
-                            <i class="fas fa-plus-circle"></i>
-                        </button>
-                        <button data-id="${wineId}" data-action="decrease"
-                                class="text-orange-600 hover:text-orange-900 mr-2 p-2 rounded-full hover:bg-orange-100 transition duration-150 ease-in-out">
-                            <i class="fas fa-minus-circle"></i>
-                        </button>
-                        <button data-id="${wineId}" data-action="delete"
-                                class="text-red-600 hover:text-red-900 p-2 rounded-full hover:bg-red-100 transition duration-150 ease-in-out">
-                            <i class="fas fa-trash-alt"></i>
-                        </button>
-                    </td>
-                `;
-                wineList.appendChild(row);
+                // Image Cell
+                const imageCell = row.insertCell();
+                imageCell.className = 'px-6 py-4 whitespace-nowrap text-sm text-gray-500';
+                if (item.image_url) {
+                    imageCell.innerHTML = `<img src="${item.image_url}" class="h-16 w-16 object-cover rounded-md" alt="Wine Image">`;
+                } else {
+                    imageCell.textContent = 'No Image';
+                }
+
+                // Wine Details Cell - Rebuilding from individual fields
+                const detailsCell = row.insertCell();
+                detailsCell.className = 'px-6 py-4 text-sm font-medium text-gray-900 wine-details-cell';
+                let detailsHtml = '';
+
+                // Wine Name (and Vintage)
+                detailsHtml += `<h4>${item.name || 'N/A'} ${item.vintage ? `(${item.vintage})` : ''}</h4>`;
+
+                // Varietal (all of them)
+                if (item.varietal && item.varietal !== "Unknown Varietal") {
+                    detailsHtml += `<p><strong>Varietal:</strong> ${item.varietal}</p>`;
+                }
+
+                // Region, Country
+                let location = [];
+                if (item.region && item.region !== "Unknown Region") {
+                    location.push(item.region);
+                }
+                if (item.country && item.country !== "Unknown Country") {
+                    location.push(item.country);
+                }
+                if (location.length > 0) {
+                    detailsHtml += `<p><strong>Origin:</strong> ${location.join(', ')}</p>`;
+                }
+
+                // Vivino Rating and Number of Ratings
+                if (item.vivino_rating && item.vivino_num_ratings) {
+                    detailsHtml += `<p><strong>Rating:</strong> ${item.vivino_rating.toFixed(1)} ⭐ (${item.vivino_num_ratings} ratings)</p>`;
+                } else if (item.vivino_rating) {
+                    detailsHtml += `<p><strong>Rating:</strong> ${item.vivino_rating.toFixed(1)} ⭐</p>`;
+                }
+                
+                // Quantity
+                detailsHtml += `<p><strong>Quantity:</strong> ${item.quantity}</p>`;
+
+
+                detailsCell.innerHTML = detailsHtml;
+
+
+                // Actions Cell
+                const actionsCell = row.insertCell();
+                actionsCell.className = 'px-6 py-4 whitespace-nowrap text-right text-sm font-medium';
+
+                const consumeButton = document.createElement('button');
+                consumeButton.textContent = 'Consume';
+                consumeButton.className = 'text-green-600 hover:text-green-900 mr-4';
+                consumeButton.onclick = () => consumeWine(item.vivino_url);
+                actionsCell.appendChild(consumeButton);
+
+                // Add Set Quantity Button
+                const setQuantityButton = document.createElement('button');
+                setQuantityButton.textContent = 'Set Qty';
+                setQuantityButton.className = 'text-blue-600 hover:text-blue-900 mr-4';
+                setQuantityButton.onclick = () => {
+                    const newQuantity = prompt(`Set new quantity for ${item.name} (${item.vintage}):`, item.quantity);
+                    if (newQuantity !== null && !isNaN(newQuantity) && newQuantity.trim() !== '') {
+                        setWineQuantity(item.vivino_url, parseInt(newQuantity, 10));
+                    } else if (newQuantity !== null) {
+                        showMessage('inventoryMessage', 'Please enter a valid number for quantity.', 'error');
+                    }
+                };
+                actionsCell.appendChild(setQuantityButton);
+
+                const deleteButton = document.createElement('button');
+                deleteButton.textContent = 'Delete Wine';
+                deleteButton.className = 'text-red-600 hover:text-red-900';
+                deleteButton.onclick = () => deleteWine(item.vivino_url);
+                actionsCell.appendChild(deleteButton);
             });
         }
 
-        /**
-         * Adds a new wine to the user's private inventory.
-         * @param {Event} event - The form submission event.
-         */
-        addWineForm.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            if (!isAuthReady || !userId) {
-                addMessage.textContent = 'Please wait, authentication is not ready.';
-                addMessage.className = 'mt-3 text-center font-medium text-yellow-600';
-                return;
-            }
+        // --- Scan Wine ---
+        const scanWineForm = document.getElementById('scanWineForm');
+        if (scanWineForm) {
+            scanWineForm.addEventListener('submit', async function(event) {
+                event.preventDefault();
+                const vivinoUrl = document.getElementById('vivinoUrlInput').value;
+                const quantity = document.getElementById('quantityInput').value;
+                const scanMessage = document.getElementById('scanMessage');
 
-            const formData = new FormData(addWineForm);
-            const wineData = {
-                name: formData.get('wineName'),
-                vintage: parseInt(formData.get('wineVintage')) || null,
-                type: formData.get('wineType') || null,
-                region: formData.get('wineRegion') || null,
-                quantity: parseInt(formData.get('wineQuantity')),
-                notes: formData.get('wineNotes') || null,
-                isPublic: false, // Default to private
-                createdAt: new Date()
-            };
-
-            // Basic validation
-            if (!wineData.name || wineData.quantity <= 0) {
-                addMessage.textContent = 'Wine name and quantity are required, and quantity must be positive.';
-                addMessage.className = 'mt-3 text-center font-medium text-red-600';
-                return;
-            }
-
-            try {
-                const userInventoryRef = collection(db, `artifacts/${appId}/users/${userId}/inventory`);
-                await addDoc(userInventoryRef, wineData);
-                addMessage.textContent = 'Wine added successfully!';
-                addMessage.className = 'mt-3 text-center font-medium text-green-600';
-                addWineForm.reset(); // Clear form
-                document.getElementById('wineQuantity').value = '1'; // Reset quantity to 1
-            } catch (error) {
-                console.error("Error adding wine:", error);
-                addMessage.textContent = `Error adding wine: ${error.message}`;
-                addMessage.className = 'mt-3 text-center font-medium text-red-600';
-            }
-        });
-
-        /**
-         * Handles actions (increase, decrease, delete) on wine items.
-         * @param {Event} event - The click event.
-         */
-        wineList.addEventListener('click', async (event) => {
-            const button = event.target.closest('button');
-            if (!button) return;
-
-            const wineId = button.dataset.id;
-            const action = button.dataset.action;
-
-            if (!wineId || !action) return;
-
-            if (!isAuthReady || !userId) {
-                inventoryMessage.textContent = 'Please wait, authentication is not ready.';
-                inventoryMessage.className = 'mt-3 text-center font-medium text-yellow-600';
-                return;
-            }
-
-            const wineDocRef = doc(db, `artifacts/${appId}/users/${userId}/inventory`, wineId);
-
-            try {
-                const wineDocSnap = await getDoc(wineDocRef);
-                if (!wineDocSnap.exists()) {
-                    inventoryMessage.textContent = 'Wine not found.';
-                    inventoryMessage.className = 'mt-3 text-center font-medium text-red-600';
-                    return;
-                }
-
-                const currentQuantity = wineDocSnap.data().quantity;
-                let newQuantity = currentQuantity;
-
-                if (action === 'increase') {
-                    newQuantity++;
-                    await updateDoc(wineDocRef, { quantity: newQuantity });
-                    inventoryMessage.textContent = 'Quantity increased!';
-                    inventoryMessage.className = 'mt-3 text-center font-medium text-green-600';
-                } else if (action === 'decrease') {
-                    if (currentQuantity > 1) {
-                        newQuantity--;
-                        await updateDoc(wineDocRef, { quantity: newQuantity });
-                        inventoryMessage.textContent = 'Quantity decreased!';
-                        inventoryMessage.className = 'mt-3 text-center font-medium text-orange-600';
-                    } else {
-                        // If quantity is 1 and user tries to decrease, prompt to delete
-                        inventoryMessage.textContent = 'Quantity cannot be less than 1. Use the delete button to remove.';
-                        inventoryMessage.className = 'mt-3 text-center font-medium text-yellow-600';
-                    }
-                } else if (action === 'delete') {
-                    await deleteDoc(wineDocRef);
-                    inventoryMessage.textContent = 'Wine deleted!';
-                    inventoryMessage.className = 'mt-3 text-center font-medium text-red-600';
-                }
-            } catch (error) {
-                console.error(`Error performing ${action} action:`, error);
-                inventoryMessage.textContent = `Error: ${error.message}`;
-                inventoryMessage.className = 'mt-3 text-center font-medium text-red-600';
-            }
-        });
-
-        /**
-         * Syncs public inventory from another user to the current user's private inventory.
-         * @param {Event} event - The form submission event.
-         */
-        syncForm.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            if (!isAuthReady || !userId) {
-                syncMessage.textContent = 'Please wait, authentication is not ready.';
-                syncMessage.className = 'mt-3 text-center font-medium text-yellow-600';
-                return;
-            }
-
-            const targetUserId = syncUserIdInput.value.trim();
-            if (!targetUserId) {
-                syncMessage.textContent = 'Please enter a User ID to sync with.';
-                syncMessage.className = 'mt-3 text-center font-medium text-red-600';
-                return;
-            }
-
-            if (targetUserId === userId) {
-                syncMessage.textContent = 'Cannot sync with your own User ID.';
-                syncMessage.className = 'mt-3 text-center font-medium text-yellow-600';
-                return;
-            }
-
-            syncMessage.textContent = 'Syncing inventory...';
-            syncMessage.className = 'mt-3 text-center font-medium text-blue-600';
-
-            try {
-                const targetPublicInventoryRef = collection(db, `artifacts/${appId}/public/data/inventory`);
-                const q = query(targetPublicInventoryRef, where("ownerId", "==", targetUserId));
-                const querySnapshot = await getDocs(q);
-
-                if (querySnapshot.empty) {
-                    syncMessage.textContent = `No public wines found for user ID: ${targetUserId}`;
-                    syncMessage.className = 'mt-3 text-center font-medium text-yellow-600';
-                    return;
-                }
-
-                const batch = writeBatch(db);
-                const currentUserInventoryRef = collection(db, `artifacts/${appId}/users/${userId}/inventory`);
-
-                querySnapshot.forEach(docSnap => {
-                    const wineData = docSnap.data();
-                    // Create a new document in the current user's private inventory
-                    // Ensure a new ID is generated, or use a combination to avoid conflicts
-                    const newWineRef = doc(currentUserInventoryRef); // Firestore generates a new unique ID
-                    batch.set(newWineRef, {
-                        name: wineData.name,
-                        vintage: wineData.vintage,
-                        type: wineData.type,
-                        region: wineData.region,
-                        quantity: wineData.quantity,
-                        notes: wineData.notes,
-                        isPublic: false, // Imported wines become private by default
-                        importedFromUserId: targetUserId, // Keep track of origin
-                        createdAt: new Date()
+                try {
+                    scanMessage.style.display = 'none'; // Hide previous messages
+                    const url = `${BASE_URL}scan-wine`; // Removed leading slash
+                    console.log('Requesting URL for /scan-wine:', url);
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ vivino_url: vivinoUrl, quantity: parseInt(quantity, 10) || 1 })
                     });
-                });
 
-                await batch.commit();
-                syncMessage.textContent = `Successfully synced public wines from ${targetUserId}!`;
-                syncMessage.className = 'mt-3 text-center font-medium text-green-600';
-                syncUserIdInput.value = ''; // Clear input
-                // The onSnapshot listener for the current user's inventory will automatically update the UI
-            } catch (error) {
-                console.error("Error during sync:", error);
-                syncMessage.textContent = `Network error during sync: ${error.message}`;
-                syncMessage.className = 'mt-3 text-center font-medium text-red-600';
+                    const responseText = await response.text();
+                    console.log('Raw response for /scan-wine:', responseText);
+                    const result = JSON.parse(responseText);
+
+                    if (!response.ok) {
+                        throw new Error(result.message || 'Failed to scan wine');
+                    }
+                    showMessage('scanMessage', result.message || 'Wine scanned successfully!');
+                    document.getElementById('vivinoUrlInput').value = ''; // Clear input field
+                    document.getElementById('quantityInput').value = '1'; // Reset quantity
+                    fetchInventory(); // Refresh inventory list
+                } catch (error) {
+                    console.error('Error scanning wine:', error);
+                    showMessage('scanMessage', `Error: ${error.message}`, 'error');
+                }
+            });
+        }
+
+        // --- Consume Wine ---
+        async function consumeWine(vivinoUrl) {
+            if (!confirm('Are you sure you want to consume one unit of this wine?')) {
+                return;
             }
-        });
+            try {
+                const url = `${BASE_URL}inventory/wine/consume`; // Removed leading slash
+                console.log('Requesting URL for /inventory/wine/consume:', url);
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ vivino_url: vivinoUrl })
+                });
+                const responseText = await response.text();
+                console.log('Raw response for /inventory/wine/consume:', responseText);
+                const result = JSON.parse(responseText);
+
+                if (!response.ok) {
+                    throw new Error(result.message || 'Failed to consume wine');
+                }
+                showMessage('inventoryMessage', result.message || 'Wine consumed successfully!');
+                fetchInventory(); // Refresh inventory list
+            } catch (error) {
+                console.error('Error consuming wine:', error);
+                showMessage('inventoryMessage', `Error: ${error.message}`, 'error');
+            }
+        }
+
+        // --- Set Wine Quantity ---
+        async function setWineQuantity(vivinoUrl, newQuantity) {
+            try {
+                const url = `${BASE_URL}inventory/wine/set_quantity`; // Removed leading slash
+                console.log('Requesting URL for /inventory/wine/set_quantity:', url);
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ vivino_url: vivinoUrl, quantity: newQuantity })
+                });
+                const responseText = await response.text();
+                console.log('Raw response for /inventory/wine/set_quantity:', responseText);
+                const result = JSON.parse(responseText);
+
+                if (!response.ok) {
+                    throw new Error(result.message || 'Failed to set wine quantity');
+                }
+                showMessage('inventoryMessage', result.message || 'Wine quantity updated successfully!');
+                fetchInventory(); // Refresh inventory list
+            } catch (error) {
+                console.error('Error setting wine quantity:', error);
+                showMessage('inventoryMessage', `Error: ${error.message}`, 'error');
+            }
+        }
+
+        // --- Delete Wine ---
+        async function deleteWine(vivinoUrl) {
+            if (!confirm('Are you sure you want to delete this wine from your inventory? This action cannot be undone.')) {
+                return;
+            }
+            try {
+                const url = `${BASE_URL}inventory/wine`; // Removed leading slash
+                console.log('Requesting URL for /inventory/wine (DELETE):', url);
+                const response = await fetch(url, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ vivino_url: vivinoUrl })
+                });
+                const responseText = await response.text();
+                console.log('Raw response for /inventory/wine (DELETE):', responseText);
+                const result = JSON.parse(responseText);
+
+                if (!response.ok) {
+                    throw new Error(result.message || 'Failed to delete wine');
+                }
+                showMessage('inventoryMessage', result.message || 'Wine deleted successfully!');
+                fetchInventory(); // Refresh inventory list
+            } catch (error) {
+                    console.error('Error deleting wine:', error);
+                    showMessage('inventoryMessage', `Error: ${error.message}`, 'error');
+                }
+            }
+
+        // --- Reinitialize Database Functionality (now "Reset DB") ---
+        const reinitializeDbButton = document.getElementById('reinitializeDbButton');
+        const reinitializeDbMessage = document.getElementById('reinitializeDbMessage');
+
+        if (reinitializeDbButton) {
+            reinitializeDbButton.addEventListener('click', async () => {
+                if (!confirm('Are you absolutely sure you want to reinitialize the database? This action will PERMANENTLY DELETE ALL YOUR WINE DATA and cannot be undone!')) {
+                    return;
+                }
+                reinitializeDbMessage.textContent = 'Reinitializing database...';
+                reinitializeDbMessage.className = 'mt-3 text-center font-medium text-blue-600';
+
+                try {
+                    const url = `${BASE_URL}reinitialize-database-action`; // Removed leading slash
+                    console.log('Requesting URL for /reinitialize-database-action:', url);
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    const responseText = await response.text();
+                    console.log('Raw response for /reinitialize-database-action:', responseText);
+                    const data = JSON.parse(responseText);
+
+                    if (response.ok) {
+                        reinitializeDbMessage.textContent = data.message;
+                        reinitializeDbMessage.className = 'mt-3 text-center font-medium text-green-600';
+                        fetchInventory(); // Refresh inventory table after reinitialization
+                    } else {
+                        reinitializeDbMessage.textContent = `Error: ${data.message || 'Unknown error'}`;
+                        reinitializeDbMessage.className = 'mt-3 text-center font-medium text-red-600';
+                    }
+                } catch (error) {
+                    console.error('Fetch error:', error);
+                    reinitializeDbMessage.textContent = `Network error: ${error.message}`;
+                    reinitializeDbMessage.className = 'mt-3 text-center font-medium text-red-600';
+                }
+            });
+        }
+
+        // --- Sync All Wines to Home Assistant To-Do List (now "Sync Todo from DB") ---
+        const syncAllWinesButton = document.getElementById('syncAllWinesButton');
+        const syncMessage = document.getElementById('syncMessage');
+
+        if (syncAllWinesButton) {
+            syncAllWinesButton.addEventListener('click', async () => {
+                const confirmationMessage = "Are you sure you want to synchronize your wine inventory to Home Assistant? This will first clear all existing matching items in your Home Assistant To-Do list and then re-add all wines from your Wonderful-Wino inventory. You will have the option to cancel this operation.";
+                if (!confirm(confirmationMessage)) {
+                    return; // User cancelled the operation
+                }
+
+                syncMessage.textContent = 'Synchronizing wines...';
+                syncMessage.className = 'mt-3 text-center font-medium text-blue-600';
+                try {
+                    const url = `${BASE_URL}sync-all-wines`; // Removed leading slash
+                    console.log('Requesting URL for /sync-all-wines:', url);
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    const responseText = await response.text();
+                    console.log('Raw response for /sync-all-wines:', responseText);
+                    const data = JSON.parse(responseText);
+
+                    if (response.ok) {
+                        syncMessage.textContent = data.message;
+                        syncMessage.className = 'mt-3 text-center font-medium text-green-600';
+                    } else {
+                        syncMessage.textContent = `Error syncing to Home Assistant: ${data.message || 'Unknown error'}`;
+                        syncMessage.className = 'mt-3 text-center font-medium text-red-600';
+                    }
+                } catch (error) {
+                    console.error('Fetch error during sync:', error);
+                    syncMessage.textContent = `Network error during sync: ${error.message}`;
+                    syncMessage.className = 'mt-3 text-center font-medium text-red-600';
+                }
+            });
+        }
 
         // --- Vivino Search Form Functionality ---
+        const vivinoSearchForm = document.getElementById('vivinoSearchForm');
+        const vivinoSearchInput = document.getElementById('vivinoSearchInput');
+
         if (vivinoSearchForm) {
             vivinoSearchForm.addEventListener('submit', function(event) {
                 event.preventDefault();
@@ -547,19 +563,21 @@
         }
 
         // --- Help Modal Functionality ---
+        const helpButton = document.getElementById('helpButton');
+        const helpModal = document.getElementById('helpModal');
+
         if (helpButton) {
             helpButton.addEventListener('click', () => {
                 helpModal.classList.remove('hidden');
             });
         }
 
-        // Global function to close help modal (used by onclick attribute)
-        window.closeHelpModal = function() {
+        function closeHelpModal() {
             helpModal.classList.add('hidden');
-        };
+        }
 
-        // Initial fetch of inventory when the page loads (after auth is ready)
-        // document.addEventListener('DOMContentLoaded', fetchInventory); // Removed, as fetchInventory is called after onAuthStateChanged
+        // Initial fetch of inventory when the page loads
+        document.addEventListener('DOMContentLoaded', fetchInventory);
     </script>
 
 </body>
