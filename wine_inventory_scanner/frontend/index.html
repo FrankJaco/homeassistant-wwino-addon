@@ -73,8 +73,6 @@
         /* Style for the sort icon */
         .sort-icon {
             display: inline-block;
-            width: 1em; /* Adjust size as needed */
-            height: 1em; /* Adjust size as needed */
             vertical-align: middle;
             fill: currentColor;
         }
@@ -125,11 +123,6 @@
             <div class="flex flex-col sm:flex-row justify-between items-center mb-6 sm:mb-4">
                 <h2 class="text-2xl font-semibold text-gray-800 mb-4 sm:mb-0">Wine on-hand</h2>
                 <div class="flex items-center gap-2">
-                    <button id="sortIconBtn" class="px-2 py-1 bg-transparent text-gray-700 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-300" aria-label="Sort options">
-                        <svg class="w-5 h-5 sort-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"></path>
-                        </svg>
-                    </button>
                     <select id="sortSelect" class="px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm w-32">
                         <option value="name">Name</option>
                         <option value="varietal">Varietal</option>
@@ -139,13 +132,11 @@
                         <option value="quantity">Quantity</option>
                     </select>
                     <button id="sortDirectionToggle" class="px-2 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400" aria-label="Toggle sort direction">
-                        <svg id="sortAscIcon" class="sort-icon w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <line x1="12" y1="5" x2="12" y2="19"></line>
-                            <polyline points="19 12 12 5 5 12"></polyline>
+                        <svg id="sortAscIcon" class="w-5 h-5 sort-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"></path>
                         </svg>
-                        <svg id="sortDescIcon" class="sort-icon w-4 h-4 hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <line x1="12" y1="19" x2="12" y2="5"></line>
-                            <polyline points="5 12 12 19 19 12"></polyline>
+                        <svg id="sortDescIcon" class="w-5 h-5 sort-icon hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 20h13M3 16h9m-9-4h6m4 0l4 4m0 0l4-4m-4 4V4"></path>
                         </svg>
                     </button>
                 </div>
@@ -667,9 +658,15 @@
         // --- Event Listeners for Sort Controls ---
         const sortSelect = document.getElementById('sortSelect');
         const sortDirectionToggle = document.getElementById('sortDirectionToggle');
-        const sortAscIcon = document.getElementById('sortAscIcon');
-        const sortDescIcon = document.getElementById('sortDescIcon');
-        const sortIconBtn = document.getElementById('sortIconBtn'); // New: sort icon button
+        const sortAscIcon = document.getElementById('sortAscIcon'); // The new lines+arrow up icon
+        const sortDescIcon = document.getElementById('sortDescIcon'); // The new lines+arrow down icon
+
+
+        // Function to update the visibility of the sort direction icons
+        function updateSortIcons() {
+            sortAscIcon.classList.toggle('hidden', currentSortDirection === 'desc');
+            sortDescIcon.classList.toggle('hidden', currentSortDirection === 'asc');
+        }
 
         if (sortSelect && sortDirectionToggle) {
             sortSelect.addEventListener('change', (event) => {
@@ -677,23 +674,19 @@
                 applySortAndDisplayInventory();
             });
 
+            // This button now toggles direction and displays the corresponding icon
             sortDirectionToggle.addEventListener('click', () => {
                 currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
-                sortAscIcon.classList.toggle('hidden', currentSortDirection === 'desc');
-                sortDescIcon.classList.toggle('hidden', currentSortDirection === 'asc');
+                updateSortIcons(); // Update the icon displayed on this button
                 applySortAndDisplayInventory();
             });
-
-            // Optional: Click the main sort icon button to bring focus to the select or do something else
-            if (sortIconBtn) {
-                sortIconBtn.addEventListener('click', () => {
-                    sortSelect.focus();
-                });
-            }
         }
 
         // Initial fetch of inventory when the page loads
-        document.addEventListener('DOMContentLoaded', fetchInventory);
+        document.addEventListener('DOMContentLoaded', () => {
+            updateSortIcons(); // Set initial icon state based on default direction
+            fetchInventory();
+        });
     </script>
 
 </body>
