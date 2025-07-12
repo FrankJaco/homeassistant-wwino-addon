@@ -256,97 +256,80 @@
 
         // --- Display Inventory ---
         function displayInventory(inventory) {
-            const tbody = document.getElementById('inventoryTableBody');
-            tbody.innerHTML = ''; // Clear existing rows
+    const container = document.getElementById('inventoryTableBody');
+    container.innerHTML = '';
 
-            if (inventory.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-gray-500">No wines in your inventory yet!</td></tr>';
-                return;
-            }
+    if (inventory.length === 0) {
+        container.innerHTML = '<div class="py-4 text-center text-gray-500">No wines in your inventory yet!</div>';
+        return;
+    }
 
-            inventory.forEach(item => {
-                const row = tbody.insertRow();
-                row.className = 'border-b border-gray-200 hover:bg-gray-50';
+    inventory.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'flex flex-col sm:flex-row items-center sm:items-start gap-4 py-4';
 
-                // Image Cell
-                const imageCell = row.insertCell();
-                imageCell.className = 'px-6 py-4 whitespace-nowrap text-sm text-gray-500';
-                if (item.image_url) {
-                    imageCell.innerHTML = `<img src="${item.image_url}" class="h-16 w-16 object-cover rounded-md" alt="Wine Image">`;
-                } else {
-                    imageCell.textContent = 'No Image';
-                }
+        const imageDiv = document.createElement('div');
+        imageDiv.className = 'w-full sm:w-32 flex justify-center sm:justify-start';
+        imageDiv.innerHTML = item.image_url
+            ? `<img src="${item.image_url}" class="h-24 w-24 object-cover rounded-md" alt="Wine Image">`
+            : '<div class="text-gray-400">No Image</div>';
 
-                // Wine Details Cell - Rebuilding from individual fields
-                const detailsCell = row.insertCell();
-                detailsCell.className = 'px-6 py-4 text-sm font-medium text-gray-900 wine-details-cell';
-                let detailsHtml = '';
-
-                // Wine Name (and Vintage)
-                detailsHtml += `<h4>${item.name || 'N/A'} ${item.vintage ? `(${item.vintage})` : ''}</h4>`;
-
-                // Varietal (all of them)
-                if (item.varietal && item.varietal !== "Unknown Varietal") {
-                    detailsHtml += `<p><strong>Varietal:</strong> ${item.varietal}</p>`;
-                }
-
-                // Region, Country
-                let location = [];
-                if (item.region && item.region !== "Unknown Region") {
-                    location.push(item.region);
-                }
-                if (item.country && item.country !== "Unknown Country") {
-                    location.push(item.country);
-                }
-                if (location.length > 0) {
-                    detailsHtml += `<p><strong>Origin:</strong> ${location.join(', ')}</p>`;
-                }
-
-                // Vivino Rating and Number of Ratings
-                if (item.vivino_rating && item.vivino_num_ratings) {
-                    detailsHtml += `<p><strong>Rating:</strong> ${item.vivino_rating.toFixed(1)} ⭐ (${item.vivino_num_ratings} ratings)</p>`;
-                } else if (item.vivino_rating) {
-                    detailsHtml += `<p><strong>Rating:</strong> ${item.vivino_rating.toFixed(1)} ⭐</p>`;
-                }
-                
-                // Quantity
-                detailsHtml += `<p><strong>Quantity:</strong> ${item.quantity}</p>`;
-
-
-                detailsCell.innerHTML = detailsHtml;
-
-
-                // Actions Cell
-                const actionsCell = row.insertCell();
-                actionsCell.className = 'px-6 py-4 whitespace-nowrap text-right text-sm font-medium';
-
-                const consumeButton = document.createElement('button');
-                consumeButton.textContent = 'Consume';
-                consumeButton.className = 'text-green-600 hover:text-green-900 mr-4';
-                consumeButton.onclick = () => consumeWine(item.vivino_url);
-                actionsCell.appendChild(consumeButton);
-
-                // Add Set Quantity Button
-                const setQuantityButton = document.createElement('button');
-                setQuantityButton.textContent = 'Set Qty';
-                setQuantityButton.className = 'text-blue-600 hover:text-blue-900 mr-4';
-                setQuantityButton.onclick = () => {
-                    const newQuantity = prompt(`Set new quantity for ${item.name} (${item.vintage}):`, item.quantity);
-                    if (newQuantity !== null && !isNaN(newQuantity) && newQuantity.trim() !== '') {
-                        setWineQuantity(item.vivino_url, parseInt(newQuantity, 10));
-                    } else if (newQuantity !== null) {
-                        showMessage('inventoryMessage', 'Please enter a valid number for quantity.', 'error');
-                    }
-                };
-                actionsCell.appendChild(setQuantityButton);
-
-                const deleteButton = document.createElement('button');
-                deleteButton.textContent = 'Delete Wine';
-                deleteButton.className = 'text-red-600 hover:text-red-900';
-                deleteButton.onclick = () => deleteWine(item.vivino_url);
-                actionsCell.appendChild(deleteButton);
-            });
+        const detailsDiv = document.createElement('div');
+        detailsDiv.className = 'flex-1 wine-details-cell text-sm text-gray-900';
+        let detailsHtml = `<h4>${item.name || 'N/A'} ${item.vintage ? `(${item.vintage})` : ''}</h4>`;
+        if (item.varietal && item.varietal !== "Unknown Varietal") {
+            detailsHtml += `<p><strong>Varietal:</strong> ${item.varietal}</p>`;
         }
+        let location = [];
+        if (item.region && item.region !== "Unknown Region") location.push(item.region);
+        if (item.country && item.country !== "Unknown Country") location.push(item.country);
+        if (location.length > 0) {
+            detailsHtml += `<p><strong>Origin:</strong> ${location.join(', ')}</p>`;
+        }
+        if (item.vivino_rating) {
+            detailsHtml += `<p><strong>Rating:</strong> ${item.vivino_rating.toFixed(1)} ⭐${item.vivino_num_ratings ? ` (${item.vivino_num_ratings} ratings)` : ''}</p>`;
+        }
+        detailsDiv.innerHTML = detailsHtml;
+
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'flex flex-row sm:flex-col gap-2 sm:items-end';
+
+        const consumeBtn = document.createElement('button');
+        consumeBtn.innerHTML = '🍷';
+        consumeBtn.title = 'Consume 1 Bottle';
+        consumeBtn.className = 'text-green-600 hover:text-green-900 text-xl';
+        consumeBtn.onclick = () => consumeWine(item.vivino_url);
+
+        const qtyInput = document.createElement('input');
+        qtyInput.type = 'number';
+        qtyInput.value = item.quantity;
+        qtyInput.min = 0;
+        qtyInput.className = 'w-16 text-center border border-gray-300 rounded-md px-2 py-1';
+        qtyInput.title = 'Edit Quantity';
+        qtyInput.onblur = () => updateQuantity(item.vivino_url, qtyInput.value);
+        qtyInput.onkeydown = (e) => {
+            if (e.key === 'Enter') {
+                qtyInput.blur();
+            }
+        };
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.innerHTML = '🗑️';
+        deleteBtn.title = 'Delete Wine from Inventory';
+        deleteBtn.className = 'text-red-600 hover:text-red-900 text-xl';
+        deleteBtn.onclick = () => deleteWine(item.vivino_url);
+
+        actionsDiv.appendChild(consumeBtn);
+        actionsDiv.appendChild(qtyInput);
+        actionsDiv.appendChild(deleteBtn);
+
+        row.appendChild(imageDiv);
+        row.appendChild(detailsDiv);
+        row.appendChild(actionsDiv);
+
+        container.appendChild(row);
+    });
+}
 
         // --- Scan Wine ---
         const scanWineForm = document.getElementById('scanWineForm');
