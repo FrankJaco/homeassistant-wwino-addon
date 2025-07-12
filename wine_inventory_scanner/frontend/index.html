@@ -261,7 +261,8 @@
 
             inventory.forEach(item => {
                 const row = document.createElement('tr'); // Still using tr for semantic table structure
-                row.className = 'border-b border-gray-200'; // Add a bottom border for visual separation
+                // Make the table row a flex container with column direction on small screens, and a table-row on larger
+                row.className = 'border-b border-gray-200 flex flex-col sm:table-row';
 
                 // Image Column
                 const imageCell = document.createElement('td');
