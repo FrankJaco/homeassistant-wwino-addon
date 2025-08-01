@@ -1,0 +1,75 @@
+# ===== Python =====
+.venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.Python
+env/
+venv/
+ENV/
+pip-log.txt
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+
+# pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# mypy, pylint, coverage
+.mypy_cache/
+.dmypy.json
+.pyre/
+.pytype/
+.cache/
+.nox/
+.tox/
+
+# Secrets
+.env
+.env.*          # e.g. .env.local or .env.dev
+secrets.yaml
+
+# ===== JavaScript / Node =====
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json  # optional to ignore if you don't want to pin deps
+dist/
+build/
+
+# Webpack / Vite / React / Vue build artifacts
+*.bundle.js
+*.map
+*.min.js
+*.gz
+
+# Frontend testing
+coverage/
+.nyc_output/
+.vitest/
+
+# ========== Editor / System ==========
+.vscode/
+.idea/
+*.swp
+*.swo
+*.bak
+*.tmp
+*.log
+.DS_Store
+Thumbs.db
+
+# ========== Custom Local Paths ==========
+# Ignore output folders you use for temporary results or cache
+.wwino_cache/
+uploads/
