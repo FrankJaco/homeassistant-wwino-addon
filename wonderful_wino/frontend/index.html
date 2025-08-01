@@ -797,14 +797,14 @@
             document.body.classList.add('dark-theme');
             localStorage.setItem('theme', 'dark');
             themeIcon.textContent = '🌙';
-            // themeText.textContent = 'Dark Mode';
+            themeText.textContent = 'Dark';
         }
 
         function enableLightMode() {
             document.body.classList.remove('dark-theme');
             localStorage.setItem('theme', 'light');
             themeIcon.textContent = '☀️';
-            //themeText.textContent = 'Light Mode';
+            themeText.textContent = 'Light';
         }
         
         themeToggle.addEventListener('click', () => {
