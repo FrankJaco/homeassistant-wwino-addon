@@ -842,8 +842,6 @@ def scrape_vivino_data(vivino_url):
                 except ValueError: pass
         logger.debug(f"Vivino Rating scraping complete. Current data: {wine_data['vivino_rating']}")
 
-        logger.debug(f"Price scraping logic removed.") # Log removal
-
         # --- Final Fallback Layer: Parse the URL itself ---
         # This runs only if the above methods failed to find the data.
         # 1. Fallback for Vintage from URL query parameter
