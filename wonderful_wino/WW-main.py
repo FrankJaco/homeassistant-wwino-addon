@@ -1050,7 +1050,7 @@ def add_manual_wine():
         'vintage': data['vintage'],
         'varietal': data.get('varietal') or "Unknown Varietal",
         'region': data.get('region') or "Unknown Region",
-        'country': "Unknown Country",
+        'country': data.get('country') or "Unknown Country",
         'vivino_rating': None,
         'vivino_num_ratings': None,
         'image_url': None,
@@ -1079,6 +1079,70 @@ def add_manual_wine():
         }), 200
     else:
         return jsonify({"status": "error", "message": "Failed to store manual wine data in database."}), 500
+
+@app.route('/edit-wine', methods=['POST'])
+def edit_wine():
+    """
+    Endpoint to edit an existing wine's details.
+    """
+    data = request.get_json()
+    required_fields = ['vivino_url', 'name', 'vintage', 'quantity']
+    if not data or not all(field in data for field in required_fields):
+        logger.warning("Received invalid data for /edit-wine: %s", data)
+        return jsonify({"status": "error", "message": "Missing required fields for editing."}), 400
+
+    vivino_url = data['vivino_url']
+    
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    try:
+        # First, fetch the *old* record to remove it from the HA ToDo list if the name/vintage changes
+        cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url,))
+        old_wine_row = cursor.fetchone()
+        if old_wine_row:
+            old_wine_dict = dict(old_wine_row)
+            # Temporarily sync with 0 quantity to ensure the old item is removed from HA
+            sync_to_ha_todo(old_wine_dict, 0)
+        else:
+            # If for some reason the wine isn't found, we can't proceed
+            logger.error(f"Could not find wine with URL {vivino_url} to edit.")
+            return jsonify({"status": "error", "message": "Wine to edit not found."}), 404
+
+        # Now, update the database with the new details
+        cursor.execute('''
+            UPDATE wines 
+            SET name = ?, vintage = ?, varietal = ?, region = ?, country = ?, quantity = ?
+            WHERE vivino_url = ?
+        ''', (
+            data['name'],
+            data['vintage'],
+            data.get('varietal') or "Unknown Varietal",
+            data.get('region') or "Unknown Region",
+            data.get('country') or "Unknown Country",
+            data['quantity'],
+            vivino_url
+        ))
+        conn.commit()
+
+        # Fetch the newly updated record to sync it back to HA
+        cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url,))
+        updated_wine_row = cursor.fetchone()
+        if updated_wine_row:
+            updated_wine_dict = dict(updated_wine_row)
+            sync_to_ha_todo(updated_wine_dict, updated_wine_dict['quantity'])
+
+        logger.info(f"Successfully edited wine: {vivino_url}")
+        return jsonify({"status": "success", "message": "Wine updated successfully."}), 200
+
+    except sqlite3.Error as e:
+        logger.error(f"Database error editing wine {vivino_url}: {e}")
+        conn.rollback()
+        return jsonify({"status": "error", "message": "Database error while editing wine."}), 500
+    finally:
+        if conn:
+            conn.close()
 
 
 @app.route('/inventory', methods=['GET'])

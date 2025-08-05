@@ -180,6 +180,8 @@
         .bg-blue-600 { background-color: #2563eb !important; }
         .hover\:bg-blue-700:hover { background-color: #1d4ed8 !important; }
         .text-blue-600 { color: #2563eb !important; }
+		.text-yellow-600 { color: #ca8a04 !important; }
+        .hover\:text-yellow-900:hover { color: #713f12 !important; }
 
         /* Styles for the theme toggle button */
         #themeToggle {
@@ -268,7 +270,7 @@
             </div>
 
             <div class="mt-6 pt-6 border-t border-gray-200 text-center">
-                <button id="openManualAddModalBtn" class="bg-gray-200 text-gray-600 font-semibold px-6 py-2 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400">
+                <button id="openEntryModalBtn" class="bg-gray-200 text-gray-600 font-semibold px-6 py-2 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400">
                     Manual Entry
                 </button>
             </div>
@@ -376,11 +378,12 @@
         </div>
     </div>
 
-    <div id="manualAddModal" class="modal-overlay hidden">
+    <div id="entryModal" class="modal-overlay hidden">
         <div class="modal-content">
-            <button class="modal-close-button" onclick="closeManualAddModal()">&times;</button>
-            <h3 class="text-xl font-semibold mb-4">Add Wine Manually</h3>
-            <form id="manualWineForm">
+            <button class="modal-close-button" onclick="closeEntryModal()">&times;</button>
+            <h3 id="entryModalTitle" class="text-xl font-semibold mb-4">Add Wine Manually</h3>
+            <form id="entryForm">
+                <input type="hidden" id="entryVivinoUrl">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div class="sm:col-span-2">
                         <label for="manualNameInput" class="block text-sm font-medium">Wine Name *</label>
@@ -397,24 +400,29 @@
                         <input type="text" id="manualVarietalInput" placeholder="e.g., Chardonnay"
                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500">
                     </div>
-                    <div class="sm:col-span-2">
+                    <div>
                         <label for="manualRegionInput" class="block text-sm font-medium">Region</label>
                         <input type="text" id="manualRegionInput" placeholder="e.g., Napa Valley"
                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500">
                     </div>
                     <div>
+                        <label for="manualCountryInput" class="block text-sm font-medium">Country</label>
+                        <input type="text" id="manualCountryInput" placeholder="e.g., USA"
+                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500">
+                    </div>
+                    <div class="sm:col-span-2">
                         <label for="manualQuantityInput" class="block text-sm font-medium">Quantity *</label>
                         <input type="number" id="manualQuantityInput" min="1" value="1"
                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500" required>
                     </div>
                 </div>
-                <div id="manualAddMessage" class="mt-4 text-center hidden"></div>
+                <div id="entryMessage" class="mt-4 text-center hidden"></div>
                 <div class="mt-6 flex justify-end gap-4">
-                     <button type="button" onclick="closeManualAddModal()"
+                     <button type="button" onclick="closeEntryModal()"
                             class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400">
                         Cancel
                     </button>
-                    <button type="submit"
+                    <button type="submit" id="entrySubmitBtn"
                             class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500">
                         Add Wine
                     </button>
@@ -583,6 +591,12 @@
                     if (e.key === 'Enter') qtyInput.blur();
                 };
 
+                const editBtn = document.createElement('button');
+                editBtn.innerHTML = '✏️';
+                editBtn.title = 'Edit Wine Details';
+                editBtn.className = 'text-yellow-600 hover:text-yellow-900 text-xl';
+                editBtn.onclick = () => openEditModal(item);
+
                 const deleteBtn = document.createElement('button');
                 deleteBtn.innerHTML = '🗑️';
                 deleteBtn.title = 'Delete Wine from Inventory';
@@ -591,6 +605,7 @@
 
                 actionsCell.appendChild(consumeBtn);
                 actionsCell.appendChild(qtyInput);
+                actionsCell.appendChild(editBtn);
                 actionsCell.appendChild(deleteBtn);
 
                 row.appendChild(imageCell);
@@ -623,42 +638,57 @@
             }
         });
         
-        // --- Manual Add Wine ---
-        document.getElementById('manualWineForm').addEventListener('submit', async function(event) {
+        // --- Add/Edit Wine (Manual/Edit Form) ---
+        document.getElementById('entryForm').addEventListener('submit', async function(event) {
             event.preventDefault();
+
+            const vivinoUrl = document.getElementById('entryVivinoUrl').value;
+            const isEditMode = !!vivinoUrl;
+
             const payload = {
                 name: document.getElementById('manualNameInput').value,
                 vintage: parseInt(document.getElementById('manualVintageInput').value, 10),
                 varietal: document.getElementById('manualVarietalInput').value,
                 region: document.getElementById('manualRegionInput').value,
+                country: document.getElementById('manualCountryInput').value,
                 quantity: parseInt(document.getElementById('manualQuantityInput').value, 10)
             };
 
             if (!payload.name || isNaN(payload.vintage) || isNaN(payload.quantity)) {
-                showMessage('manualAddMessage', 'Please fill in all required fields.', 'error', true);
+                showMessage('entryMessage', 'Please fill in all required fields.', 'error', true);
                 return;
             }
 
+            let url = '';
+            let successMessage = '';
+            
+            if (isEditMode) {
+                payload.vivino_url = vivinoUrl;
+                url = `${BASE_URL}edit-wine`;
+                successMessage = 'Wine updated successfully!';
+            } else {
+                url = `${BASE_URL}add-manual-wine`;
+                successMessage = 'Wine added successfully!';
+            }
+
             try {
-                const response = await fetch(`${BASE_URL}add-manual-wine`, {
+                const response = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
                 const result = await response.json();
-                if (!response.ok) throw new Error(result.message || 'Failed to add wine');
+                if (!response.ok) throw new Error(result.message || 'Failed to process request');
                 
-                showMessage('manualAddMessage', result.message || 'Wine added successfully!', 'info', true);
+                showMessage('entryMessage', result.message || successMessage, 'info', true);
                 fetchInventory();
                 
                 setTimeout(() => {
-                    closeManualAddModal();
-                    document.getElementById('manualWineForm').reset();
-                    document.getElementById('manualAddMessage').style.display = 'none';
+                    closeEntryModal();
                 }, 1500);
 
             } catch (error) {
-                showMessage('manualAddMessage', `Error: ${error.message}`, 'error', true);
+                showMessage('entryMessage', `Error: ${error.message}`, 'error', true);
             }
         });
 
@@ -756,17 +786,42 @@
 
         // --- Modal Functionality ---
         const helpModal = document.getElementById('helpModal');
-        const manualAddModal = document.getElementById('manualAddModal');
+        const entryModal = document.getElementById('entryModal');
         
         document.getElementById('helpButton').addEventListener('click', () => helpModal.classList.remove('hidden'));
-        document.getElementById('openManualAddModalBtn').addEventListener('click', () => manualAddModal.classList.remove('hidden'));
+        document.getElementById('openEntryModalBtn').addEventListener('click', () => openAddModal());
 
         function closeHelpModal() {
             helpModal.classList.add('hidden');
         }
-        function closeManualAddModal() {
-            manualAddModal.classList.add('hidden');
+        function closeEntryModal() {
+            entryModal.classList.add('hidden');
+            document.getElementById('entryForm').reset();
+            document.getElementById('entryMessage').style.display = 'none';
         }
+
+        function openAddModal() {
+            document.getElementById('entryForm').reset();
+            document.getElementById('entryVivinoUrl').value = '';
+            document.getElementById('entryModalTitle').textContent = 'Add Wine Manually';
+            document.getElementById('entrySubmitBtn').textContent = 'Add Wine';
+            entryModal.classList.remove('hidden');
+        }
+
+        function openEditModal(wine) {
+            document.getElementById('entryForm').reset();
+            document.getElementById('entryVivinoUrl').value = wine.vivino_url;
+            document.getElementById('manualNameInput').value = wine.name;
+            document.getElementById('manualVintageInput').value = wine.vintage;
+            document.getElementById('manualVarietalInput').value = wine.varietal !== 'Unknown Varietal' ? wine.varietal : '';
+            document.getElementById('manualRegionInput').value = wine.region !== 'Unknown Region' ? wine.region : '';
+            document.getElementById('manualCountryInput').value = wine.country !== 'Unknown Country' ? wine.country : '';
+            document.getElementById('manualQuantityInput').value = wine.quantity;
+            
+            document.getElementById('entryModalTitle').textContent = 'Edit Wine';
+            document.getElementById('entrySubmitBtn').textContent = 'Save Changes';
+            entryModal.classList.remove('hidden');
+}
 
         // --- Sort Controls ---
         const sortSelect = document.getElementById('sortSelect');
