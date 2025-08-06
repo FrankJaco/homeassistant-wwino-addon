@@ -180,8 +180,10 @@
         .bg-blue-600 { background-color: #2563eb !important; }
         .hover\:bg-blue-700:hover { background-color: #1d4ed8 !important; }
         .text-blue-600 { color: #2563eb !important; }
-		.text-yellow-600 { color: #ca8a04 !important; }
+        .text-yellow-600 { color: #ca8a04 !important; }
         .hover\:text-yellow-900:hover { color: #713f12 !important; }
+		.text-cyan-600 { color: #0891b2 !important; }
+        .hover\:text-cyan-900:hover { color: #164e63 !important; }
 
         /* Styles for the theme toggle button */
         #themeToggle {
@@ -597,6 +599,12 @@
                 editBtn.className = 'text-yellow-600 hover:text-yellow-900 text-xl';
                 editBtn.onclick = () => openEditModal(item);
 
+                const duplicateBtn = document.createElement('button');
+                duplicateBtn.innerHTML = '📋';
+                duplicateBtn.title = 'Duplicate Wine (for new vintage)';
+                duplicateBtn.className = 'text-cyan-600 hover:text-cyan-900 text-xl';
+                duplicateBtn.onclick = () => openDuplicateModal(item);
+
                 const deleteBtn = document.createElement('button');
                 deleteBtn.innerHTML = '🗑️';
                 deleteBtn.title = 'Delete Wine from Inventory';
@@ -606,6 +614,7 @@
                 actionsCell.appendChild(consumeBtn);
                 actionsCell.appendChild(qtyInput);
                 actionsCell.appendChild(editBtn);
+                actionsCell.appendChild(duplicateBtn);
                 actionsCell.appendChild(deleteBtn);
 
                 row.appendChild(imageCell);
@@ -821,7 +830,28 @@
             document.getElementById('entryModalTitle').textContent = 'Edit Wine';
             document.getElementById('entrySubmitBtn').textContent = 'Save Changes';
             entryModal.classList.remove('hidden');
-}
+        }
+
+        function openDuplicateModal(wine) {
+            document.getElementById('entryForm').reset();
+            // IMPORTANT: Leave vivino_url blank to ensure this is treated as a new entry
+            document.getElementById('entryVivinoUrl').value = ''; 
+            
+            // Pre-fill with data from the source wine
+            document.getElementById('manualNameInput').value = wine.name;
+            document.getElementById('manualVarietalInput').value = wine.varietal !== 'Unknown Varietal' ? wine.varietal : '';
+            document.getElementById('manualRegionInput').value = wine.region !== 'Unknown Region' ? wine.region : '';
+            document.getElementById('manualCountryInput').value = wine.country !== 'Unknown Country' ? wine.country : '';
+            
+            // Leave vintage blank and set quantity to 1 to prompt user
+            document.getElementById('manualVintageInput').value = '';
+            document.getElementById('manualQuantityInput').value = 1;
+            
+            document.getElementById('entryModalTitle').textContent = 'Duplicate Wine';
+            document.getElementById('entrySubmitBtn').textContent = 'Add Wine';
+            entryModal.classList.remove('hidden');
+            document.getElementById('manualVintageInput').focus(); // Focus on vintage field for quick entry
+        }
 
         // --- Sort Controls ---
         const sortSelect = document.getElementById('sortSelect');
