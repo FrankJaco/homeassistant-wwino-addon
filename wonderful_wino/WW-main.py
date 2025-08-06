@@ -1344,8 +1344,9 @@ def consume_wine_from_webhook():
                         finally:
                                     conn.close()
             except Exception as e:
+                        # FIX 3: Replaced detailed exception with a generic message.
                         logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
-                        return jsonify({"status": "error", "message": f"Internal server error processing webhook: {e}"}), 500
+                        return jsonify({"status": "error", "message": "An internal error occurred while processing the webhook."}), 500
 
 
 @app.route('/inventory/wine/consume', methods=['POST'])
@@ -1456,8 +1457,9 @@ def sync_all_wines_to_ha():
         sync_db_to_ha_todo() # Then re-add/update all wines from DB
         return jsonify({"status": "success", "message": "All wines synchronized to Home Assistant."}), 200
     except Exception as e:
+        # FIX 2: Replaced detailed exception with a generic message.
         logger.error(f"Error during full synchronization to Home Assistant: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
+        return jsonify({"status": "error", "message": "An internal error occurred during synchronization."}), 500
 
 @app.route("/reinitialize-database-action", methods=["POST"])
 def reinitialize_db_endpoint():
@@ -1470,8 +1472,9 @@ def reinitialize_db_endpoint():
         reinitialize_database()
         return jsonify({"status": "success", "message": "Database reinitialized successfully. Please restart add-on from Home Assistant if needed."}), 200
     except Exception as e:
+        # FIX 1: Replaced detailed exception with a generic message.
         logger.error(f"Error reinitializing database from web UI: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
+        return jsonify({"status": "error", "message": "An internal error occurred while reinitializing the database."}), 500
 
 @app.route("/")
 def serve_frontend():
@@ -1482,7 +1485,6 @@ def serve_frontend():
 def serve_static(path):
     """Serves static files (CSS, JS, images) from the 'frontend' directory."""
     return send_from_directory("frontend", path)
-
 
 # Application Entry Point and Initialization
 if __name__ == '__main__':
