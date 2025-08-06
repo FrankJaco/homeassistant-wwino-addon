@@ -1144,7 +1144,6 @@ def edit_wine():
         if conn:
             conn.close()
 
-
 @app.route('/inventory', methods=['GET'])
 def get_inventory():
     """
