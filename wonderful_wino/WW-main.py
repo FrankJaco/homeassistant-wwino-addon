@@ -819,10 +819,14 @@ def scrape_vivino_data(vivino_url):
                             break
                         except ValueError: pass
             if wine_data['vivino_num_ratings'] is None:
-                # FIX: Replaced vulnerable regex with a more efficient, non-backtracking version.
-                rating_text_matches = re.finditer(r'(\d+(?:[,\.]\d*)*)\s*(global\s*)?ratings', response.text, re.IGNORECASE)
+                # FIX: Replaced vulnerable regex with a simpler one and added validation.
+                rating_text_matches = re.finditer(r'([\d,.]+)\s*(global\s*)?ratings', response.text, re.IGNORECASE)
                 for match in rating_text_matches:
-                    value_str = match.group(1).replace(',', '.')
+                    value_str = match.group(1)
+                    # Post-match validation to avoid processing malformed strings like "..."
+                    if not any(c.isdigit() for c in value_str):
+                        continue
+                    value_str = value_str.replace(',', '.')
                     try:
                         wine_data['vivino_num_ratings'] = int(float(value_str))
                         logger.debug(f"HTML Num Ratings (text match) found: {wine_data['vivino_num_ratings']}")
