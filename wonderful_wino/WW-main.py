@@ -819,7 +819,8 @@ def scrape_vivino_data(vivino_url):
                             break
                         except ValueError: pass
             if wine_data['vivino_num_ratings'] is None:
-                rating_text_matches = re.finditer(r'(\d[\d,\.]*)\s*(global\s*)?ratings', response.text, re.IGNORECASE)
+                # FIX: Replaced vulnerable regex with a more efficient, non-backtracking version.
+                rating_text_matches = re.finditer(r'(\d+(?:[,\.]\d*)*)\s*(global\s*)?ratings', response.text, re.IGNORECASE)
                 for match in rating_text_matches:
                     value_str = match.group(1).replace(',', '.')
                     try:
@@ -1485,6 +1486,7 @@ def serve_frontend():
 def serve_static(path):
     """Serves static files (CSS, JS, images) from the 'frontend' directory."""
     return send_from_directory("frontend", path)
+
 
 # Application Entry Point and Initialization
 if __name__ == '__main__':
