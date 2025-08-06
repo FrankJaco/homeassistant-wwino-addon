@@ -1272,16 +1272,19 @@ def consume_wine_from_webhook():
                         parsed_name = None
                         parsed_vintage = None
 
-                        # Regex to extract "Name (Vintage)"
-                        # FIX: Replaced vulnerable regex with a more efficient, non-greedy version.
-                        match = re.match(r'^(.*?)\s*\((\d{4})\)$', item_text)
-                        if match:
-                                    parsed_name = match.group(1).strip()
-                                    parsed_vintage = int(match.group(2))
+                        # FIX: Replaced vulnerable regex with direct string parsing to prevent ReDoS.
+                        if item_text.endswith(')') and item_text[-6:-5] == '(' and item_text[-5:-1].isdigit() and len(item_text) > 6:
+                            try:
+                                parsed_vintage = int(item_text[-5:-1])
+                                parsed_name = item_text[:-6].rstrip()
+                            except (ValueError, IndexError):
+                                # This case should be rare given the checks, but as a fallback:
+                                parsed_name = item_text.strip()
+                                parsed_vintage = None
                         else:
-                                    # Handle case where there is no vintage
-                                    parsed_name = item_text.strip()
-                                    parsed_vintage = None
+                            # Handle case where there is no vintage
+                            parsed_name = item_text.strip()
+                            parsed_vintage = None
 
 
                         name = parsed_name
