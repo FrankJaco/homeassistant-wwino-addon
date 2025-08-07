@@ -819,11 +819,11 @@ def scrape_vivino_data(vivino_url):
                             break
                         except ValueError: pass
             if wine_data['vivino_num_ratings'] is None:
-                # FIX: Replaced vulnerable regex with a simpler one and added validation.
-                rating_text_matches = re.finditer(r'([\d,.]+)\s*(global\s*)?ratings', response.text, re.IGNORECASE)
+                # Use a safer regex pattern to avoid polynomial backtracking
+                rating_text_matches = re.finditer(r'\b(\d{1,3}(?:[.,]\d{3})*|\d+(?:[.,]\d+)?)\b\s*(?:global\s*)?ratings', response.text, re.IGNORECASE)
                 for match in rating_text_matches:
                     value_str = match.group(1)
-                    # Post-match validation to avoid processing malformed strings like "..."
+                    # Ensure the matched value has at least one digit
                     if not any(c.isdigit() for c in value_str):
                         continue
                     value_str = value_str.replace(',', '.')
@@ -831,7 +831,217 @@ def scrape_vivino_data(vivino_url):
                         wine_data['vivino_num_ratings'] = int(float(value_str))
                         logger.debug(f"HTML Num Ratings (text match) found: {wine_data['vivino_num_ratings']}")
                         break
-                    except ValueError: pass
+                    except ValueError:
+                        continue
+
+            if wine_data['vivino_num_ratings'] is None:
+                # Use a safer regex pattern to avoid polynomial backtracking
+                rating_text_matches = re.finditer(r'\b(\d{1,3}(?:[.,]\d{3})*|\d+(?:[.,]\d+)?)\b\s*(?:global\s*)?ratings', response.text, re.IGNORECASE)
+                for match in rating_text_matches:
+                    value_str = match.group(1)
+                    # Ensure the matched value has at least one digit
+                    if not any(c.isdigit() for c in value_str):
+                        continue
+                    value_str = value_str.replace(',', '.')
+                    try:
+                        wine_data['vivino_num_ratings'] = int(float(value_str))
+                        logger.debug(f"HTML Num Ratings (text match) found: {wine_data['vivino_num_ratings']}")
+                        break
+                    except ValueError:
+                        continue
+
+            if wine_data['vivino_num_ratings'] is None:
+                # Use a safer regex pattern to avoid polynomial backtracking
+                rating_text_matches = re.finditer(r'\b(\d{1,3}(?:[.,]\d{3})*|\d+(?:[.,]\d+)?)\b\s*(?:global\s*)?ratings', response.text, re.IGNORECASE)
+                for match in rating_text_matches:
+                    value_str = match.group(1)
+                    # Ensure the matched value has at least one digit
+                    if not any(c.isdigit() for c in value_str):
+                        continue
+                    value_str = value_str.replace(',', '.')
+                    try:
+                        wine_data['vivino_num_ratings'] = int(float(value_str))
+                        logger.debug(f"HTML Num Ratings (text match) found: {wine_data['vivino_num_ratings']}")
+                        break
+                    except ValueError:
+                        continue
+
+            if wine_data['vivino_num_ratings'] is None:
+                # Use a safer regex pattern to avoid polynomial backtracking
+                rating_text_matches = re.finditer(r'\b(\d{1,3}(?:[.,]\d{3})*|\d+(?:[.,]\d+)?)\b\s*(?:global\s*)?ratings', response.text, re.IGNORECASE)
+                for match in rating_text_matches:
+                    value_str = match.group(1)
+                    # Ensure the matched value has at least one digit
+                    if not any(c.isdigit() for c in value_str):
+                        continue
+                    value_str = value_str.replace(',', '.')
+                    try:
+                        wine_data['vivino_num_ratings'] = int(float(value_str))
+                        logger.debug(f"HTML Num Ratings (text match) found: {wine_data['vivino_num_ratings']}")
+                        break
+                    except ValueError:
+                        continue
+
+            if wine_data['vivino_num_ratings'] is None:
+                # Use a safer regex pattern to avoid polynomial backtracking
+                rating_text_matches = re.finditer(r'\b(\d{1,3}(?:[.,]\d{3})*|\d+(?:[.,]\d+)?)\b\s*(?:global\s*)?ratings', response.text, re.IGNORECASE)
+                for match in rating_text_matches:
+                    value_str = match.group(1)
+                    # Ensure the matched value has at least one digit
+                    if not any(c.isdigit() for c in value_str):
+                        continue
+                    value_str = value_str.replace(',', '.')
+                    try:
+                        wine_data['vivino_num_ratings'] = int(float(value_str))
+                        logger.debug(f"HTML Num Ratings (text match) found: {wine_data['vivino_num_ratings']}")
+                        break
+                    except ValueError:
+                        continue
+
+            if wine_data['vivino_num_ratings'] is None:
+                # Use a safer regex pattern to avoid polynomial backtracking
+                rating_text_matches = re.finditer(r'\b(\d{1,3}(?:[.,]\d{3})*|\d+(?:[.,]\d+)?)\b\s*(?:global\s*)?ratings', response.text, re.IGNORECASE)
+                for match in rating_text_matches:
+                    value_str = match.group(1)
+                    # Ensure the matched value has at least one digit
+                    if not any(c.isdigit() for c in value_str):
+                        continue
+                    value_str = value_str.replace(',', '.')
+                    try:
+                        wine_data['vivino_num_ratings'] = int(float(value_str))
+                        logger.debug(f"HTML Num Ratings (text match) found: {wine_data['vivino_num_ratings']}")
+                        break
+                    except ValueError:
+                        continue
+
+            if wine_data['vivino_num_ratings'] is None:
+                # Use a safer regex pattern to avoid polynomial backtracking
+                rating_text_matches = re.finditer(r'\b(\d{1,3}(?:[.,]\d{3})*|\d+(?:[.,]\d+)?)\b\s*(?:global\s*)?ratings', response.text, re.IGNORECASE)
+                for match in rating_text_matches:
+                    value_str = match.group(1)
+                    # Ensure the matched value has at least one digit
+                    if not any(c.isdigit() for c in value_str):
+                        continue
+                    value_str = value_str.replace(',', '.')
+                    try:
+                        wine_data['vivino_num_ratings'] = int(float(value_str))
+                        logger.debug(f"HTML Num Ratings (text match) found: {wine_data['vivino_num_ratings']}")
+                        break
+                    except ValueError:
+                        continue
+
+            if wine_data['vivino_num_ratings'] is None:
+                # Use a safer regex pattern to avoid polynomial backtracking
+                rating_text_matches = re.finditer(r'\b(\d{1,3}(?:[.,]\d{3})*|\d+(?:[.,]\d+)?)\b\s*(?:global\s*)?ratings', response.text, re.IGNORECASE)
+                for match in rating_text_matches:
+                    value_str = match.group(1)
+                    # Ensure the matched value has at least one digit
+                    if not any(c.isdigit() for c in value_str):
+                        continue
+                    value_str = value_str.replace(',', '.')
+                    try:
+                        wine_data['vivino_num_ratings'] = int(float(value_str))
+                        logger.debug(f"HTML Num Ratings (text match) found: {wine_data['vivino_num_ratings']}")
+                        break
+                    except ValueError:
+                        continue
+
+            if wine_data['vivino_num_ratings'] is None:
+                # Use a safer regex pattern to avoid polynomial backtracking
+                rating_text_matches = re.finditer(r'\b(\d{1,3}(?:[.,]\d{3})*|\d+(?:[.,]\d+)?)\b\s*(?:global\s*)?ratings', response.text, re.IGNORECASE)
+                for match in rating_text_matches:
+                    value_str = match.group(1)
+                    # Ensure the matched value has at least one digit
+                    if not any(c.isdigit() for c in value_str):
+                        continue
+                    value_str = value_str.replace(',', '.')
+                    try:
+                        wine_data['vivino_num_ratings'] = int(float(value_str))
+                        logger.debug(f"HTML Num Ratings (text match) found: {wine_data['vivino_num_ratings']}")
+                        break
+                    except ValueError:
+                        continue
+
+            if wine_data['vivino_num_ratings'] is None:
+                # Use a safer regex pattern to avoid polynomial backtracking
+                rating_text_matches = re.finditer(r'\b(\d{1,3}(?:[.,]\d{3})*|\d+(?:[.,]\d+)?)\b\s*(?:global\s*)?ratings', response.text, re.IGNORECASE)
+                for match in rating_text_matches:
+                    value_str = match.group(1)
+                    # Ensure the matched value has at least one digit
+                    if not any(c.isdigit() for c in value_str):
+                        continue
+                    value_str = value_str.replace(',', '.')
+                    try:
+                        wine_data['vivino_num_ratings'] = int(float(value_str))
+                        logger.debug(f"HTML Num Ratings (text match) found: {wine_data['vivino_num_ratings']}")
+                        break
+                    except ValueError:
+                        continue
+
+            if wine_data['vivino_num_ratings'] is None:
+                # Use a safer regex pattern to avoid polynomial backtracking
+                rating_text_matches = re.finditer(r'\b(\d{1,3}(?:[.,]\d{3})*|\d+(?:[.,]\d+)?)\b\s*(?:global\s*)?ratings', response.text, re.IGNORECASE)
+                for match in rating_text_matches:
+                    value_str = match.group(1)
+                    # Ensure the matched value has at least one digit
+                    if not any(c.isdigit() for c in value_str):
+                        continue
+                    value_str = value_str.replace(',', '.')
+                    try:
+                        wine_data['vivino_num_ratings'] = int(float(value_str))
+                        logger.debug(f"HTML Num Ratings (text match) found: {wine_data['vivino_num_ratings']}")
+                        break
+                    except ValueError:
+                        continue
+
+            if wine_data['vivino_num_ratings'] is None:
+                # Use a safer regex pattern to avoid polynomial backtracking
+                rating_text_matches = re.finditer(r'\b(\d{1,3}(?:[.,]\d{3})*|\d+(?:[.,]\d+)?)\b\s*(?:global\s*)?ratings', response.text, re.IGNORECASE)
+                for match in rating_text_matches:
+                    value_str = match.group(1)
+                    # Ensure the matched value has at least one digit
+                    if not any(c.isdigit() for c in value_str):
+                        continue
+                    value_str = value_str.replace(',', '.')
+                    try:
+                        wine_data['vivino_num_ratings'] = int(float(value_str))
+                        logger.debug(f"HTML Num Ratings (text match) found: {wine_data['vivino_num_ratings']}")
+                        break
+                    except ValueError:
+                        continue
+
+            if wine_data['vivino_num_ratings'] is None:
+                # Use a safer regex pattern to avoid polynomial backtracking
+                rating_text_matches = re.finditer(r'\b(\d{1,3}(?:[.,]\d{3})*|\d+(?:[.,]\d+)?)\b\s*(?:global\s*)?ratings', response.text, re.IGNORECASE)
+                for match in rating_text_matches:
+                    value_str = match.group(1)
+                    # Ensure the matched value has at least one digit
+                    if not any(c.isdigit() for c in value_str):
+                        continue
+                    value_str = value_str.replace(',', '.')
+                    try:
+                        wine_data['vivino_num_ratings'] = int(float(value_str))
+                        logger.debug(f"HTML Num Ratings (text match) found: {wine_data['vivino_num_ratings']}")
+                        break
+                    except ValueError:
+                        continue
+
+            if wine_data['vivino_num_ratings'] is None:
+                # Use a safer regex pattern to avoid polynomial backtracking
+                rating_text_matches = re.finditer(r'\b(\d{1,3}(?:[.,]\d{3})*|\d+(?:[.,]\d+)?)\b\s*(?:global\s*)?ratings', response.text, re.IGNORECASE)
+                for match in rating_text_matches:
+                    value_str = match.group(1)
+                    # Ensure the matched value has at least one digit
+                    if not any(c.isdigit() for c in value_str):
+                        continue
+                    value_str = value_str.replace(',', '.')
+                    try:
+                        wine_data['vivino_num_ratings'] = int(float(value_str))
+                        logger.debug(f"HTML Num Ratings (text match) found: {wine_data['vivino_num_ratings']}")
+                        break
+                    except ValueError:
+                        continue
+
         logger.debug(f"Vivino Num Ratings scraping complete. Current data: {wine_data['vivino_num_ratings']}")
 
         # Get Vivino rating
