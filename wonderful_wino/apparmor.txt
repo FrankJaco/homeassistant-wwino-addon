@@ -3,18 +3,12 @@
 profile wonderful_wino flags=(attach_disconnected,mediate_deleted) {
   #include <abstractions/base>
   
-  # Allow the add-on to read its own files from the /app directory.
   /app/** r,
   
-  # Allow read, write, and lock access to the /share/wwino directory.
   /share/wwino/** rwk,
   
-  # Grant network access since host_network is enabled.
   network,
-  
-  # Allow the add-on to bind to port 5000 for the web server.
   network bind 5000,
   
-  # Deny all other filesystem access.
   deny /**,
 }
