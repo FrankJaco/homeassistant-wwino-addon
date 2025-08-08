@@ -19,6 +19,7 @@ ingress_port: 5000
 panel_icon: mdi:glass-wine
 panel_title: Wonderful Wino
 panel_admin: false
+apparmor: false
 map:
   - share:rw
 options:
