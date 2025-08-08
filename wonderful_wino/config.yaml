@@ -13,7 +13,7 @@ arch:
 startup: application
 init: false
 boot: auto
-host_network: true
+host_network: false
 ingress: true
 ingress_port: 5000
 panel_icon: mdi:glass-wine
