@@ -1,0 +1,28 @@
+#include <tunables/global>
+
+profile wonderful_wino flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
+  
+  # Allow the add-on to read its own files (e.g., Python scripts and HTML templates)
+  # from the /app directory. This is a read-only permission.
+  /app/** r,
+  
+  # Allow read, write, and lock access to the /share/wwino directory.
+  # This is where your add-on creates the database file (wine_inventory.db),
+  # reads the configuration (wine_master.yaml), and creates the directory itself.
+  # The double asterisk (**) is a wildcard for all files and subdirectories.
+  /share/wwino/** rwk,
+  
+  # The add-on needs to make outbound network calls to the Home Assistant Supervisor
+  # API to get information about itself. Since your add-on uses `host_network: true`,
+  # we will grant full network access.
+  network,
+  
+  # Your Flask web server listens on TCP port 5000 for Ingress.
+  # This rule explicitly allows the add-on to bind to this port.
+  network bind 5000,
+  
+  # The following line is crucial for security. It explicitly denies all
+  # other filesystem access to protect the host system.
+  deny /**,
+}
