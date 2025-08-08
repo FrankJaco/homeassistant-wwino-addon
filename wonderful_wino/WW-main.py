@@ -14,7 +14,8 @@ import time # For generating unique IDs for manual entries
 HOME_ASSISTANT_URL = os.environ.get("HOME_ASSISTANT_URL")
 HA_LONG_LIVED_TOKEN = os.environ.get("HA_LONG_LIVED_TOKEN")
 TODO_LIST_ENTITY_ID = os.environ.get("TODO_LIST_ENTITY_ID")
-DB_PATH = os.environ.get("DB_PATH", "/share/wine_inventory.db") # Default to /share if not set
+DB_PATH = os.environ.get("DB_PATH", "/share/wwino/wine_inventory.db")
+os.makedirs(os.path.dirname(DB_PATH), exist_ok=True) # Ensure /share/wwino exists
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "debug").upper() # Set to debug for consistent logging
 
 # --- Logging Setup ---
