@@ -1,6 +1,6 @@
 name: Wonderful Wino
 version: "0.2.5"
-slug: wwino
+slug: wonderful-wino
 description: Access your wines from Home Assistant ToDo list. Yes, a nod to both George Carlin and Frank Zappa
 url: https://github.com/FrankJaco/homeassistant-wwino-addon
 documentation: https://github.com/FrankJaco/homeassistant-wwino-addon/blob/main/wonderful_wino/README.md
