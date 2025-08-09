@@ -797,7 +797,10 @@
         const helpModal = document.getElementById('helpModal');
         const entryModal = document.getElementById('entryModal');
         
-        document.getElementById('helpButton').addEventListener('click', () => helpModal.classList.remove('hidden'));
+        document.getElementById('helpButton').addEventListener('click', () => {
+            helpModal.classList.remove('hidden');
+            fetchInventory(); // refresh inventory after opening help
+        });
         document.getElementById('openEntryModalBtn').addEventListener('click', () => openAddModal());
 
         function closeHelpModal() {
@@ -898,8 +901,10 @@
         
         themeToggle.addEventListener('click', () => {
              if (document.body.classList.contains('dark-theme')) {
+                fetchInventory();             
                 enableLightMode();
             } else {
+                fetchInventory();
                 enableDarkMode();
             }
         });
