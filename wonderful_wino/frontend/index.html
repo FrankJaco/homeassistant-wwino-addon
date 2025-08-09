@@ -867,12 +867,14 @@
         sortSelect.addEventListener('change', (event) => {
             currentSortBy = event.target.value;
             applySortAndDisplayInventory();
+            fetchInventory(); // refresh from backend
         });
 
         sortDirectionToggle.addEventListener('click', () => {
             currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
             updateSortIcons();
             applySortAndDisplayInventory();
+            fetchInventory(); // refresh from backend
         });
 
         // --- Theme Toggling Logic ---
