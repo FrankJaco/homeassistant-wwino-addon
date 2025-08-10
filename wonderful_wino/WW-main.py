@@ -218,9 +218,8 @@ def build_markdown_description(wine: dict, current_quantity: int, is_for_todo: b
     # Add quantity first to the last line
     rating_qty_line_parts.append(f"Qty: [ **{current_quantity}** ]")
 
-    if wine.get("vivino_rating") is not None and wine.get("vivino_num_ratings"):
-        rating_qty_line_parts.append(f"Rating: **{wine['vivino_rating']:.1f}** ⭐ ({wine['vivino_num_ratings']})")
-    elif wine.get("vivino_rating") is not None:
+    # PHASE 1 CHANGE: Removed vivino_num_ratings from display logic
+    if wine.get("vivino_rating") is not None:
          rating_qty_line_parts.append(f"Rating: **{wine['vivino_rating']:.1f}** ⭐")
 
     description_parts.append("&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;".join(rating_qty_line_parts))
@@ -240,6 +239,7 @@ def init_db():
     """Initializes the SQLite database, creating the 'wines' table if it doesn't exist."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
+    # PHASE 1 CHANGE: Updated table schema
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS wines (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -250,9 +250,10 @@ def init_db():
             region TEXT,
             country TEXT,
             vivino_rating REAL,
-            vivino_num_ratings INTEGER,
             image_url TEXT,
-            quantity INTEGER DEFAULT 1, -- New column for quantity
+            quantity INTEGER DEFAULT 1,
+            cost_tier INTEGER,
+            personal_rating REAL,
             added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -448,6 +449,7 @@ def scrape_vivino_data(vivino_url):
         'User-Agent': user_agents[0] # Use a desktop user agent by default
     }
 
+    # PHASE 1 CHANGE: Removed vivino_num_ratings
     wine_data = {
         'vivino_url': vivino_url,
         'name': 'Unknown Wine',
@@ -456,9 +458,7 @@ def scrape_vivino_data(vivino_url):
         'region': 'Unknown Region',
         'country': 'Unknown Country',
         'vivino_rating': None,
-        'vivino_num_ratings': None,
         'image_url': None,
-        # Quantity is managed by the inventory system, not scraped
     }
 
     # Master list to collect all grape names found from any source (JSON-LD or HTML)
@@ -495,12 +495,8 @@ def scrape_vivino_data(vivino_url):
                                 if rating_value is not None:
                                     try: wine_data['vivino_rating'] = float(str(rating_value).replace(',', '.'));
                                     except ValueError: pass
-                            if wine_data['vivino_num_ratings'] is None:
-                                review_count = aggregate_rating.get('reviewCount')
-                                if review_count is not None:
-                                    try: wine_data['vivino_num_ratings'] = int(str(review_count).replace(',', ''));
-                                    except ValueError: pass
-
+                            # PHASE 1 CHANGE: Removed vivino_num_ratings scraping
+                            
                         contains_wine = json_ld.get('containsWine')
                         if contains_wine and isinstance(contains_wine, dict) and contains_wine.get('@type') == 'Wine':
                             if wine_data['vintage'] is None and 'vintage' in contains_wine:
@@ -790,260 +786,7 @@ def scrape_vivino_data(vivino_url):
             wine_data['country'] = "United States"
             logger.debug(f"Country defaulted to 'United States' due to URL pattern (final fallback).")
 
-        # Get Vivino number of ratings
-        if wine_data['vivino_num_ratings'] is None:
-            ratings_elements_classes = [
-                re.compile(r'vivinoRating_ratingsCount__value'),
-                re.compile(r'text-micro text-bold mt-2 text-color-gray-600'),
-                re.compile(r'vivinoRating_ratings'),
-                re.compile(r'vivinoRating_summary__reviewerAndActions'),
-                re.compile(r'community-score__total-ratings'),
-                re.compile(r'community-score__reviews-count'),
-                re.compile(r'review-score__count')
-            ]
-            for class_name in ratings_elements_classes:
-                elem = soup.find(class_=class_name)
-                if elem:
-                    num_ratings_text = elem.get_text(strip=True)
-                    num_ratings_match = re.search(r'([\d,\.]+)\s*(ratings|K|M)?', num_ratings_text, re.IGNORECASE)
-                    if num_ratings_match:
-                        value_str = num_ratings_match.group(1).replace(',', '.')
-                        suffix = (num_ratings_match.group(2) or '').lower()
-                        try:
-                            value = float(value_str)
-                            if suffix == 'k':
-                                value *= 1_000
-                            elif suffix == 'm':
-                                value *= 1_000_000
-                            wine_data['vivino_num_ratings'] = int(value)
-                            logger.debug(f"HTML Num Ratings ({class_name.pattern}) found: {wine_data['vivino_num_ratings']}")
-                            break
-                        except ValueError: pass
-            if wine_data['vivino_num_ratings'] is None:
-                # Use a safer regex pattern to avoid polynomial backtracking
-                rating_text_matches = re.finditer(r'\b(\d{1,3}(?:[.,]\d{3})*|\d+(?:[.,]\d+)?)\b\s*(?:global\s*)?ratings', response.text, re.IGNORECASE)
-                for match in rating_text_matches:
-                    value_str = match.group(1)
-                    # Ensure the matched value has at least one digit
-                    if not any(c.isdigit() for c in value_str):
-                        continue
-                    value_str = value_str.replace(',', '.')
-                    try:
-                        wine_data['vivino_num_ratings'] = int(float(value_str))
-                        logger.debug(f"HTML Num Ratings (text match) found: {wine_data['vivino_num_ratings']}")
-                        break
-                    except ValueError:
-                        continue
-
-            if wine_data['vivino_num_ratings'] is None:
-                # Use a safer regex pattern to avoid polynomial backtracking
-                rating_text_matches = re.finditer(r'\b(\d{1,3}(?:[.,]\d{3})*|\d+(?:[.,]\d+)?)\b\s*(?:global\s*)?ratings', response.text, re.IGNORECASE)
-                for match in rating_text_matches:
-                    value_str = match.group(1)
-                    # Ensure the matched value has at least one digit
-                    if not any(c.isdigit() for c in value_str):
-                        continue
-                    value_str = value_str.replace(',', '.')
-                    try:
-                        wine_data['vivino_num_ratings'] = int(float(value_str))
-                        logger.debug(f"HTML Num Ratings (text match) found: {wine_data['vivino_num_ratings']}")
-                        break
-                    except ValueError:
-                        continue
-
-            if wine_data['vivino_num_ratings'] is None:
-                # Use a safer regex pattern to avoid polynomial backtracking
-                rating_text_matches = re.finditer(r'\b(\d{1,3}(?:[.,]\d{3})*|\d+(?:[.,]\d+)?)\b\s*(?:global\s*)?ratings', response.text, re.IGNORECASE)
-                for match in rating_text_matches:
-                    value_str = match.group(1)
-                    # Ensure the matched value has at least one digit
-                    if not any(c.isdigit() for c in value_str):
-                        continue
-                    value_str = value_str.replace(',', '.')
-                    try:
-                        wine_data['vivino_num_ratings'] = int(float(value_str))
-                        logger.debug(f"HTML Num Ratings (text match) found: {wine_data['vivino_num_ratings']}")
-                        break
-                    except ValueError:
-                        continue
-
-            if wine_data['vivino_num_ratings'] is None:
-                # Use a safer regex pattern to avoid polynomial backtracking
-                rating_text_matches = re.finditer(r'\b(\d{1,3}(?:[.,]\d{3})*|\d+(?:[.,]\d+)?)\b\s*(?:global\s*)?ratings', response.text, re.IGNORECASE)
-                for match in rating_text_matches:
-                    value_str = match.group(1)
-                    # Ensure the matched value has at least one digit
-                    if not any(c.isdigit() for c in value_str):
-                        continue
-                    value_str = value_str.replace(',', '.')
-                    try:
-                        wine_data['vivino_num_ratings'] = int(float(value_str))
-                        logger.debug(f"HTML Num Ratings (text match) found: {wine_data['vivino_num_ratings']}")
-                        break
-                    except ValueError:
-                        continue
-
-            if wine_data['vivino_num_ratings'] is None:
-                # Use a safer regex pattern to avoid polynomial backtracking
-                rating_text_matches = re.finditer(r'\b(\d{1,3}(?:[.,]\d{3})*|\d+(?:[.,]\d+)?)\b\s*(?:global\s*)?ratings', response.text, re.IGNORECASE)
-                for match in rating_text_matches:
-                    value_str = match.group(1)
-                    # Ensure the matched value has at least one digit
-                    if not any(c.isdigit() for c in value_str):
-                        continue
-                    value_str = value_str.replace(',', '.')
-                    try:
-                        wine_data['vivino_num_ratings'] = int(float(value_str))
-                        logger.debug(f"HTML Num Ratings (text match) found: {wine_data['vivino_num_ratings']}")
-                        break
-                    except ValueError:
-                        continue
-
-            if wine_data['vivino_num_ratings'] is None:
-                # Use a safer regex pattern to avoid polynomial backtracking
-                rating_text_matches = re.finditer(r'\b(\d{1,3}(?:[.,]\d{3})*|\d+(?:[.,]\d+)?)\b\s*(?:global\s*)?ratings', response.text, re.IGNORECASE)
-                for match in rating_text_matches:
-                    value_str = match.group(1)
-                    # Ensure the matched value has at least one digit
-                    if not any(c.isdigit() for c in value_str):
-                        continue
-                    value_str = value_str.replace(',', '.')
-                    try:
-                        wine_data['vivino_num_ratings'] = int(float(value_str))
-                        logger.debug(f"HTML Num Ratings (text match) found: {wine_data['vivino_num_ratings']}")
-                        break
-                    except ValueError:
-                        continue
-
-            if wine_data['vivino_num_ratings'] is None:
-                # Use a safer regex pattern to avoid polynomial backtracking
-                rating_text_matches = re.finditer(r'\b(\d{1,3}(?:[.,]\d{3})*|\d+(?:[.,]\d+)?)\b\s*(?:global\s*)?ratings', response.text, re.IGNORECASE)
-                for match in rating_text_matches:
-                    value_str = match.group(1)
-                    # Ensure the matched value has at least one digit
-                    if not any(c.isdigit() for c in value_str):
-                        continue
-                    value_str = value_str.replace(',', '.')
-                    try:
-                        wine_data['vivino_num_ratings'] = int(float(value_str))
-                        logger.debug(f"HTML Num Ratings (text match) found: {wine_data['vivino_num_ratings']}")
-                        break
-                    except ValueError:
-                        continue
-
-            if wine_data['vivino_num_ratings'] is None:
-                # Use a safer regex pattern to avoid polynomial backtracking
-                rating_text_matches = re.finditer(r'\b(\d{1,3}(?:[.,]\d{3})*|\d+(?:[.,]\d+)?)\b\s*(?:global\s*)?ratings', response.text, re.IGNORECASE)
-                for match in rating_text_matches:
-                    value_str = match.group(1)
-                    # Ensure the matched value has at least one digit
-                    if not any(c.isdigit() for c in value_str):
-                        continue
-                    value_str = value_str.replace(',', '.')
-                    try:
-                        wine_data['vivino_num_ratings'] = int(float(value_str))
-                        logger.debug(f"HTML Num Ratings (text match) found: {wine_data['vivino_num_ratings']}")
-                        break
-                    except ValueError:
-                        continue
-
-            if wine_data['vivino_num_ratings'] is None:
-                # Use a safer regex pattern to avoid polynomial backtracking
-                rating_text_matches = re.finditer(r'\b(\d{1,3}(?:[.,]\d{3})*|\d+(?:[.,]\d+)?)\b\s*(?:global\s*)?ratings', response.text, re.IGNORECASE)
-                for match in rating_text_matches:
-                    value_str = match.group(1)
-                    # Ensure the matched value has at least one digit
-                    if not any(c.isdigit() for c in value_str):
-                        continue
-                    value_str = value_str.replace(',', '.')
-                    try:
-                        wine_data['vivino_num_ratings'] = int(float(value_str))
-                        logger.debug(f"HTML Num Ratings (text match) found: {wine_data['vivino_num_ratings']}")
-                        break
-                    except ValueError:
-                        continue
-
-            if wine_data['vivino_num_ratings'] is None:
-                # Use a safer regex pattern to avoid polynomial backtracking
-                rating_text_matches = re.finditer(r'\b(\d{1,3}(?:[.,]\d{3})*|\d+(?:[.,]\d+)?)\b\s*(?:global\s*)?ratings', response.text, re.IGNORECASE)
-                for match in rating_text_matches:
-                    value_str = match.group(1)
-                    # Ensure the matched value has at least one digit
-                    if not any(c.isdigit() for c in value_str):
-                        continue
-                    value_str = value_str.replace(',', '.')
-                    try:
-                        wine_data['vivino_num_ratings'] = int(float(value_str))
-                        logger.debug(f"HTML Num Ratings (text match) found: {wine_data['vivino_num_ratings']}")
-                        break
-                    except ValueError:
-                        continue
-
-            if wine_data['vivino_num_ratings'] is None:
-                # Use a safer regex pattern to avoid polynomial backtracking
-                rating_text_matches = re.finditer(r'\b(\d{1,3}(?:[.,]\d{3})*|\d+(?:[.,]\d+)?)\b\s*(?:global\s*)?ratings', response.text, re.IGNORECASE)
-                for match in rating_text_matches:
-                    value_str = match.group(1)
-                    # Ensure the matched value has at least one digit
-                    if not any(c.isdigit() for c in value_str):
-                        continue
-                    value_str = value_str.replace(',', '.')
-                    try:
-                        wine_data['vivino_num_ratings'] = int(float(value_str))
-                        logger.debug(f"HTML Num Ratings (text match) found: {wine_data['vivino_num_ratings']}")
-                        break
-                    except ValueError:
-                        continue
-
-            if wine_data['vivino_num_ratings'] is None:
-                # Use a safer regex pattern to avoid polynomial backtracking
-                rating_text_matches = re.finditer(r'\b(\d{1,3}(?:[.,]\d{3})*|\d+(?:[.,]\d+)?)\b\s*(?:global\s*)?ratings', response.text, re.IGNORECASE)
-                for match in rating_text_matches:
-                    value_str = match.group(1)
-                    # Ensure the matched value has at least one digit
-                    if not any(c.isdigit() for c in value_str):
-                        continue
-                    value_str = value_str.replace(',', '.')
-                    try:
-                        wine_data['vivino_num_ratings'] = int(float(value_str))
-                        logger.debug(f"HTML Num Ratings (text match) found: {wine_data['vivino_num_ratings']}")
-                        break
-                    except ValueError:
-                        continue
-
-            if wine_data['vivino_num_ratings'] is None:
-                # Use a safer regex pattern to avoid polynomial backtracking
-                rating_text_matches = re.finditer(r'\b(\d{1,3}(?:[.,]\d{3})*|\d+(?:[.,]\d+)?)\b\s*(?:global\s*)?ratings', response.text, re.IGNORECASE)
-                for match in rating_text_matches:
-                    value_str = match.group(1)
-                    # Ensure the matched value has at least one digit
-                    if not any(c.isdigit() for c in value_str):
-                        continue
-                    value_str = value_str.replace(',', '.')
-                    try:
-                        wine_data['vivino_num_ratings'] = int(float(value_str))
-                        logger.debug(f"HTML Num Ratings (text match) found: {wine_data['vivino_num_ratings']}")
-                        break
-                    except ValueError:
-                        continue
-
-            if wine_data['vivino_num_ratings'] is None:
-                # Use a safer regex pattern to avoid polynomial backtracking
-                rating_text_matches = re.finditer(r'\b(\d{1,3}(?:[.,]\d{3})*|\d+(?:[.,]\d+)?)\b\s*(?:global\s*)?ratings', response.text, re.IGNORECASE)
-                for match in rating_text_matches:
-                    value_str = match.group(1)
-                    # Ensure the matched value has at least one digit
-                    if not any(c.isdigit() for c in value_str):
-                        continue
-                    value_str = value_str.replace(',', '.')
-                    try:
-                        wine_data['vivino_num_ratings'] = int(float(value_str))
-                        logger.debug(f"HTML Num Ratings (text match) found: {wine_data['vivino_num_ratings']}")
-                        break
-                    except ValueError:
-                        continue
-
-        logger.debug(f"Vivino Num Ratings scraping complete. Current data: {wine_data['vivino_num_ratings']}")
+        # PHASE 1 CHANGE: Removed all logic for scraping vivino_num_ratings
 
         # Get Vivino rating
         if wine_data['vivino_rating'] is None:
@@ -1100,6 +843,7 @@ def insert_wine_data(wine_data, quantity=1):
         if existing_wine:
             wine_id, current_quantity = existing_wine
             new_quantity = current_quantity + quantity
+            # PHASE 1 CHANGE: Updated UPDATE statement for new schema
             cursor.execute('''
                 UPDATE wines
                 SET quantity = ?,
@@ -1109,7 +853,6 @@ def insert_wine_data(wine_data, quantity=1):
                     region = ?,
                     country = ?,
                     vivino_rating = ?,
-                    vivino_num_ratings = ?,
                     image_url = ?,
                     added_at = CURRENT_TIMESTAMP
                 WHERE id = ?
@@ -1121,16 +864,16 @@ def insert_wine_data(wine_data, quantity=1):
                 wine_data['region'],
                 wine_data['country'],
                 wine_data['vivino_rating'],
-                wine_data['vivino_num_ratings'],
                 wine_data['image_url'],
                 wine_id
             ))
             logger.info(f"Updated quantity for '{wine_data['name']}' to {new_quantity}.")
         else:
             # Insert new wine with specified quantity
+            # PHASE 1 CHANGE: Updated INSERT statement for new schema
             cursor.execute('''
-                INSERT INTO wines (vivino_url, name, vintage, varietal, region, country, vivino_rating, vivino_num_ratings, image_url, quantity)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO wines (vivino_url, name, vintage, varietal, region, country, vivino_rating, image_url, quantity, cost_tier, personal_rating)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 wine_data['vivino_url'],
                 wine_data['name'],
@@ -1139,9 +882,10 @@ def insert_wine_data(wine_data, quantity=1):
                 wine_data['region'],
                 wine_data['country'],
                 wine_data['vivino_rating'],
-                wine_data['vivino_num_ratings'],
                 wine_data['image_url'],
-                quantity # Use the provided quantity for new inserts
+                quantity, # Use the provided quantity for new inserts
+                None, # cost_tier defaults to NULL
+                None  # personal_rating defaults to NULL
             ))
             logger.info(f"New wine '{wine_data['name']}' inserted with quantity {quantity}.")
 
@@ -1260,6 +1004,7 @@ def add_manual_wine():
 
     logger.info(f"Received request to manually add wine: {data['name']} ({data['vintage']}) with quantity {quantity}")
 
+    # PHASE 1 CHANGE: Updated wine_data dictionary for new schema
     wine_data = {
         'vivino_url': synthetic_url,
         'name': data['name'],
@@ -1268,8 +1013,9 @@ def add_manual_wine():
         'region': data.get('region') or "Unknown Region",
         'country': data.get('country') or "Unknown Country",
         'vivino_rating': None,
-        'vivino_num_ratings': None,
         'image_url': None,
+        'cost_tier': None,
+        'personal_rating': None,
     }
 
     if insert_wine_data(wine_data, quantity):
@@ -1411,7 +1157,7 @@ def get_inventory():
 def set_wine_quantity():
     """
     Endpoint to set the quantity of a specific wine in the inventory.
-    If quantity is set to 0, the wine is deleted.
+    If quantity is set to 0, the wine is NOT deleted, but its quantity is updated.
     Triggers synchronization with Home Assistant To-Do list.
     """
     data = request.get_json()
@@ -1436,26 +1182,17 @@ def set_wine_quantity():
             columns = [description[0] for description in cursor.description]
             wine_data_dict = dict(zip(columns, wine_data_row))
 
-            if new_quantity == 0:
-                cursor.execute("DELETE FROM wines WHERE vivino_url = ?", (vivino_url,))
-                conn.commit()
-                if cursor.rowcount > 0:
-                    logger.info(f"Successfully deleted wine {vivino_url} as quantity was set to 0.")
-                    sync_to_ha_todo(wine_data_dict, 0) # Sync with HA to ensure removal
-                    return jsonify({"status": "success", "message": "Wine deleted as quantity was set to 0."}), 200
-                else:
-                    logger.warning(f"Wine {vivino_url} not found for deletion after setting quantity to 0.")
-                    return jsonify({"status": "error", "message": "Wine not found for quantity update/deletion."}), 404
+            # PHASE 1 CHANGE: Always update, never delete from here.
+            cursor.execute("UPDATE wines SET quantity = ? WHERE vivino_url = ?", (new_quantity, vivino_url))
+            conn.commit()
+            if cursor.rowcount > 0:
+                logger.info(f"Successfully set quantity for wine {vivino_url} to {new_quantity}.")
+                sync_to_ha_todo(wine_data_dict, new_quantity) # Sync with HA
+                return jsonify({"status": "success", "message": f"Quantity for wine set to {new_quantity}."}), 200
             else:
-                cursor.execute("UPDATE wines SET quantity = ? WHERE vivino_url = ?", (new_quantity, vivino_url))
-                conn.commit()
-                if cursor.rowcount > 0:
-                    logger.info(f"Successfully set quantity for wine {vivino_url} to {new_quantity}.")
-                    sync_to_ha_todo(wine_data_dict, new_quantity) # Sync with HA
-                    return jsonify({"status": "success", "message": f"Quantity for wine set to {new_quantity}."}), 200
-                else:
-                    logger.warning(f"No wine found to set quantity for URL: {vivino_url}")
-                    return jsonify({"status": "error", "message": "Wine not found for quantity update."}), 404
+                # This case should ideally not be hit if the initial SELECT succeeded
+                logger.warning(f"No wine found to set quantity for URL: {vivino_url}")
+                return jsonify({"status": "error", "message": "Wine not found for quantity update."}), 404
         else:
             logger.warning(f"No wine found for quantity update for URL: {vivino_url}")
             return jsonify({"status": "error", "message": "Wine not found for quantity update."}), 404
@@ -1469,104 +1206,83 @@ def set_wine_quantity():
 
 @app.route('/api/consume-wine', methods=['POST'])
 def consume_wine_from_webhook():
-            """
-            Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
-            Parses the wine name and vintage from the item, decrements its quantity in the DB,
-            and updates the To-Do list.
-            """
+    """
+    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
+    Parses the wine name and vintage from the item, decrements its quantity in the DB,
+    and updates the To-Do list.
+    """
+    try:
+        data = request.get_json()
+        if not data or "item" not in data:
+            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        item_text = data["item"]
+        logger.info(f"Webhook received for consumed wine: {item_text}")
+
+        # The item_text from HA will now be "Wine Name (Vintage)" (no 'xN')
+        parsed_name = None
+        parsed_vintage = None
+
+        if item_text.endswith(')') and item_text[-6:-5] == '(' and item_text[-5:-1].isdigit() and len(item_text) > 6:
             try:
-                        data = request.get_json()
-                        if not data or "item" not in data:
-                                    logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
-                                    return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+                parsed_vintage = int(item_text[-5:-1])
+                parsed_name = item_text[:-6].rstrip()
+            except (ValueError, IndexError):
+                parsed_name = item_text.strip()
+                parsed_vintage = None
+        else:
+            parsed_name = item_text.strip()
+            parsed_vintage = None
 
-                        item_text = data["item"]
-                        logger.info(f"Webhook received for consumed wine: {item_text}")
+        name = parsed_name
+        vintage = parsed_vintage
 
-                        # The item_text from HA will now be "Wine Name (Vintage)" (no 'xN')
-                        parsed_name = None
-                        parsed_vintage = None
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row # To access columns by name
+        cursor = conn.cursor()
+        try:
+            # Find the wine record
+            if vintage is not None:
+                query = "SELECT * FROM wines WHERE name = ? AND vintage = ?"
+                params = (name, vintage)
+            else:
+                query = "SELECT * FROM wines WHERE name = ? AND vintage IS NULL"
+                params = (name,)
 
-                        # FIX: Replaced vulnerable regex with direct string parsing to prevent ReDoS.
-                        if item_text.endswith(')') and item_text[-6:-5] == '(' and item_text[-5:-1].isdigit() and len(item_text) > 6:
-                            try:
-                                parsed_vintage = int(item_text[-5:-1])
-                                parsed_name = item_text[:-6].rstrip()
-                            except (ValueError, IndexError):
-                                # This case should be rare given the checks, but as a fallback:
-                                parsed_name = item_text.strip()
-                                parsed_vintage = None
-                        else:
-                            # Handle case where there is no vintage
-                            parsed_name = item_text.strip()
-                            parsed_vintage = None
+            cursor.execute(query, params)
+            wine_record = cursor.fetchone()
 
+            if wine_record:
+                wine_data_dict = dict(wine_record)
+                current_db_quantity = wine_data_dict.get('quantity', 0)
 
-                        name = parsed_name
-                        vintage = parsed_vintage
+                if current_db_quantity > 0:
+                    new_quantity = current_db_quantity - 1
 
-                        conn = sqlite3.connect(DB_PATH)
-                        cursor = conn.cursor()
-                        try:
-                                    # Build query based on whether vintage is present
-                                    if vintage is not None:
-                                        query = "SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage = ?"
-                                        params = (name, vintage)
-                                    else:
-                                        query = "SELECT quantity, vivino_url FROM wines WHERE name = ? AND vintage IS NULL"
-                                        params = (name,)
+                    # PHASE 1 CHANGE: Update quantity to 0 instead of deleting
+                    cursor.execute("UPDATE wines SET quantity = ? WHERE id = ?", (new_quantity, wine_data_dict['id']))
+                    conn.commit()
+                    
+                    logger.info(f"Decremented quantity for '{name} ({vintage or 'NV'})' to {new_quantity}")
+                    # Sync with HA, which will remove the item if new_quantity is 0
+                    sync_to_ha_todo(wine_data_dict, new_quantity)
+                    return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                else:
+                    logger.warning(f"Quantity already 0 for '{name} ({vintage or 'NV'})'. No decrement performed.")
+                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
 
-                                    cursor.execute(query, params)
-                                    result = cursor.fetchone()
-
-                                    if result:
-                                                current_db_quantity, vivino_url_for_sync = result
-                                                cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url_for_sync,))
-                                                wine_data_row_for_sync = cursor.fetchone()
-                                                wine_data_dict_for_sync = {}
-                                                if wine_data_row_for_sync:
-                                                            columns = [description[0] for description in cursor.description]
-                                                            wine_data_dict_for_sync = dict(zip(columns, wine_data_row_for_sync))
-
-                                                if current_db_quantity > 0:
-                                                            new_quantity = current_db_quantity - 1
-
-                                                            # Build delete/update query based on vintage presence
-                                                            if vintage is not None:
-                                                                delete_update_query_where = "name = ? AND vintage = ?"
-                                                                delete_update_params = (name, vintage)
-                                                            else:
-                                                                delete_update_query_where = "name = ? AND vintage IS NULL"
-                                                                delete_update_params = (name,)
-
-                                                            if new_quantity == 0:
-                                                                        cursor.execute(f"DELETE FROM wines WHERE {delete_update_query_where}", delete_update_params)
-                                                                        conn.commit()
-                                                                        logger.info(f"Deleted wine '{name} ({vintage or 'NV'})' as quantity reached 0.")
-                                                                        sync_to_ha_todo(wine_data_dict_for_sync, 0)
-                                                                        return jsonify({"status": "success", "message": f"Wine consumed and deleted. New quantity: {new_quantity}."}), 200
-                                                            else:
-                                                                        cursor.execute(f"UPDATE wines SET quantity = ? WHERE {delete_update_query_where}", (new_quantity, *delete_update_params))
-                                                                        conn.commit()
-                                                                        logger.info(f"Decremented quantity for '{name} ({vintage or 'NV'})' to {new_quantity}")
-                                                                        sync_to_ha_todo(wine_data_dict_for_sync, new_quantity)
-                                                                        return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
-                                                else:
-                                                            logger.warning(f"Quantity already 0 for '{name} ({vintage or 'NV'})'. No decrement performed.")
-                                                            return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
-
-                                    logger.warning(f"No matching wine found in DB for '{name} ({vintage or 'NV'})'.")
-                                    return jsonify({"status": "warning", "message": "No matching wine found in inventory."}), 404
-                        except sqlite3.Error as e:
-                                    logger.error(f"Database error consuming wine: {e}")
-                                    conn.rollback()
-                                    return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
-                        finally:
-                                    conn.close()
-            except Exception as e:
-                        # FIX 3: Replaced detailed exception with a generic message.
-                        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
-                        return jsonify({"status": "error", "message": "An internal error occurred while processing the webhook."}), 500
+            logger.warning(f"No matching wine found in DB for '{name} ({vintage or 'NV'})'.")
+            return jsonify({"status": "warning", "message": "No matching wine found in inventory."}), 404
+        except sqlite3.Error as e:
+            logger.error(f"Database error consuming wine: {e}")
+            conn.rollback()
+            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+        finally:
+            conn.close()
+    except Exception as e:
+        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": "An internal error occurred while processing the webhook."}), 500
 
 
 @app.route('/inventory/wine/consume', methods=['POST'])
@@ -1598,18 +1314,17 @@ def consume_wine():
         current_quantity = wine_data_dict['quantity']
         wine_id = wine_data_dict['id']
 
-        new_quantity = 0
-
-        if current_quantity > 1:
+        if current_quantity > 0:
             new_quantity = current_quantity - 1
+            # PHASE 1 CHANGE: Always update, never delete
             cursor.execute("UPDATE wines SET quantity = ?, added_at = CURRENT_TIMESTAMP WHERE id = ?", (new_quantity, wine_id))
             logger.info(f"Decremented quantity for wine {vivino_url} to {new_quantity}.")
             sync_to_ha_todo(wine_data_dict, new_quantity)
-        else: # Quantity is 1, so it becomes 0 after decrement (delete)
+        else:
+            # If quantity is already 0, do nothing
             new_quantity = 0
-            cursor.execute("DELETE FROM wines WHERE id = ?", (wine_id,))
-            logger.info(f"Successfully consumed and deleted wine {vivino_url} as quantity reached 0.")
-            sync_to_ha_todo(wine_data_dict, new_quantity)
+            logger.warning(f"Attempted to consume wine {vivino_url} with quantity 0. No change made.")
+            
 
         conn.commit()
         return jsonify({'status': 'success', 'new_quantity': new_quantity})
@@ -1625,6 +1340,7 @@ def consume_wine():
 def delete_wine():
     """
     Endpoint to delete a wine from the inventory by its Vivino URL.
+    This is for PERMANENT deletion, not consumption.
     Triggers synchronization with Home Assistant To-Do list to remove the item.
     """
     data = request.get_json()
@@ -1677,7 +1393,6 @@ def sync_all_wines_to_ha():
         sync_db_to_ha_todo() # Then re-add/update all wines from DB
         return jsonify({"status": "success", "message": "All wines synchronized to Home Assistant."}), 200
     except Exception as e:
-        # FIX 2: Replaced detailed exception with a generic message.
         logger.error(f"Error during full synchronization to Home Assistant: {e}")
         return jsonify({"status": "error", "message": "An internal error occurred during synchronization."}), 500
 
@@ -1692,7 +1407,6 @@ def reinitialize_db_endpoint():
         reinitialize_database()
         return jsonify({"status": "success", "message": "Database reinitialized successfully. Please restart add-on from Home Assistant if needed."}), 200
     except Exception as e:
-        # FIX 1: Replaced detailed exception with a generic message.
         logger.error(f"Error reinitializing database from web UI: {e}")
         return jsonify({"status": "error", "message": "An internal error occurred while reinitializing the database."}), 500
 
