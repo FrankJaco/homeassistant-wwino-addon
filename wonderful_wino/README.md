@@ -6,11 +6,11 @@ A personal wine inventory system that can be exposed to your AI/Voice assistant 
 
 ## About
 
-The Wonderful Wino addon provides a GUI to view, enter, and edit the wines that you have on-hand. It uses the Local ToDo list integration to maintain a copy of your wine collection, complete with essential metadata, making it easily accessible to your Home Assitant AI/Voice assistant.
+The Wonderful Wino addon provides a GUI to view, enter, and edit the wines that you have on-hand. It uses the Local ToDo list integration to maintain a copy of your wine collection inside Home Assistant, complete with essential metadata, making it easily accessible to your system's AI/Voice assistant.
 
-We know that many "WWinos" out there are already familiar with the exceptional [Vivino](https://www.vivino.com/) website and app, but for those who aren't, we highly recommend them! While a Vivino account isn't strictly required, Wonderful Wino can access Vivino's site for basic facts about your wine, transforming the task of adding to your inventory a breeze.
+We know many "WWinos" out there are already familiar with the exceptional [Vivino](https://www.vivino.com/) website and app, but for those who aren't, we highly recommend them! While a Vivino account isn't strictly required, Wonderful Wino can access Vivino's site to obtain the basic facts about your wine, streamlining the task of adding them to your inventory.
 
-To make this process even easier, there is a companion app, the [WWino Android Helper](https://github.com/FrankJaco/wwino-android-helper), which simplifies adding new bottles to your collection after a trip to your favorite wine merchant.
+In addition to the Wonderful Wino addon, there is a companion app, the [WWino Android Helper](https://github.com/FrankJaco/wwino-android-helper), which makes the task of adding new bottles after a trip to your favorite wine merchant a breeze.
 
 Please see the documentation tab for more information and configuration details. 
 
