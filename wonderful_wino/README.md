@@ -1,16 +1,16 @@
 # Home Assistant Add-on: Wonderful Wino
 
-A personal wine inventory system that can be exposed to your Home Assistant AI Assistant for real-time wine-pairing suggestions and general wine info.
+A personal wine inventory system that can be exposed to your AI/Voice assistant for real-time wine-pairing suggestions and general wine info.
 
 ![Supports aarch64 Architecture][aarch64-shield] ![Supports amd64 Architecture][amd64-shield] ![Supports armhf Architecture][armhf-shield] ![Supports armv7 Architecture][armv7-shield] ![Supports i386 Architecture][i386-shield]
 
 ## About
 
-Wonderful Wino uses the Local ToDo list integration to maintain a copy of your wine collection, complete with essential metadata, making it easily accessible to your AI. The add-on also provides a Wonderful Wino GUI for seamless entry and editing of your wine details.
+The Wonderful Wino addon provides a GUI to view, enter, and edit the wines that you have on-hand. It uses the Local ToDo list integration to maintain a copy of your wine collection, complete with essential metadata, making it easily accessible to your Home Assitant AI/Voice assistant.
 
-We know that many "WWinos" out there are already familiar with the exceptional [Vivino](https://www.vivino.com/) website and companion app, but for those who aren't, we highly recommend it! While a Vivino account isn't strictly required, Wonderful Wino can scrape Vivino's metadata, transforming the task of adding your wines a breeze.
+We know that many "WWinos" out there are already familiar with the exceptional [Vivino](https://www.vivino.com/) website and app, but for those who aren't, we highly recommend them! While a Vivino account isn't strictly required, Wonderful Wino can access Vivino's site for basic facts about your wine, transforming the task of adding to your inventory a breeze.
 
-To make this process even easier, there is a companion app, the [Wonderful Wino Android Helper](https://github.com/FrankJaco/wwino-android-helper), which simplifies adding new bottles to your collection after a trip to your favorite wine merchant.
+To make this process even easier, there is a companion app, the [WWino Android Helper](https://github.com/FrankJaco/wwino-android-helper), which simplifies adding new bottles to your collection after a trip to your favorite wine merchant.
 
 Please see the documentation tab for more information and configuration details. 
 
