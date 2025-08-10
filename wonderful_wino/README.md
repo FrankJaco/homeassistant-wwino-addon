@@ -11,7 +11,7 @@ The Wonderful Wino addon provides a user-friendly interface to manage your wine 
 
 We know many "WWinos" out there are already familiar with the fantastic [Vivino](https://www.vivino.com/) website and app, but for those who aren't, we highly recommend them! While a Vivino account isn't strictly required, Wonderful Wino can access Vivino's site to obtain the basic facts about your wine, streamlining the task of adding them to your inventory. Note that Wonderful Wino is not owned or associated with Vivino in any way. It simply accesses their website for publicly available wine facts.
 
-In addition to the Wonderful Wino addon, the [Wonderful Wino Helper](https://github.com/FrankJaco wwino-android-helper) companion app makes the task of adding new bottles after a trip to your favorite wine merchant a breeze. Note at this time, the helper app is only available for Android phones and tablets.
+In addition to the Wonderful Wino addon, the [Wonderful Wino Helper](https://github.com/FrankJaco/wwino-android-helper) companion app makes the task of adding new bottles after a trip to your favorite wine merchant a breeze. Note at this time, the helper app is only available for Android phones and tablets.
 
 Please see the documentation tab for more information and configuration details. 
 
