@@ -47,6 +47,23 @@
             --input-border: #6b7280; /* Consistent border for inputs */
         }
 
+        /* Styles for new filter buttons */
+        .filter-button {
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.375rem;
+            background-color: var(--button-secondary-bg);
+            color: var(--button-secondary-text);
+            font-weight: 500;
+            transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+            cursor: pointer;
+        }
+        .filter-button.active {
+            background-color: var(--accent-color);
+            color: white;
+            border-color: var(--accent-color);
+        }
+
         /* Custom styles to ensure Inter font is applied universally and for basic body reset */
         body {
             font-family: 'Inter', sans-serif;
@@ -280,29 +297,35 @@
         </section>
 
         <section class="bg-white p-6 rounded-lg shadow-md mb-8">
-            <div class="flex flex-col sm:flex-row justify-between items-center mb-6 sm:mb-4">
-                <h2 class="text-2xl font-semibold text-gray-800 mb-4 sm:mb-0">Wine on-hand</h2>
-                <div class="flex items-center gap-2">
-                    <select id="sortSelect" class="px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm w-32">
-                        <option value="name">Name</option>
-                        <option value="varietal">Varietal</option>
-                        <option value="country">Country</option>
-                        <option value="region">Region</option>
-                        <option value="vintage">Vintage</option>
-                        <option value="rating">Rating</option>
-                        <option value="quantity">Quantity</option>
-                    </select>
-                    <button id="sortDirectionToggle" class="px-2 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400" aria-label="Toggle sort direction">
-                        <svg id="sortAscIcon" class="w-5 h-5 sort-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"></path>
-                        </svg>
-                        <svg id="sortDescIcon" class="w-5 h-5 sort-icon hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 20h13M3 16h9m-9-4h6m4 0l4 4m0 0l4-4m-4 4V4"></path>
-                        </svg>
-                    </button>
+            <div class="flex flex-col sm:flex-row justify-between items-start mb-6 sm:mb-4 gap-4">
+                <h2 id="inventory-heading" class="text-2xl font-semibold text-gray-800">Wine Inventory</h2>
+                <div class="flex flex-wrap items-center gap-4">
+                    <div id="inventory-filters" class="flex items-center gap-2">
+                        <button class="filter-button active" data-filter="on_hand">On Hand</button>
+                        <button class="filter-button" data-filter="history">History</button>
+                        <button class="filter-button" data-filter="all">All</button>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <select id="sortSelect" class="px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm w-32">
+                            <option value="name">Name</option>
+                            <option value="varietal">Varietal</option>
+                            <option value="country">Country</option>
+                            <option value="region">Region</option>
+                            <option value="vintage">Vintage</option>
+                            <option value="vivino_rating">Rating</option>
+                            <option value="quantity">Quantity</option>
+                        </select>
+                        <button id="sortDirectionToggle" class="p-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400" aria-label="Toggle sort direction">
+                            <svg id="sortAscIcon" class="w-5 h-5 sort-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"></path>
+                            </svg>
+                            <svg id="sortDescIcon" class="w-5 h-5 sort-icon hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 20h13M3 16h9m-9-4h6m4 0l4 4m0 0l4-4m-4 4V4"></path>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
             </div>
-
 
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
@@ -451,10 +474,11 @@
         }
         console.log('Calculated BASE_URL:', BASE_URL);
 
-        // Global variable to store the raw inventory data
+        // Global variables
         let currentInventory = [];
         let currentSortBy = 'name';
         let currentSortDirection = 'asc';
+        let currentFilter = 'on_hand'; // STEP 2.3: Added filter state
 
         // --- Utility Functions for Messaging ---
         function showMessage(elementId, message, type = 'info', isModal = false) {
@@ -470,7 +494,7 @@
             }
         }
 
-        // --- Sorting Logic ---
+        // --- Sorting Logic (Unchanged) ---
         function sortInventory(inventory, sortBy, sortDirection) {
             const sortedInventory = [...inventory];
 
@@ -479,7 +503,7 @@
                 const getValue = (item, prop) => {
                     let value = item[prop];
                     if (value == null) {
-                        if (prop === 'vintage' || prop === 'rating' || prop === 'quantity') {
+                        if (prop === 'vintage' || prop === 'vivino_rating' || prop === 'quantity') {
                             return sortDirection === 'asc' ? Infinity : -Infinity;
                         }
                         return '';
@@ -522,7 +546,8 @@
             const inventoryTableBody = document.getElementById('inventoryTableBody');
             try {
                 inventoryTableBody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-gray-500">Loading inventory...</td></tr>';
-                const url = `${BASE_URL}inventory`;
+                // STEP 2.3: Modified URL to include the filter parameter
+                const url = `${BASE_URL}inventory?filter=${currentFilter}`;
                 const response = await fetch(url);
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
@@ -542,7 +567,9 @@
             container.innerHTML = '';
 
             if (inventory.length === 0) {
-                container.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-gray-500">No wines in your inventory yet!</td></tr>';
+                // STEP 2.3: Made the "no wines" message dynamic
+                const filterText = currentFilter.replace('_', ' ');
+                container.innerHTML = `<tr><td colspan="3" class="py-4 text-center text-gray-500">No wines found for filter: ${filterText}</td></tr>`;
                 return;
             }
 
@@ -569,7 +596,8 @@
                     detailsHtml += `<p><strong>Origin:</strong> ${location.join(', ')}</p>`;
                 }
                 if (item.vivino_rating) {
-                    detailsHtml += `<p><strong>Rating:</strong> ${item.vivino_rating.toFixed(1)} ⭐${item.vivino_num_ratings ? ` (${item.vivino_num_ratings} ratings)` : ''}</p>`;
+                    // This will be updated in a future step to show the new format
+                    detailsHtml += `<p><strong>Rating:</strong> ${item.vivino_rating.toFixed(1)} ⭐</p>`;
                 }
                 detailsCell.innerHTML = detailsHtml;
 
@@ -799,7 +827,6 @@
         
         document.getElementById('helpButton').addEventListener('click', () => {
             helpModal.classList.remove('hidden');
-            fetchInventory(); // refresh inventory after opening help
         });
         document.getElementById('openEntryModalBtn').addEventListener('click', () => openAddModal());
 
@@ -837,23 +864,17 @@
 
         function openDuplicateModal(wine) {
             document.getElementById('entryForm').reset();
-            // IMPORTANT: Leave vivino_url blank to ensure this is treated as a new entry
             document.getElementById('entryVivinoUrl').value = ''; 
-            
-            // Pre-fill with data from the source wine
             document.getElementById('manualNameInput').value = wine.name;
             document.getElementById('manualVarietalInput').value = wine.varietal !== 'Unknown Varietal' ? wine.varietal : '';
             document.getElementById('manualRegionInput').value = wine.region !== 'Unknown Region' ? wine.region : '';
             document.getElementById('manualCountryInput').value = wine.country !== 'Unknown Country' ? wine.country : '';
-            
-            // Leave vintage blank and set quantity to 1 to prompt user
             document.getElementById('manualVintageInput').value = '';
             document.getElementById('manualQuantityInput').value = 1;
-            
             document.getElementById('entryModalTitle').textContent = 'Duplicate Wine';
             document.getElementById('entrySubmitBtn').textContent = 'Add Wine';
             entryModal.classList.remove('hidden');
-            document.getElementById('manualVintageInput').focus(); // Focus on vintage field for quick entry
+            document.getElementById('manualVintageInput').focus();
         }
 
         // --- Sort Controls ---
@@ -870,14 +891,12 @@
         sortSelect.addEventListener('change', (event) => {
             currentSortBy = event.target.value;
             applySortAndDisplayInventory();
-            fetchInventory(); // refresh from backend
         });
 
         sortDirectionToggle.addEventListener('click', () => {
             currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
             updateSortIcons();
             applySortAndDisplayInventory();
-            fetchInventory(); // refresh from backend
         });
 
         // --- Theme Toggling Logic ---
@@ -901,14 +920,35 @@
         
         themeToggle.addEventListener('click', () => {
              if (document.body.classList.contains('dark-theme')) {
-                fetchInventory();             
                 enableLightMode();
             } else {
-                fetchInventory();
                 enableDarkMode();
             }
         });
         
+        // --- STEP 2.3: Added event listener for the new filter buttons ---
+        const filterContainer = document.getElementById('inventory-filters');
+        const inventoryHeading = document.getElementById('inventory-heading');
+
+        filterContainer.addEventListener('click', (e) => {
+            if (e.target.matches('.filter-button')) {
+                // Update state
+                currentFilter = e.target.dataset.filter;
+
+                // Update UI
+                filterContainer.querySelectorAll('.filter-button').forEach(btn => btn.classList.remove('active'));
+                e.target.classList.add('active');
+                
+                // Update heading text
+                const headingText = `Wine ${currentFilter.replace('_', ' ')}`;
+                inventoryHeading.textContent = headingText.charAt(0).toUpperCase() + headingText.slice(1);
+
+                // Fetch new data
+                fetchInventory();
+            }
+        });
+
+
         // --- Page Load ---
         document.addEventListener('DOMContentLoaded', () => {
             updateSortIcons();

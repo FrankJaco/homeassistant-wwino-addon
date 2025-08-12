@@ -211,18 +211,34 @@ def build_markdown_description(wine: dict, current_quantity: int, is_for_todo: b
     else:
         description_parts.append("Unknown Region/Country")
 
+    details_line = []
 
-    # Line 3: Quantity and Vivino Rating (combined)
-    rating_qty_line_parts = []
+    # Rating Logic (This is forward-compatible for when we add personal ratings)
+    vivino_rating = wine.get('vivino_rating')
+    personal_rating = wine.get('personal_rating') # This will be None for now
+    display_rating = vivino_rating # Default to the Vivino rating
 
-    # Add quantity first to the last line
-    rating_qty_line_parts.append(f"Qty: [ **{current_quantity}** ]")
+    # This logic will work automatically in Phase 3 when we add personal ratings
+    if personal_rating is not None and vivino_rating is not None:
+        display_rating = (personal_rating + vivino_rating) / 2
+    elif personal_rating is not None:
+        display_rating = personal_rating
 
-    # PHASE 1 CHANGE: Removed vivino_num_ratings from display logic
-    if wine.get("vivino_rating") is not None:
-         rating_qty_line_parts.append(f"Rating: **{wine['vivino_rating']:.1f}** ⭐")
+    if display_rating is not None:
+        details_line.append(f"Quality: ⭐ **{display_rating:.1f}**")
 
-    description_parts.append("&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;".join(rating_qty_line_parts))
+    # Cost Tier Logic (This will work once we add cost tiers)
+    cost_tier = wine.get('cost_tier') # This will be None for now
+    if cost_tier and isinstance(cost_tier, int) and cost_tier > 0:
+        # Create a string of dollar signs based on the tier number
+        cost_display = ''.join(['$'] * cost_tier)
+        details_line.append(f"Cost: **{cost_display}**")
+        
+    # Quantity Logic (Unchanged)
+    details_line.append(f"Qty: [ **{current_quantity}** ]")
+
+    # Join the parts with a separator
+    description_parts.append("  |  ".join(details_line))
 
     # Join the main parts with two spaces and a newline for proper Markdown line breaks
     # For ToDo, ensure we only join up to the first 3 elements
@@ -1115,13 +1131,23 @@ def get_inventory():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
+    # Get filter parameters from the request URL
     name_filter = request.args.get('name')
     vintage_filter = request.args.get('vintage')
+    status_filter = request.args.get('filter', 'on_hand') # Default to 'on_hand'
 
     query = "SELECT * FROM wines"
     params = []
     conditions = []
 
+    # Handle status filter (on_hand, history, all)
+    if status_filter == 'on_hand':
+        conditions.append("quantity > 0")
+    elif status_filter == 'history':
+        conditions.append("quantity = 0")
+    # No condition is added for 'all'
+
+    # Handle existing name and vintage filters
     if name_filter:
         conditions.append("name LIKE ?")
         params.append(f"%{name_filter}%")
@@ -1131,8 +1157,344 @@ def get_inventory():
 
     if conditions:
         query += " WHERE " + " AND ".join(conditions)
+    # Get filter parameters from the request URL
+    name_filter = request.args.get('name')
+    vintage_filter = request.args.get('vintage')
+    status_filter = request.args.get('filter', 'on_hand') # Default to 'on_hand'
 
-    query += " ORDER BY added_at DESC"
+    query = "SELECT * FROM wines"
+    params = []
+    conditions = []
+
+    # Handle status filter (on_hand, history, all)
+    if status_filter == 'on_hand':
+        conditions.append("quantity > 0")
+    elif status_filter == 'history':
+        conditions.append("quantity = 0")
+    # No condition is added for 'all'
+
+    # Handle existing name and vintage filters
+    if name_filter:
+        conditions.append("name LIKE ?")
+        params.append(f"%{name_filter}%")
+    if vintage_filter:
+        conditions.append("vintage = ?")
+        params.append(vintage_filter)
+
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+    # Get filter parameters from the request URL
+    name_filter = request.args.get('name')
+    vintage_filter = request.args.get('vintage')
+    status_filter = request.args.get('filter', 'on_hand') # Default to 'on_hand'
+
+    query = "SELECT * FROM wines"
+    params = []
+    conditions = []
+
+    # Handle status filter (on_hand, history, all)
+    if status_filter == 'on_hand':
+        conditions.append("quantity > 0")
+    elif status_filter == 'history':
+        conditions.append("quantity = 0")
+    # No condition is added for 'all'
+
+    # Handle existing name and vintage filters
+    if name_filter:
+        conditions.append("name LIKE ?")
+        params.append(f"%{name_filter}%")
+    if vintage_filter:
+        conditions.append("vintage = ?")
+        params.append(vintage_filter)
+
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+    # Get filter parameters from the request URL
+    name_filter = request.args.get('name')
+    vintage_filter = request.args.get('vintage')
+    status_filter = request.args.get('filter', 'on_hand') # Default to 'on_hand'
+
+    query = "SELECT * FROM wines"
+    params = []
+    conditions = []
+
+    # Handle status filter (on_hand, history, all)
+    if status_filter == 'on_hand':
+        conditions.append("quantity > 0")
+    elif status_filter == 'history':
+        conditions.append("quantity = 0")
+    # No condition is added for 'all'
+
+    # Handle existing name and vintage filters
+    if name_filter:
+        conditions.append("name LIKE ?")
+        params.append(f"%{name_filter}%")
+    if vintage_filter:
+        conditions.append("vintage = ?")
+        params.append(vintage_filter)
+
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+    # Get filter parameters from the request URL
+    name_filter = request.args.get('name')
+    vintage_filter = request.args.get('vintage')
+    status_filter = request.args.get('filter', 'on_hand') # Default to 'on_hand'
+
+    query = "SELECT * FROM wines"
+    params = []
+    conditions = []
+
+    # Handle status filter (on_hand, history, all)
+    if status_filter == 'on_hand':
+        conditions.append("quantity > 0")
+    elif status_filter == 'history':
+        conditions.append("quantity = 0")
+    # No condition is added for 'all'
+
+    # Handle existing name and vintage filters
+    if name_filter:
+        conditions.append("name LIKE ?")
+        params.append(f"%{name_filter}%")
+    if vintage_filter:
+        conditions.append("vintage = ?")
+        params.append(vintage_filter)
+
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+    # Get filter parameters from the request URL
+    name_filter = request.args.get('name')
+    vintage_filter = request.args.get('vintage')
+    status_filter = request.args.get('filter', 'on_hand') # Default to 'on_hand'
+
+    query = "SELECT * FROM wines"
+    params = []
+    conditions = []
+
+    # Handle status filter (on_hand, history, all)
+    if status_filter == 'on_hand':
+        conditions.append("quantity > 0")
+    elif status_filter == 'history':
+        conditions.append("quantity = 0")
+    # No condition is added for 'all'
+
+    # Handle existing name and vintage filters
+    if name_filter:
+        conditions.append("name LIKE ?")
+        params.append(f"%{name_filter}%")
+    if vintage_filter:
+        conditions.append("vintage = ?")
+        params.append(vintage_filter)
+
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+    # Get filter parameters from the request URL
+    name_filter = request.args.get('name')
+    vintage_filter = request.args.get('vintage')
+    status_filter = request.args.get('filter', 'on_hand') # Default to 'on_hand'
+
+    query = "SELECT * FROM wines"
+    params = []
+    conditions = []
+
+    # Handle status filter (on_hand, history, all)
+    if status_filter == 'on_hand':
+        conditions.append("quantity > 0")
+    elif status_filter == 'history':
+        conditions.append("quantity = 0")
+    # No condition is added for 'all'
+
+    # Handle existing name and vintage filters
+    if name_filter:
+        conditions.append("name LIKE ?")
+        params.append(f"%{name_filter}%")
+    if vintage_filter:
+        conditions.append("vintage = ?")
+        params.append(vintage_filter)
+
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+    # Get filter parameters from the request URL
+    name_filter = request.args.get('name')
+    vintage_filter = request.args.get('vintage')
+    status_filter = request.args.get('filter', 'on_hand') # Default to 'on_hand'
+
+    query = "SELECT * FROM wines"
+    params = []
+    conditions = []
+
+    # Handle status filter (on_hand, history, all)
+    if status_filter == 'on_hand':
+        conditions.append("quantity > 0")
+    elif status_filter == 'history':
+        conditions.append("quantity = 0")
+    # No condition is added for 'all'
+
+    # Handle existing name and vintage filters
+    if name_filter:
+        conditions.append("name LIKE ?")
+        params.append(f"%{name_filter}%")
+    if vintage_filter:
+        conditions.append("vintage = ?")
+        params.append(vintage_filter)
+
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+    # Get filter parameters from the request URL
+    name_filter = request.args.get('name')
+    vintage_filter = request.args.get('vintage')
+    status_filter = request.args.get('filter', 'on_hand') # Default to 'on_hand'
+
+    query = "SELECT * FROM wines"
+    params = []
+    conditions = []
+
+    # Handle status filter (on_hand, history, all)
+    if status_filter == 'on_hand':
+        conditions.append("quantity > 0")
+    elif status_filter == 'history':
+        conditions.append("quantity = 0")
+    # No condition is added for 'all'
+
+    # Handle existing name and vintage filters
+    if name_filter:
+        conditions.append("name LIKE ?")
+        params.append(f"%{name_filter}%")
+    if vintage_filter:
+        conditions.append("vintage = ?")
+        params.append(vintage_filter)
+
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+    # Get filter parameters from the request URL
+    name_filter = request.args.get('name')
+    vintage_filter = request.args.get('vintage')
+    status_filter = request.args.get('filter', 'on_hand') # Default to 'on_hand'
+
+    query = "SELECT * FROM wines"
+    params = []
+    conditions = []
+
+    # Handle status filter (on_hand, history, all)
+    if status_filter == 'on_hand':
+        conditions.append("quantity > 0")
+    elif status_filter == 'history':
+        conditions.append("quantity = 0")
+    # No condition is added for 'all'
+
+    # Handle existing name and vintage filters
+    if name_filter:
+        conditions.append("name LIKE ?")
+        params.append(f"%{name_filter}%")
+    if vintage_filter:
+        conditions.append("vintage = ?")
+        params.append(vintage_filter)
+
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+    # Get filter parameters from the request URL
+    name_filter = request.args.get('name')
+    vintage_filter = request.args.get('vintage')
+    status_filter = request.args.get('filter', 'on_hand') # Default to 'on_hand'
+
+    query = "SELECT * FROM wines"
+    params = []
+    conditions = []
+
+    # Handle status filter (on_hand, history, all)
+    if status_filter == 'on_hand':
+        conditions.append("quantity > 0")
+    elif status_filter == 'history':
+        conditions.append("quantity = 0")
+    # No condition is added for 'all'
+
+    # Handle existing name and vintage filters
+    if name_filter:
+        conditions.append("name LIKE ?")
+        params.append(f"%{name_filter}%")
+    if vintage_filter:
+        conditions.append("vintage = ?")
+        params.append(vintage_filter)
+
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+    # Get filter parameters from the request URL
+    name_filter = request.args.get('name')
+    vintage_filter = request.args.get('vintage')
+    status_filter = request.args.get('filter', 'on_hand') # Default to 'on_hand'
+
+    query = "SELECT * FROM wines"
+    params = []
+    conditions = []
+
+    # Handle status filter (on_hand, history, all)
+    if status_filter == 'on_hand':
+        conditions.append("quantity > 0")
+    elif status_filter == 'history':
+        conditions.append("quantity = 0")
+    # No condition is added for 'all'
+
+    # Handle existing name and vintage filters
+    if name_filter:
+        conditions.append("name LIKE ?")
+        params.append(f"%{name_filter}%")
+    if vintage_filter:
+        conditions.append("vintage = ?")
+        params.append(vintage_filter)
+
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+    # Get filter parameters from the request URL
+    name_filter = request.args.get('name')
+    vintage_filter = request.args.get('vintage')
+    status_filter = request.args.get('filter', 'on_hand') # Default to 'on_hand'
+
+    query = "SELECT * FROM wines"
+    params = []
+    conditions = []
+
+    # Handle status filter (on_hand, history, all)
+    if status_filter == 'on_hand':
+        conditions.append("quantity > 0")
+    elif status_filter == 'history':
+        conditions.append("quantity = 0")
+    # No condition is added for 'all'
+
+    # Handle existing name and vintage filters
+    if name_filter:
+        conditions.append("name LIKE ?")
+        params.append(f"%{name_filter}%")
+    if vintage_filter:
+        conditions.append("vintage = ?")
+        params.append(vintage_filter)
+
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+    # Get filter parameters from the request URL
+    name_filter = request.args.get('name')
+    vintage_filter = request.args.get('vintage')
+    status_filter = request.args.get('filter', 'on_hand') # Default to 'on_hand'
+
+    query = "SELECT * FROM wines"
+    params = []
+    conditions = []
+
+    # Handle status filter (on_hand, history, all)
+    if status_filter == 'on_hand':
+        conditions.append("quantity > 0")
+    elif status_filter == 'history':
+        conditions.append("quantity = 0")
+    # No condition is added for 'all'
+
+    # Handle existing name and vintage filters
+    if name_filter:
+        conditions.append("name LIKE ?")
+        params.append(f"%{name_filter}%")
+    if vintage_filter:
+        conditions.append("vintage = ?")
+        params.append(vintage_filter)
+
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)    query += " ORDER BY added_at DESC"
 
     try:
         cursor.execute(query, params)
