@@ -1494,7 +1494,8 @@ def get_inventory():
         params.append(vintage_filter)
 
     if conditions:
-        query += " WHERE " + " AND ".join(conditions)    query += " ORDER BY added_at DESC"
+        query += " WHERE " + " AND ".join(conditions)
+    query += " ORDER BY added_at DESC"
 
     try:
         cursor.execute(query, params)
