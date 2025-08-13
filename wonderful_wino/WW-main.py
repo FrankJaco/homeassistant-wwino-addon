@@ -843,11 +843,10 @@ def scrape_vivino_data(vivino_url):
     logger.info(f"Successfully scraped Vivino data for {wine_data.get('name', 'Unknown')} ({wine_data.get('vintage', 'NV')})")
     return wine_data
 
-# Modified to accept quantity
-def insert_wine_data(wine_data, quantity=1):
+def insert_wine_data(wine_data, quantity=1, cost_tier=None):
     """
     Inserts new wine data into the SQLite database or updates the quantity
-    if a wine with the same Vivino URL already exists.
+    and other details if a wine with the same Vivino URL already exists.
     """
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -859,7 +858,7 @@ def insert_wine_data(wine_data, quantity=1):
         if existing_wine:
             wine_id, current_quantity = existing_wine
             new_quantity = current_quantity + quantity
-            # PHASE 1 CHANGE: Updated UPDATE statement for new schema
+            # STEP 2.4 CHANGE: Added cost_tier to the UPDATE statement
             cursor.execute('''
                 UPDATE wines
                 SET quantity = ?,
@@ -870,6 +869,7 @@ def insert_wine_data(wine_data, quantity=1):
                     country = ?,
                     vivino_rating = ?,
                     image_url = ?,
+                    cost_tier = ?,
                     added_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             ''', (
@@ -881,12 +881,13 @@ def insert_wine_data(wine_data, quantity=1):
                 wine_data['country'],
                 wine_data['vivino_rating'],
                 wine_data['image_url'],
+                cost_tier, # Added cost_tier
                 wine_id
             ))
             logger.info(f"Updated quantity for '{wine_data['name']}' to {new_quantity}.")
         else:
             # Insert new wine with specified quantity
-            # PHASE 1 CHANGE: Updated INSERT statement for new schema
+            # STEP 2.4 CHANGE: Added cost_tier to the INSERT statement
             cursor.execute('''
                 INSERT INTO wines (vivino_url, name, vintage, varietal, region, country, vivino_rating, image_url, quantity, cost_tier, personal_rating)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -899,9 +900,9 @@ def insert_wine_data(wine_data, quantity=1):
                 wine_data['country'],
                 wine_data['vivino_rating'],
                 wine_data['image_url'],
-                quantity, # Use the provided quantity for new inserts
-                None, # cost_tier defaults to NULL
-                None  # personal_rating defaults to NULL
+                quantity,
+                cost_tier, # Added cost_tier
+                None
             ))
             logger.info(f"New wine '{wine_data['name']}' inserted with quantity {quantity}.")
 
@@ -913,6 +914,73 @@ def insert_wine_data(wine_data, quantity=1):
         return False
     finally:
         conn.close()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # --- Flask Routes ---
 
@@ -1012,7 +1080,7 @@ def add_manual_wine():
     if not isinstance(quantity, int) or quantity < 1:
         logger.warning(f"Invalid quantity for manual add: {quantity}. Defaulting to 1.")
         quantity = 1
-
+    cost_tier = data.get('cost_tier')
     # Create a synthetic, unique "URL" for this manual entry to serve as its primary key.
     # This allows it to be found and updated by the existing `insert_wine_data` function.
     safe_name = re.sub(r'[^a-zA-Z0-9_]', '', data['name'].replace(' ', '_')).lower()
@@ -1034,7 +1102,7 @@ def add_manual_wine():
         'personal_rating': None,
     }
 
-    if insert_wine_data(wine_data, quantity):
+    if insert_wine_data(wine_data, quantity, cost_tier):
         # Get the current total quantity from the DB after the insert/update
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
@@ -1091,7 +1159,7 @@ def edit_wine():
         # Now, update the database with the new details
         cursor.execute('''
             UPDATE wines 
-            SET name = ?, vintage = ?, varietal = ?, region = ?, country = ?, quantity = ?
+            SET name = ?, vintage = ?, varietal = ?, region = ?, country = ?, quantity = ?, cost_tier = ?
             WHERE vivino_url = ?
         ''', (
             data['name'],
@@ -1100,11 +1168,10 @@ def edit_wine():
             data.get('region') or "Unknown Region",
             data.get('country') or "Unknown Country",
             data['quantity'],
+            data.get('cost_tier'), # Added cost_tier
             vivino_url
         ))
-        conn.commit()
-
-        # Fetch the newly updated record to sync it back to HA
+        conn.commit()        # Fetch the newly updated record to sync it back to HA
         cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url,))
         updated_wine_row = cursor.fetchone()
         if updated_wine_row:
