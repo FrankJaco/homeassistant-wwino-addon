@@ -896,6 +896,7 @@
         sortDirectionToggle.addEventListener('click', () => {
             currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
             updateSortIcons();
+            fetchInventory();
             applySortAndDisplayInventory();
         });
 
@@ -920,8 +921,10 @@
         
         themeToggle.addEventListener('click', () => {
              if (document.body.classList.contains('dark-theme')) {
+                fetchInventory();
                 enableLightMode();
             } else {
+                fetchInventory();
                 enableDarkMode();
             }
         });
