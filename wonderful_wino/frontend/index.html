@@ -827,6 +827,7 @@
         
         document.getElementById('helpButton').addEventListener('click', () => {
             helpModal.classList.remove('hidden');
+            fetchInventory();
         });
         document.getElementById('openEntryModalBtn').addEventListener('click', () => openAddModal());
 
