@@ -261,6 +261,9 @@
         #costTierSelector {
             margin-top: 0 !important;
         }
+        #costTierSelector {
+            margin-top: 0 !important;
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col items-center py-8">
@@ -459,16 +462,16 @@
                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500" required>
                     </div>
                     <div class="sm:col-span-2">
-                        <label class="block text-sm font-medium">Cost Tier</label>
-                        <div id="costTierSelector" class="flex items-center gap-2 cost-tier-selector">
-                            <span data-value="1">$</span>
-                            <span data-value="2">$$</span>
-                            <span data-value="3">$$$</span>
-                            <span data-value="4">$$$$</span>
-                            <span data-value="5">$$$$$</span>
-                        </div>
-                        <input type="hidden" id="manualCostTierInput">
-                    </div>
+                        <label id="costTierSelector-label" class="block text-sm font-medium mb-0">Cost Tier</label>
+                        <div id="costTierSelector" class="flex items-center gap-2 cost-tier-selector">
+                            <span data-value="1">$</span>
+                            <span data-value="2">$$</span>
+                            <span data-value="3">$$$</span>
+                            <span data-value="4">$$$$</span>
+                            <span data-value="5">$$$$$</span>
+                        </div>
+                        <input type="hidden" id="manualCostTierInput">
+                    </div>
                 </div>
                 <div id="entryMessage" class="mt-4 text-center hidden"></div>
                 <div class="mt-6 flex justify-end gap-4">
