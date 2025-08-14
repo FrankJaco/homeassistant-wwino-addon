@@ -243,6 +243,20 @@
         #sortDirectionToggle:hover {
             background-color: var(--button-secondary-hover-bg) !important;
         }
+
+        /* Add these new styles for the cost tier selector */
+        .cost-tier-selector span {
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 0.25rem;
+            border: 1px solid var(--border-color);
+            transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+        }
+        .cost-tier-selector span.selected {
+            background-color: var(--accent-color);
+            color: white;
+            border-color: var(--accent-color);
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col items-center py-8">
@@ -440,6 +454,17 @@
                         <input type="number" id="manualQuantityInput" min="1" value="1"
                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500" required>
                     </div>
+                    <div class="sm:col-span-2">
+                        <label class="block text-sm font-medium">Cost Tier</label>
+                        <div id="costTierSelector" class="flex items-center gap-2 mt-1 cost-tier-selector">
+                            <span data-value="1">$</span>
+                            <span data-value="2">$$</span>
+                            <span data-value="3">$$$</span>
+                            <span data-value="4">$$$$</span>
+                            <span data-value="5">$$$$$</span>
+                        </div>
+                        <input type="hidden" id="manualCostTierInput">
+                    </div>
                 </div>
                 <div id="entryMessage" class="mt-4 text-center hidden"></div>
                 <div class="mt-6 flex justify-end gap-4">
@@ -688,7 +713,8 @@
                 varietal: document.getElementById('manualVarietalInput').value,
                 region: document.getElementById('manualRegionInput').value,
                 country: document.getElementById('manualCountryInput').value,
-                quantity: parseInt(document.getElementById('manualQuantityInput').value, 10)
+                quantity: parseInt(document.getElementById('manualQuantityInput').value, 10),
+                cost_tier: parseInt(document.getElementById('manualCostTierInput').value, 10) || null
             };
 
             if (!payload.name || isNaN(payload.vintage) || isNaN(payload.quantity)) {
@@ -824,7 +850,10 @@
         // --- Modal Functionality ---
         const helpModal = document.getElementById('helpModal');
         const entryModal = document.getElementById('entryModal');
-        
+        const costTierSelector = document.getElementById('costTierSelector');
+        const manualCostTierInput = document.getElementById('manualCostTierInput');
+
+
         document.getElementById('helpButton').addEventListener('click', () => {
             helpModal.classList.remove('hidden');
             fetchInventory();
@@ -845,6 +874,7 @@
             document.getElementById('entryVivinoUrl').value = '';
             document.getElementById('entryModalTitle').textContent = 'Add Wine Manually';
             document.getElementById('entrySubmitBtn').textContent = 'Add Wine';
+            updateCostTierSelector(null);
             entryModal.classList.remove('hidden');
         }
 
@@ -857,7 +887,7 @@
             document.getElementById('manualRegionInput').value = wine.region !== 'Unknown Region' ? wine.region : '';
             document.getElementById('manualCountryInput').value = wine.country !== 'Unknown Country' ? wine.country : '';
             document.getElementById('manualQuantityInput').value = wine.quantity;
-            
+            updateCostTierSelector(wine.cost_tier);
             document.getElementById('entryModalTitle').textContent = 'Edit Wine';
             document.getElementById('entrySubmitBtn').textContent = 'Save Changes';
             entryModal.classList.remove('hidden');
@@ -872,11 +902,32 @@
             document.getElementById('manualCountryInput').value = wine.country !== 'Unknown Country' ? wine.country : '';
             document.getElementById('manualVintageInput').value = '';
             document.getElementById('manualQuantityInput').value = 1;
+            updateCostTierSelector(wine.cost_tier);
             document.getElementById('entryModalTitle').textContent = 'Duplicate Wine';
             document.getElementById('entrySubmitBtn').textContent = 'Add Wine';
             entryModal.classList.remove('hidden');
             document.getElementById('manualVintageInput').focus();
         }
+
+        // --- START: Added new functions for the cost tier selector ---
+        costTierSelector.addEventListener('click', (e) => {
+            if (e.target.matches('span')) {
+                const value = e.target.dataset.value;
+                const currentValue = manualCostTierInput.value;
+                // If the clicked value is already selected, unselect it. Otherwise, select it.
+                const newValue = (currentValue === value) ? '' : value;
+                updateCostTierSelector(newValue);
+            }
+        });
+
+        function updateCostTierSelector(selectedValue) {
+            manualCostTierInput.value = selectedValue || '';
+            costTierSelector.querySelectorAll('span').forEach(span => {
+                span.classList.toggle('selected', span.dataset.value == selectedValue);
+            });
+        }
+        // --- END: Added new functions for the cost tier selector ---
+
 
         // --- Sort Controls ---
         const sortSelect = document.getElementById('sortSelect');
@@ -951,7 +1002,6 @@
                 fetchInventory();
             }
         });
-
 
         // --- Page Load ---
         document.addEventListener('DOMContentLoaded', () => {
