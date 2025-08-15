@@ -270,6 +270,30 @@
         <div id="root" class="w-full max-w-4xl px-4"></div>
     </main>
 
+    <div id="helpModal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <button class="modal-close-button" onclick="closeHelpModal()">&times;</button>
+                <h3 class="text-xl font-semibold mb-4">Maintenance Help</h3>
+                <p class="text-sm">
+                    This section provides tools to manage your wine inventory database and its synchronization with the Home Assistant ToDo list.
+                </p>
+                <ul class="list-disc pl-5 mt-3 text-sm space-y-2">
+                    <li>
+                        <strong>Sync ToDo from DB:</strong> This button will synchronize your entire wine inventory from the Wonderful-Wino database to your ToDo list. It attempts to update or re-add every wine from your inventory into the list.
+                        <p class="text-sm mt-3">
+                            <span class="font-bold">Important Note:</span> If your ToDo list contains items that are no longer in your inventory, the "Sync" operation will not remove them. You can clear these manually by “completing” them via the ToDo list in the same manner as when consuming a wine.
+                        </p>
+                    </li>
+                    <li>
+                        <strong>Reset DB:</strong> <span class="font-bold text-red-600">WARNING:</span> This action will permanently delete ALL your wine data from the Wonderful-Wino database. This cannot be undone. Use this only if you want to start your wine inventory from scratch.
+                    </li>
+                </ul>
+                <div class="mt-6 text-right">
+                    <button onclick="closeHelpModal()" class="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">Close</button>
+                </div>
+            </div>
+        </div>
+    
     <footer class="mt-8 text-center text-gray-500 text-sm px-4">
         <p>&copy; 2025 Wonderful-Wino. All rights reserved.</p>
     </footer>
