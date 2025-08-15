@@ -1811,6 +1811,61 @@ def delete_wine():
     finally:
         conn.close()
 
+@app.route('/api/rate-wine', methods=['POST'])
+def rate_wine():
+    """
+    Endpoint to receive a personal rating for a wine and save it to the database.
+    """
+    data = request.get_json()
+    vivino_url = data.get('vivino_url')
+    personal_rating = data.get('personal_rating')
+
+    # Basic validation
+    if not vivino_url or personal_rating is None:
+        return jsonify({"status": "error", "message": "Missing vivino_url or personal_rating"}), 400
+    
+    try:
+        # Ensure rating is a number (float or int) between 0 and 5
+        rating_val = float(personal_rating)
+        if not (0 <= rating_val <= 5):
+            raise ValueError("Rating out of bounds")
+    except (ValueError, TypeError):
+        return jsonify({"status": "error", "message": "Invalid personal_rating. Must be a number between 0 and 5."}), 400
+
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    try:
+        # Update the personal_rating for the specified wine
+        cursor.execute("UPDATE wines SET personal_rating = ? WHERE vivino_url = ?", (rating_val, vivino_url))
+        if cursor.rowcount == 0:
+            logger.warning(f"No wine found with URL to rate: {vivino_url}")
+            return jsonify({"status": "error", "message": "Wine not found"}), 404
+        
+        conn.commit()
+        logger.info(f"Successfully saved personal rating of {rating_val} for wine: {vivino_url}")
+
+        # Fetch the fully updated wine record to sync to HA
+        cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url,))
+        updated_wine_row = cursor.fetchone()
+        
+        if updated_wine_row:
+            updated_wine_dict = dict(updated_wine_row)
+            # Re-sync to HA to show the new averaged quality score
+            if updated_wine_dict['quantity'] > 0:
+                sync_to_ha_todo(updated_wine_dict, updated_wine_dict['quantity'])
+
+        return jsonify({"status": "success", "message": "Personal rating saved successfully."}), 200
+
+    except sqlite3.Error as e:
+        logger.error(f"Database error while saving personal rating for {vivino_url}: {e}")
+        conn.rollback()
+        return jsonify({"status": "error", "message": "Database error while saving rating."}), 500
+    finally:
+        if conn:
+            conn.close()
+
 @app.route("/sync-all-wines", methods=["POST"])
 def sync_all_wines_to_ha():
     """
