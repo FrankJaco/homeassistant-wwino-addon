@@ -1,13 +1,12 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Wonderful-Wino Inventory</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
-<style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wonderful-Wino Inventory</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
         /* Define CSS Variables for themes */
         :root {
             --bg-color: #f8f5ed;
@@ -48,7 +47,7 @@
             --input-border: #6b7280; /* Consistent border for inputs */
         }
 
-        /* Styles for filter buttons */
+        /* Styles for new filter buttons */
         .filter-button {
             padding: 0.5rem 1rem;
             border: 1px solid var(--border-color);
@@ -60,20 +59,6 @@
             cursor: pointer;
         }
         .filter-button.active {
-            background-color: var(--accent-color);
-            color: white;
-            border-color: var(--accent-color);
-        }
-        
-        /* Styles for new cost tier selector */
-        .cost-tier-selector span {
-            cursor: pointer;
-            padding: 0.5rem;
-            border-radius: 0.25rem;
-            border: 1px solid var(--border-color);
-            transition: background-color 0.2s, color 0.2s, border-color 0.2s;
-        }
-        .cost-tier-selector span.selected {
             background-color: var(--accent-color);
             color: white;
             border-color: var(--accent-color);
@@ -107,41 +92,100 @@
         }
 
         /* Apply theme variables to other elements */
-        .bg-white { background-color: var(--card-bg) !important; transition: background-color 0.3s ease; }
-        .text-purple-800 { color: var(--header-color) !important; }
-        .text-gray-800 { color: var(--text-color) !important; }
-        .text-gray-700 { color: var(--text-color) !important; }
-        .border-gray-300 { border-color: var(--border-color) !important; }
-        .focus\:ring-purple-500:focus { --tw-ring-color: var(--accent-color) !important; }
-        .bg-purple-600 { background-color: var(--button-primary-bg) !important; }
-        .hover\:bg-purple-700:hover { background-color: var(--button-primary-hover-bg) !important; }
-        .bg-gray-200 { background-color: var(--button-secondary-bg) !important; }
-        .hover\:bg-gray-300:hover { background-color: var(--button-secondary-hover-bg) !important; }
-        .text-gray-600 { color: var(--button-secondary-text) !important; }
-        .bg-gray-50 { background-color: var(--table-header-bg) !important; }
-        .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: var(--table-border-color) !important; }
-        .border-gray-200 { border-color: var(--table-border-color) !important; }
-        .text-gray-500 { color: var(--text-color) !important; }
+        .bg-white {
+            background-color: var(--card-bg) !important; /* Override Tailwind's bg-white */
+            transition: background-color 0.3s ease;
+        }
+        .text-purple-800 {
+            color: var(--header-color) !important;
+        }
+        .text-gray-800 {
+            color: var(--text-color) !important;
+        }
+        .text-gray-700 {
+            color: var(--text-color) !important;
+        }
+        .border-gray-300 {
+            border-color: var(--border-color) !important;
+        }
+        .focus\:ring-purple-500:focus {
+            --tw-ring-color: var(--accent-color) !important;
+        }
+        .bg-purple-600 {
+            background-color: var(--button-primary-bg) !important;
+        }
+        .hover\:bg-purple-700:hover {
+            background-color: var(--button-primary-hover-bg) !important;
+        }
+        .bg-gray-200 {
+            background-color: var(--button-secondary-bg) !important;
+        }
+        .hover\:bg-gray-300:hover {
+            background-color: var(--button-secondary-hover-bg) !important;
+        }
+        .text-gray-600 {
+            color: var(--button-secondary-text) !important;
+        }
+        .bg-gray-50 {
+            background-color: var(--table-header-bg) !important;
+        }
+        .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
+            border-color: var(--table-border-color) !important;
+        }
+        /* Explicitly set border-gray-200 to use table-border-color */
+        .border-gray-200 {
+            border-color: var(--table-border-color) !important;
+        }
+        .text-gray-500 {
+            color: var(--text-color) !important; /* Adjust for general text within tables/messages */
+        }
         .modal-content {
-            background-color: var(--card-bg); color: var(--text-color);
+            background-color: var(--card-bg);
+            color: var(--text-color);
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            max-width: 500px; width: 90%; position: relative; max-height: 90vh;
-            overflow-y: auto; transition: background-color 0.3s ease, color 0.3s ease;
-            padding: 1.5rem; border-radius: 0.5rem;
+            max-width: 500px;
+            width: 90%;
+            position: relative;
+            max-height: 90vh;
+            overflow-y: auto;
+            transition: background-color 0.3s ease, color 0.3s ease;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
         }
 
         /* Modal specific styles */
         .modal-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: rgba(0, 0, 0, 0.6); display: flex;
-            justify-content: center; align-items: center; z-index: 1000;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
         }
         .modal-close-button {
-            position: absolute; top: 0.75rem; right: 0.75rem; background: none;
-            border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-color);
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-color);
         }
-        .modal-close-button:hover { color: var(--accent-color); }
-        .sort-icon { display: inline-block; vertical-align: middle; fill: currentColor; }
+        .modal-close-button:hover {
+            color: var(--accent-color);
+        }
+        /* Style for the sort icon */
+        .sort-icon {
+            display: inline-block;
+            vertical-align: middle;
+            fill: currentColor;
+        }
+        /* Specific adjustments for buttons that use fixed colors for semantic meaning (red/green/blue) */
         .bg-red-600 { background-color: #dc2626 !important; }
         .hover\:bg-red-700:hover { background-color: #b91c1c !important; }
         .bg-green-600 { background-color: #16a34a !important; }
@@ -158,187 +202,294 @@
 		.text-cyan-600 { color: #0891b2 !important; }
         .hover\:text-cyan-900:hover { color: #164e63 !important; }
 
+        /* Styles for the theme toggle button */
         #themeToggle {
-            background-color: var(--button-secondary-bg); color: var(--button-secondary-text);
-            border: 1px solid var(--border-color); padding: 0.5rem 1rem; border-radius: 9999px;
-            cursor: pointer; font-size: 0.875rem; font-weight: 500; display: flex;
-            align-items: center; gap: 0.5rem; transition: all 0.3s ease;
+            background-color: var(--button-secondary-bg);
+            color: var(--button-secondary-text);
+            border: 1px solid var(--border-color);
+            padding: 0.5rem 1rem;
+            border-radius: 9999px; /* Pill shape */
+            cursor: pointer;
+            font-size: 0.875rem; /* text-sm */
+            font-weight: 500; /* font-medium */
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
         }
-        #themeToggle:hover { background-color: var(--button-secondary-hover-bg); }
-        input[type="text"], input[type="number"], select {
-            background-color: var(--input-bg) !important; color: var(--input-text) !important;
-            border-color: var(--input-border) !important; transition: all 0.3s ease;
+
+        #themeToggle:hover {
+            background-color: var(--button-secondary-hover-bg);
         }
+
+        /* --- Fixes for Dark Mode Visibility --- */
+        /* Apply theme colors to specific input and select elements */
+        input[type="text"],
+        input[type="number"],
+        select {
+            background-color: var(--input-bg) !important;
+            color: var(--input-text) !important;
+            border-color: var(--input-border) !important;
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+        }
+
+        /* Specific style for the sort direction toggle button */
         #sortDirectionToggle {
-            background-color: var(--button-secondary-bg) !important; color: var(--button-secondary-text) !important;
-            border-color: var(--border-color) !important; transition: all 0.3s ease;
+            background-color: var(--button-secondary-bg) !important;
+            color: var(--button-secondary-text) !important;
+            border-color: var(--border-color) !important; /* Ensure border also changes */
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
         }
-        #sortDirectionToggle:hover { background-color: var(--button-secondary-hover-bg) !important; }
+        #sortDirectionToggle:hover {
+            background-color: var(--button-secondary-hover-bg) !important;
+        }
+
+        /* Add these new styles for the cost tier selector */
+        .cost-tier-selector span {
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 0.25rem;
+            border: 1px solid var(--border-color);
+            transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+        }
+        .cost-tier-selector span.selected {
+            background-color: var(--accent-color);
+            color: white;
+            border-color: var(--accent-color);
+        }
+        /* Reduce top margin above the cost tier selector in the modal */
+        #costTierSelector {
+            margin-top: 0 !important;
+        }
+        #costTierSelector {
+            margin-top: 0 !important;
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col items-center py-8">
-<header class="text-center mb-8 px-4 w-full max-w-4xl flex justify-between items-center">
-<h1 class="text-4xl font-extrabold text-purple-800 tracking-tight">Wonderful Wino</h1>
-<button class="flex items-center space-x-2 px-3 py-2 rounded-full shadow-sm text-sm" id="themeToggle">
-<span id="themeIcon">☀️</span>
-<span id="themeText">Light Mode</span>
-</button>
-</header>
-<main class="w-full max-w-4xl px-4">
-<section class="bg-white p-6 rounded-lg shadow-md mb-8">
-<h2 class="text-3xl font-semibold text-gray-800 mb-4">Add Wine</h2>
-<div class="mb-6">
-<p class="text-gray-700 mb-2 font-medium">Add via Vivino URL:</p>
-<p class="text-gray-700 mb-2 text-sm">1. Search Vivino to find your wine's page. Remember to include the vintage!</p>
-<form class="flex flex-col sm:flex-row gap-4 mb-4" id="vivinoSearchForm">
-<input class="flex-grow px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500" id="vivinoSearchInput" placeholder="e.g., 'Chateau Lafite 2010'" type="text"/>
-<button class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500" type="submit">Search Vivino</button>
-</form>
-<p class="text-gray-700 mb-2 text-sm">2. Once you find the wine, paste its URL below to add it:</p>
-<form class="flex flex-col sm:flex-row gap-4 items-center" id="scanWineForm">
-<input class="flex-grow px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500" id="vivinoUrlInput" placeholder="Paste Vivino URL here" required="" type="text"/>
-<div class="flex items-center gap-2 w-full sm:w-auto">
-<label class="text-gray-700 font-medium whitespace-nowrap" for="quantityInput">Qty:</label>
-<input class="w-20 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500" id="quantityInput" min="1" placeholder="1" type="number" value="1"/>
-</div>
-<button class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500" type="submit">Add from URL</button>
-</form>
-<div class="mt-4 text-center hidden" id="scanMessage"></div>
-</div>
-<div class="mt-6 pt-6 border-t border-gray-200 text-center">
-<button class="bg-gray-200 text-gray-600 font-semibold px-6 py-2 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400" id="openEntryModalBtn">
+
+    <header class="text-center mb-8 px-4 w-full max-w-4xl flex justify-between items-center">
+        <h1 class="text-4xl font-extrabold text-purple-800 tracking-tight">Wonderful Wino</h1>
+        <button id="themeToggle" class="flex items-center space-x-2 px-3 py-2 rounded-full shadow-sm text-sm">
+            <span id="themeIcon">☀️</span>
+            <span id="themeText">Light Mode</span>
+        </button>
+    </header>
+
+    <main class="w-full max-w-4xl px-4">
+        <section class="bg-white p-6 rounded-lg shadow-md mb-8">
+            <h2 class="text-3xl font-semibold text-gray-800 mb-4">Add Wine</h2>
+
+            <div class="mb-6">
+                <p class="text-gray-700 mb-2 font-medium">Add via Vivino URL:</p>
+                <p class="text-gray-700 mb-2 text-sm">1. Search Vivino to find your wine's page. Remember to include the vintage!</p>
+                <form id="vivinoSearchForm" class="flex flex-col sm:flex-row gap-4 mb-4">
+                    <input type="text" id="vivinoSearchInput" placeholder="e.g., 'Chateau Lafite 2010'"
+                           class="flex-grow px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    <button type="submit"
+                            class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                        Search Vivino
+                    </button>
+                </form>
+
+                <p class="text-gray-700 mb-2 text-sm">2. Once you find the wine, paste its URL below to add it:</p>
+                <form id="scanWineForm" class="flex flex-col sm:flex-row gap-4 items-center">
+                    <input type="text" id="vivinoUrlInput" placeholder="Paste Vivino URL here"
+                           class="flex-grow px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500" required>
+                    <div class="flex items-center gap-2 w-full sm:w-auto">
+                        <label for="quantityInput" class="text-gray-700 font-medium whitespace-nowrap">Qty:</label>
+                        <input type="number" id="quantityInput" placeholder="1" min="1" value="1"
+                               class="w-20 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    </div>
+                    <button type="submit"
+                            class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                        Add from URL
+                    </button>
+                </form>
+                <div id="scanMessage" class="mt-4 text-center hidden"></div>
+            </div>
+
+            <div class="mt-6 pt-6 border-t border-gray-200 text-center">
+                <button id="openEntryModalBtn" class="bg-gray-200 text-gray-600 font-semibold px-6 py-2 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400">
                     Manual Entry
                 </button>
-</div>
-</section>
-<section class="bg-white p-6 rounded-lg shadow-md mb-8">
-<div class="flex flex-col sm:flex-row justify-between items-start mb-6 sm:mb-4 gap-4">
-<h2 class="text-2xl font-semibold text-gray-800" id="inventory-heading">Wine Inventory</h2>
-<div class="flex flex-wrap items-center gap-4">
-<div class="flex items-center gap-2" id="inventory-filters">
-<button class="filter-button active" data-filter="on_hand">On Hand</button>
-<button class="filter-button" data-filter="history">History</button>
-<button class="filter-button" data-filter="all">All</button>
-</div>
-<div class="flex items-center gap-2">
-<select class="px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm w-32" id="sortSelect">
-<option value="name">Name</option>
-<option value="varietal">Varietal</option>
-<option value="country">Country</option>
-<option value="region">Region</option>
-<option value="vintage">Vintage</option>
-<option value="vivino_rating">Rating</option>
-<option value="quantity">Quantity</option>
-</select>
-<button aria-label="Toggle sort direction" class="p-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400" id="sortDirectionToggle">
-<svg class="w-5 h-5 sort-icon" fill="none" id="sortAscIcon" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-<path d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
-</svg>
-<svg class="w-5 h-5 sort-icon hidden" fill="none" id="sortDescIcon" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-<path d="M3 20h13M3 16h9m-9-4h6m4 0l4 4m0 0l4-4m-4 4V4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
-</svg>
-</button>
-</div>
-</div>
-</div>
-<div class="overflow-x-auto">
-<table class="min-w-full divide-y divide-gray-200">
-<thead class="bg-gray-50">
-<tr>
-<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell" scope="col">
+            </div>
+
+        </section>
+
+        <section class="bg-white p-6 rounded-lg shadow-md mb-8">
+            <div class="flex flex-col sm:flex-row justify-between items-start mb-6 sm:mb-4 gap-4">
+                <h2 id="inventory-heading" class="text-2xl font-semibold text-gray-800">Wine Inventory</h2>
+                <div class="flex flex-wrap items-center gap-4">
+                    <div id="inventory-filters" class="flex items-center gap-2">
+                        <button class="filter-button active" data-filter="on_hand">On Hand</button>
+                        <button class="filter-button" data-filter="history">History</button>
+                        <button class="filter-button" data-filter="all">All</button>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <select id="sortSelect" class="px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm w-32">
+                            <option value="name">Name</option>
+                            <option value="varietal">Varietal</option>
+                            <option value="country">Country</option>
+                            <option value="region">Region</option>
+                            <option value="vintage">Vintage</option>
+                            <option value="vivino_rating">Rating</option>
+                            <option value="quantity">Quantity</option>
+                        </select>
+                        <button id="sortDirectionToggle" class="p-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400" aria-label="Toggle sort direction">
+                            <svg id="sortAscIcon" class="w-5 h-5 sort-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"></path>
+                            </svg>
+                            <svg id="sortDescIcon" class="w-5 h-5 sort-icon hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 20h13M3 16h9m-9-4h6m4 0l4 4m0 0l4-4m-4 4V4"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
                                 Image
                             </th>
-<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell" scope="col">
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
                                 Wine Details
                             </th>
-<th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell" scope="col">
+                            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
                                 Actions
                             </th>
-</tr>
-</thead>
-<tbody class="bg-white divide-y divide-gray-200" id="inventoryTableBody">
-<tr><td class="py-4 text-center text-gray-500" colspan="3">Loading inventory...</td></tr>
-</tbody>
-</table>
-</div>
-<div class="mt-4 text-center hidden" id="inventoryMessage"></div>
-</section>
-<section class="mt-12 w-full max-w-xl p-6 bg-white rounded-lg shadow-md mx-auto">
-<h2 class="text-2xl font-bold text-gray-800 mb-4">Maintenance</h2>
-<div class="flex flex-col sm:flex-row gap-4 mb-4 items-center">
-<button class="w-full sm:flex-grow bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500" id="syncAllWinesButton">
+                        </tr>
+                    </thead>
+                    <tbody id="inventoryTableBody" class="bg-white divide-y divide-gray-200">
+                        <tr><td colspan="3" class="py-4 text-center text-gray-500">Loading inventory...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div id="inventoryMessage" class="mt-4 text-center hidden"></div>
+        </section>
+
+        <section class="mt-12 w-full max-w-xl p-6 bg-white rounded-lg shadow-md mx-auto">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">Maintenance</h2>
+
+            <div class="flex flex-col sm:flex-row gap-4 mb-4 items-center">
+                <button id="syncAllWinesButton"
+                        class="w-full sm:flex-grow bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
                     Sync ToDo from DB
                 </button>
-<button class="w-full sm:flex-grow bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 focus:outline-none focus:ring-4 focus:ring-red-300" id="reinitializeDbButton">
+                <button id="reinitializeDbButton"
+                        class="w-full sm:flex-grow bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 focus:outline-none focus:ring-4 focus:ring-red-300">
                     Reset DB
                 </button>
-<button class="w-12 h-12 flex items-center justify-center bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg transition duration-300 focus:outline-none focus:ring-4 focus:ring-green-300 flex-shrink-0" id="helpButton">
+                <button id="helpButton"
+                        class="w-12 h-12 flex items-center justify-center bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg transition duration-300 focus:outline-none focus:ring-4 focus:ring-green-300 flex-shrink-0">
                     ?
                 </button>
-</div>
-<div class="mt-3 text-center font-medium" id="reinitializeDbMessage"></div>
-<div class="mt-3 text-center font-medium" id="syncMessage"></div>
-</section>
-<div class="w-full max-w-4xl px-4" id="root">
-</div>
-</main>
-<footer class="mt-8 text-center text-gray-500 text-sm px-4">
-<p>© 2025 Wonderful-Wino. All rights reserved.</p>
-</footer>
-<div class="modal-overlay hidden" id="helpModal">
-<div class="modal-content">
-<button class="modal-close-button" onclick="closeHelpModal()">×</button>
-<h3 class="text-xl font-semibold mb-4">Maintenance Help</h3>
-<p class="text-sm">
+            </div>
+            <div id="reinitializeDbMessage" class="mt-3 text-center font-medium"></div>
+            <div id="syncMessage" class="mt-3 text-center font-medium"></div>
+        </section>
+
+        <div id="root" class="w-full max-w-4xl px-4">
+            </div>
+    </main>
+
+    <footer class="mt-8 text-center text-gray-500 text-sm px-4">
+        <p>&copy; 2025 Wonderful-Wino. All rights reserved.</p>
+    </footer>
+
+    <div id="helpModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <button class="modal-close-button" onclick="closeHelpModal()">&times;</button>
+            <h3 class="text-xl font-semibold mb-4">Maintenance Help</h3>
+            <p class="text-sm">
                 This section provides tools to manage your wine inventory database and its synchronization with the Home Assistant ToDo list.
             </p>
-<ul class="list-disc pl-5 mt-3 text-sm space-y-2">
-<li>
-<strong>Sync ToDo from DB:</strong> This button will synchronize your entire wine inventory from the Wonderful-Wino database to your ToDo list. It attempts to update or re-add every wine from your inventory into the list.
+            <ul class="list-disc pl-5 mt-3 text-sm space-y-2">
+                <li>
+                    <strong>Sync ToDo from DB:</strong> This button will synchronize your entire wine inventory from the Wonderful-Wino database to your ToDo list. It attempts to update or re-add every wine from your inventory into the list.
                     <p class="text-sm mt-3">
-<span class="font-bold">Important Note:</span> If your ToDo list contains items that are no longer in your inventory, the "Sync" operation will not remove them. You can clear these manually by “completing” them via the ToDo list in the same manner as when consuming a wine.
+                        <span class="font-bold">Important Note:</span> If your ToDo list contains items that are no longer in your inventory, the "Sync" operation will not remove them. You can clear these manually by “completing” them via the ToDo list in the same manner as when consuming a wine.
                     </p>
-</li>
-<li><strong>Reset DB:</strong> <span class="font-bold text-red-600">WARNING:</span> This action will permanently delete ALL your wine data from the Wonderful-Wino database. This cannot be undone. Use this only if you want to start your wine inventory from scratch.</li>
-</ul>
-<div class="mt-6 text-right">
-<button class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500" onclick="closeHelpModal()">
+                </li>
+                <li><strong>Reset DB:</strong> <span class="font-bold text-red-600">WARNING:</span> This action will permanently delete ALL your wine data from the Wonderful-Wino database. This cannot be undone. Use this only if you want to start your wine inventory from scratch.</li>
+            </ul>
+            <div class="mt-6 text-right">
+                <button onclick="closeHelpModal()" class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500">
                     Close
                 </button>
-</div>
-</div>
-</div>
-<div class="modal-overlay hidden" id="entryModal">
-<div class="modal-content">
-<button class="modal-close-button" onclick="closeEntryModal()">×</button>
-<h3 class="text-xl font-semibold mb-4" id="entryModalTitle">Add Wine Manually</h3>
-<form id="entryForm">
-<input id="entryVivinoUrl" type="hidden"/>
-<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-<div class="sm:col-span-2"><label class="block text-sm font-medium">Wine Name *</label><input class="mt-1 block w-full border rounded-md p-2" id="manualNameInput" required="" type="text"/></div>
-<div><label class="block text-sm font-medium">Vintage *</label><input class="mt-1 block w-full border rounded-md p-2" id="manualVintageInput" required="" type="number"/></div>
-<div><label class="block text-sm font-medium">Varietal</label><input class="mt-1 block w-full border rounded-md p-2" id="manualVarietalInput" type="text"/></div>
-<div><label class="block text-sm font-medium">Region</label><input class="mt-1 block w-full border rounded-md p-2" id="manualRegionInput" type="text"/></div>
-<div><label class="block text-sm font-medium">Country</label><input class="mt-1 block w-full border rounded-md p-2" id="manualCountryInput" type="text"/></div>
-<div class="sm:col-span-2"><label class="block text-sm font-medium">Quantity *</label><input class="mt-1 block w-full border rounded-md p-2" id="manualQuantityInput" min="0" required="" type="number" value="1"/></div>
-<div class="sm:col-span-2">
-<label class="block text-sm font-medium">Cost Tier</label>
-<div class="flex items-center gap-2 mt-1 cost-tier-selector" id="costTierSelector">
-<span data-value="1">$</span><span data-value="2">$$</span>
-<span data-value="3">$$$</span><span data-value="4">$$$$</span><span data-value="5">$$$$$</span>
-</div>
-<input id="manualCostTierInput" type="hidden"/>
-</div>
-</div>
-<div class="mt-4 text-center hidden" id="entryMessage"></div>
-<div class="mt-6 flex justify-end gap-4">
-<button class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300" onclick="closeEntryModal()" type="button">Cancel</button>
-<button class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700" id="entrySubmitBtn" type="submit">Add Wine</button>
-</div>
-</form>
-</div>
-</div>
-<script>
+            </div>
+        </div>
+    </div>
+
+    <div id="entryModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <button class="modal-close-button" onclick="closeEntryModal()">&times;</button>
+            <h3 id="entryModalTitle" class="text-xl font-semibold mb-4">Add Wine Manually</h3>
+            <form id="entryForm">
+                <input type="hidden" id="entryVivinoUrl">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="sm:col-span-2">
+                        <label for="manualNameInput" class="block text-sm font-medium">Wine Name *</label>
+                        <input type="text" id="manualNameInput" placeholder="e.g., Chateau Montelena Chardonnay"
+                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500" required>
+                    </div>
+                    <div>
+                        <label for="manualVintageInput" class="block text-sm font-medium">Vintage *</label>
+                        <input type="number" id="manualVintageInput" placeholder="e.g., 2019"
+                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500" required>
+                    </div>
+                    <div>
+                        <label for="manualVarietalInput" class="block text-sm font-medium">Varietal</label>
+                        <input type="text" id="manualVarietalInput" placeholder="e.g., Chardonnay"
+                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500">
+                    </div>
+                    <div>
+                        <label for="manualRegionInput" class="block text-sm font-medium">Region</label>
+                        <input type="text" id="manualRegionInput" placeholder="e.g., Napa Valley"
+                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500">
+                    </div>
+                    <div>
+                        <label for="manualCountryInput" class="block text-sm font-medium">Country</label>
+                        <input type="text" id="manualCountryInput" placeholder="e.g., USA"
+                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label for="manualQuantityInput" class="block text-sm font-medium">Quantity *</label>
+                        <input type="number" id="manualQuantityInput" min="1" value="1"
+                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500" required>
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label id="costTierSelector-label" class="block text-sm font-medium mb-0">Cost Tier</label>
+                        <div id="costTierSelector" class="flex items-center gap-2 cost-tier-selector">
+                            <span data-value="1">$</span>
+                            <span data-value="2">$$</span>
+                            <span data-value="3">$$$</span>
+                            <span data-value="4">$$$$</span>
+                            <span data-value="5">$$$$$</span>
+                        </div>
+                        <input type="hidden" id="manualCostTierInput">
+                    </div>
+                </div>
+                <div id="entryMessage" class="mt-4 text-center hidden"></div>
+                <div class="mt-6 flex justify-end gap-4">
+                     <button type="button" onclick="closeEntryModal()"
+                            class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400">
+                        Cancel
+                    </button>
+                    <button type="submit" id="entrySubmitBtn"
+                            class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                        Add Wine
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <script>
         // Define BASE_URL for API calls, using __ingress_url if available
         let BASE_URL = '';
         if (typeof window !== 'undefined' && typeof window.__ingress_url !== 'undefined' && window.__ingress_url !== '') {
@@ -871,5 +1022,6 @@
             fetchInventory();
         });
     </script>
+
 </body>
 </html>
