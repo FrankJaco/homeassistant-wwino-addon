@@ -916,77 +916,93 @@ def insert_wine_data(wine_data, quantity=1, cost_tier=None):
         conn.close()
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # --- Flask Routes ---
-
 
 @app.route('/scan-wine', methods=['POST'])
 def scan_wine():
+    """
+    Endpoint to receive a Vivino URL, scrape wine data, and store/update it in the database.
+    This now includes logic to match on name and vintage to prevent duplicates from different URLs.
+    """
+    data = request.get_json()
+    if not data or 'vivino_url' not in data:
+        logger.warning("Received invalid data for /scan-wine endpoint: %s", data)
+        return jsonify({"status": "error", "message": "Missing 'vivino_url' in request body"}), 400
+
+    vivino_url = data['vivino_url']
+    quantity = data.get('quantity', 1)
+    cost_tier = data.get('cost_tier') # Get optional cost_tier from payload
+
+    if not isinstance(quantity, int) or quantity < 1:
+        logger.warning(f"Invalid quantity provided: {quantity}. Defaulting to 1.")
+        quantity = 1
+
+    logger.info(f"Received request to process Vivino URL: {vivino_url} with quantity: {quantity}")
+
+    # Step 1: Scrape data from the provided URL
+    wine_data = scrape_vivino_data(vivino_url)
+    if not wine_data:
+        return jsonify({"status": "error", "message": "Failed to scrape data from Vivino URL."}), 500
+
+    # Step 2: Canonicalization - Check if a wine with the same name and vintage already exists
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row # To access columns by name
+    cursor = conn.cursor()
+    
+    # Use 'IS' operator to handle NULL vintages correctly in the query
+    cursor.execute("SELECT * FROM wines WHERE name = ? AND vintage IS ?", (wine_data['name'], wine_data['vintage']))
+    existing_wine_row = cursor.fetchone()
+    
+    # Default to the newly submitted URL. This will be overwritten if a match is found.
+    canonical_url_for_update = wine_data['vivino_url']
+
+    if existing_wine_row:
+        # Match found! We will update the existing record.
+        existing_wine_dict = dict(existing_wine_row)
+        logger.info(f"Found existing wine '{wine_data['name']}' ({wine_data['vintage']}) with URL {existing_wine_dict['vivino_url']}. Consolidating under this canonical URL.")
+        
+        # Use the URL of the *existing* record as the canonical one
+        canonical_url_for_update = existing_wine_dict['vivino_url']
+        
+        # Overwrite the newly scraped URL with the canonical one before passing to insert/update
+        wine_data['vivino_url'] = canonical_url_for_update
+
+    conn.close() # Close the connection used for the pre-check
+
+    # Step 3: Insert or Update the database
+    # Pass the cost_tier to the database function
+    if insert_wine_data(wine_data, quantity, cost_tier):
+        # Get the current total quantity from the DB after the insert/update
+        conn_post_insert = sqlite3.connect(DB_PATH)
+        cursor_post_insert = conn_post_insert.cursor()
+        cursor_post_insert.execute("SELECT * FROM wines WHERE vivino_url = ?", (canonical_url_for_update,))
+        updated_wine_row = cursor_post_insert.fetchone()
+        conn_post_insert.close()
+
+        if updated_wine_row:
+            updated_wine_dict = dict(updated_wine_row)
+            current_total_quantity = updated_wine_dict.get('quantity', 0)
+            
+            # Sync with HA To-Do List based on current total quantity
+            sync_to_ha_todo(updated_wine_dict, current_total_quantity)
+
+            return jsonify({
+                "status": "success",
+                "message": "Wine data scraped and stored/updated.",
+                "wine_name": updated_wine_dict['name'],
+                "vintage": updated_wine_dict['vintage'],
+                "vivino_url": canonical_url_for_update,
+                "quantity_added": quantity,
+                "current_total_quantity": current_total_quantity
+            }), 200
+        else:
+            # Fallback if the wine somehow can't be retrieved after insert
+            return jsonify({"status": "error", "message": "Failed to retrieve wine after update."}), 500
+    else:
+        return jsonify({"status": "error", "message": "Failed to store/update wine data in database."}), 500
+
+
+
     """
     Endpoint to receive a Vivino URL, scrape wine data, and store/update it in the database.
     This now includes logic to match on name and vintage to prevent duplicates from different URLs.
@@ -1062,9 +1078,7 @@ def scan_wine():
             "current_total_quantity": current_total_quantity
         }), 200
     else:
-        return jsonify({"status": "error", "message": "Failed to store/update wine data in database."}), 500
-
-
+        return jsonify({"status": "error", "message": "Failed to store/update wine data in database."}), 50
 @app.route('/add-manual-wine', methods=['POST'])
 def add_manual_wine():
     """
