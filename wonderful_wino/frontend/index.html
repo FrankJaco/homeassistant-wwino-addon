@@ -47,7 +47,7 @@
             --input-border: #6b7280; /* Consistent border for inputs */
         }
 
-        /* Styles for new filter buttons */
+        /* Styles for filter buttons */
         .filter-button {
             padding: 0.5rem 1rem;
             border: 1px solid var(--border-color);
@@ -59,6 +59,20 @@
             cursor: pointer;
         }
         .filter-button.active {
+            background-color: var(--accent-color);
+            color: white;
+            border-color: var(--accent-color);
+        }
+        
+        /* Styles for new cost tier selector */
+        .cost-tier-selector span {
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 0.25rem;
+            border: 1px solid var(--border-color);
+            transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+        }
+        .cost-tier-selector span.selected {
             background-color: var(--accent-color);
             color: white;
             border-color: var(--accent-color);
@@ -92,100 +106,41 @@
         }
 
         /* Apply theme variables to other elements */
-        .bg-white {
-            background-color: var(--card-bg) !important; /* Override Tailwind's bg-white */
-            transition: background-color 0.3s ease;
-        }
-        .text-purple-800 {
-            color: var(--header-color) !important;
-        }
-        .text-gray-800 {
-            color: var(--text-color) !important;
-        }
-        .text-gray-700 {
-            color: var(--text-color) !important;
-        }
-        .border-gray-300 {
-            border-color: var(--border-color) !important;
-        }
-        .focus\:ring-purple-500:focus {
-            --tw-ring-color: var(--accent-color) !important;
-        }
-        .bg-purple-600 {
-            background-color: var(--button-primary-bg) !important;
-        }
-        .hover\:bg-purple-700:hover {
-            background-color: var(--button-primary-hover-bg) !important;
-        }
-        .bg-gray-200 {
-            background-color: var(--button-secondary-bg) !important;
-        }
-        .hover\:bg-gray-300:hover {
-            background-color: var(--button-secondary-hover-bg) !important;
-        }
-        .text-gray-600 {
-            color: var(--button-secondary-text) !important;
-        }
-        .bg-gray-50 {
-            background-color: var(--table-header-bg) !important;
-        }
-        .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
-            border-color: var(--table-border-color) !important;
-        }
-        /* Explicitly set border-gray-200 to use table-border-color */
-        .border-gray-200 {
-            border-color: var(--table-border-color) !important;
-        }
-        .text-gray-500 {
-            color: var(--text-color) !important; /* Adjust for general text within tables/messages */
-        }
+        .bg-white { background-color: var(--card-bg) !important; transition: background-color 0.3s ease; }
+        .text-purple-800 { color: var(--header-color) !important; }
+        .text-gray-800 { color: var(--text-color) !important; }
+        .text-gray-700 { color: var(--text-color) !important; }
+        .border-gray-300 { border-color: var(--border-color) !important; }
+        .focus\:ring-purple-500:focus { --tw-ring-color: var(--accent-color) !important; }
+        .bg-purple-600 { background-color: var(--button-primary-bg) !important; }
+        .hover\:bg-purple-700:hover { background-color: var(--button-primary-hover-bg) !important; }
+        .bg-gray-200 { background-color: var(--button-secondary-bg) !important; }
+        .hover\:bg-gray-300:hover { background-color: var(--button-secondary-hover-bg) !important; }
+        .text-gray-600 { color: var(--button-secondary-text) !important; }
+        .bg-gray-50 { background-color: var(--table-header-bg) !important; }
+        .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: var(--table-border-color) !important; }
+        .border-gray-200 { border-color: var(--table-border-color) !important; }
+        .text-gray-500 { color: var(--text-color) !important; }
         .modal-content {
-            background-color: var(--card-bg);
-            color: var(--text-color);
+            background-color: var(--card-bg); color: var(--text-color);
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            max-width: 500px;
-            width: 90%;
-            position: relative;
-            max-height: 90vh;
-            overflow-y: auto;
-            transition: background-color 0.3s ease, color 0.3s ease;
-            padding: 1.5rem;
-            border-radius: 0.5rem;
+            max-width: 500px; width: 90%; position: relative; max-height: 90vh;
+            overflow-y: auto; transition: background-color 0.3s ease, color 0.3s ease;
+            padding: 1.5rem; border-radius: 0.5rem;
         }
 
         /* Modal specific styles */
         .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.6);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.6); display: flex;
+            justify-content: center; align-items: center; z-index: 1000;
         }
         .modal-close-button {
-            position: absolute;
-            top: 0.75rem;
-            right: 0.75rem;
-            background: none;
-            border: none;
-            font-size: 1.5rem;
-            cursor: pointer;
-            color: var(--text-color);
+            position: absolute; top: 0.75rem; right: 0.75rem; background: none;
+            border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-color);
         }
-        .modal-close-button:hover {
-            color: var(--accent-color);
-        }
-        /* Style for the sort icon */
-        .sort-icon {
-            display: inline-block;
-            vertical-align: middle;
-            fill: currentColor;
-        }
-        /* Specific adjustments for buttons that use fixed colors for semantic meaning (red/green/blue) */
+        .modal-close-button:hover { color: var(--accent-color); }
+        .sort-icon { display: inline-block; vertical-align: middle; fill: currentColor; }
         .bg-red-600 { background-color: #dc2626 !important; }
         .hover\:bg-red-700:hover { background-color: #b91c1c !important; }
         .bg-green-600 { background-color: #16a34a !important; }
@@ -202,68 +157,22 @@
 		.text-cyan-600 { color: #0891b2 !important; }
         .hover\:text-cyan-900:hover { color: #164e63 !important; }
 
-        /* Styles for the theme toggle button */
         #themeToggle {
-            background-color: var(--button-secondary-bg);
-            color: var(--button-secondary-text);
-            border: 1px solid var(--border-color);
-            padding: 0.5rem 1rem;
-            border-radius: 9999px; /* Pill shape */
-            cursor: pointer;
-            font-size: 0.875rem; /* text-sm */
-            font-weight: 500; /* font-medium */
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+            background-color: var(--button-secondary-bg); color: var(--button-secondary-text);
+            border: 1px solid var(--border-color); padding: 0.5rem 1rem; border-radius: 9999px;
+            cursor: pointer; font-size: 0.875rem; font-weight: 500; display: flex;
+            align-items: center; gap: 0.5rem; transition: all 0.3s ease;
         }
-
-        #themeToggle:hover {
-            background-color: var(--button-secondary-hover-bg);
+        #themeToggle:hover { background-color: var(--button-secondary-hover-bg); }
+        input[type="text"], input[type="number"], select {
+            background-color: var(--input-bg) !important; color: var(--input-text) !important;
+            border-color: var(--input-border) !important; transition: all 0.3s ease;
         }
-
-        /* --- Fixes for Dark Mode Visibility --- */
-        /* Apply theme colors to specific input and select elements */
-        input[type="text"],
-        input[type="number"],
-        select {
-            background-color: var(--input-bg) !important;
-            color: var(--input-text) !important;
-            border-color: var(--input-border) !important;
-            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
-        }
-
-        /* Specific style for the sort direction toggle button */
         #sortDirectionToggle {
-            background-color: var(--button-secondary-bg) !important;
-            color: var(--button-secondary-text) !important;
-            border-color: var(--border-color) !important; /* Ensure border also changes */
-            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+            background-color: var(--button-secondary-bg) !important; color: var(--button-secondary-text) !important;
+            border-color: var(--border-color) !important; transition: all 0.3s ease;
         }
-        #sortDirectionToggle:hover {
-            background-color: var(--button-secondary-hover-bg) !important;
-        }
-
-        /* Add these new styles for the cost tier selector */
-        .cost-tier-selector span {
-            cursor: pointer;
-            padding: 0.5rem;
-            border-radius: 0.25rem;
-            border: 1px solid var(--border-color);
-            transition: background-color 0.2s, color 0.2s, border-color 0.2s;
-        }
-        .cost-tier-selector span.selected {
-            background-color: var(--accent-color);
-            color: white;
-            border-color: var(--accent-color);
-        }
-        /* Reduce top margin above the cost tier selector in the modal */
-        #costTierSelector {
-            margin-top: 0 !important;
-        }
-        #costTierSelector {
-            margin-top: 0 !important;
-        }
+        #sortDirectionToggle:hover { background-color: var(--button-secondary-hover-bg) !important; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col items-center py-8">
@@ -284,37 +193,25 @@
                 <p class="text-gray-700 mb-2 font-medium">Add via Vivino URL:</p>
                 <p class="text-gray-700 mb-2 text-sm">1. Search Vivino to find your wine's page. Remember to include the vintage!</p>
                 <form id="vivinoSearchForm" class="flex flex-col sm:flex-row gap-4 mb-4">
-                    <input type="text" id="vivinoSearchInput" placeholder="e.g., 'Chateau Lafite 2010'"
-                           class="flex-grow px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
-                    <button type="submit"
-                            class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500">
-                        Search Vivino
-                    </button>
+                    <input type="text" id="vivinoSearchInput" placeholder="e.g., 'Chateau Lafite 2010'" class="flex-grow px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    <button type="submit" class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500">Search Vivino</button>
                 </form>
 
                 <p class="text-gray-700 mb-2 text-sm">2. Once you find the wine, paste its URL below to add it:</p>
                 <form id="scanWineForm" class="flex flex-col sm:flex-row gap-4 items-center">
-                    <input type="text" id="vivinoUrlInput" placeholder="Paste Vivino URL here"
-                           class="flex-grow px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500" required>
+                    <input type="text" id="vivinoUrlInput" placeholder="Paste Vivino URL here" class="flex-grow px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500" required>
                     <div class="flex items-center gap-2 w-full sm:w-auto">
                         <label for="quantityInput" class="text-gray-700 font-medium whitespace-nowrap">Qty:</label>
-                        <input type="number" id="quantityInput" placeholder="1" min="1" value="1"
-                               class="w-20 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                        <input type="number" id="quantityInput" placeholder="1" min="1" value="1" class="w-20 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
                     </div>
-                    <button type="submit"
-                            class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500">
-                        Add from URL
-                    </button>
+                    <button type="submit" class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500">Add from URL</button>
                 </form>
                 <div id="scanMessage" class="mt-4 text-center hidden"></div>
             </div>
 
             <div class="mt-6 pt-6 border-t border-gray-200 text-center">
-                <button id="openEntryModalBtn" class="bg-gray-200 text-gray-600 font-semibold px-6 py-2 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400">
-                    Manual Entry
-                </button>
+                <button id="openEntryModalBtn" class="bg-gray-200 text-gray-600 font-semibold px-6 py-2 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400">Manual Entry</button>
             </div>
-
         </section>
 
         <section class="bg-white p-6 rounded-lg shadow-md mb-8">
@@ -337,12 +234,8 @@
                             <option value="quantity">Quantity</option>
                         </select>
                         <button id="sortDirectionToggle" class="p-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400" aria-label="Toggle sort direction">
-                            <svg id="sortAscIcon" class="w-5 h-5 sort-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"></path>
-                            </svg>
-                            <svg id="sortDescIcon" class="w-5 h-5 sort-icon hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 20h13M3 16h9m-9-4h6m4 0l4 4m0 0l4-4m-4 4V4"></path>
-                            </svg>
+                            <svg id="sortAscIcon" class="w-5 h-5 sort-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"></path></svg>
+                            <svg id="sortDescIcon" class="w-5 h-5 sort-icon hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 20h13M3 16h9m-9-4h6m4 0l4 4m0 0l4-4m-4 4V4"></path></svg>
                         </button>
                     </div>
                 </div>
@@ -352,20 +245,12 @@
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
-                                Image
-                            </th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
-                                Wine Details
-                            </th>
-                            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
-                                Actions
-                            </th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Image</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Wine Details</th>
+                            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Actions</th>
                         </tr>
                     </thead>
-                    <tbody id="inventoryTableBody" class="bg-white divide-y divide-gray-200">
-                        <tr><td colspan="3" class="py-4 text-center text-gray-500">Loading inventory...</td></tr>
-                    </tbody>
+                    <tbody id="inventoryTableBody" class="bg-white divide-y divide-gray-200"></tbody>
                 </table>
             </div>
             <div id="inventoryMessage" class="mt-4 text-center hidden"></div>
@@ -373,27 +258,16 @@
 
         <section class="mt-12 w-full max-w-xl p-6 bg-white rounded-lg shadow-md mx-auto">
             <h2 class="text-2xl font-bold text-gray-800 mb-4">Maintenance</h2>
-
             <div class="flex flex-col sm:flex-row gap-4 mb-4 items-center">
-                <button id="syncAllWinesButton"
-                        class="w-full sm:flex-grow bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    Sync ToDo from DB
-                </button>
-                <button id="reinitializeDbButton"
-                        class="w-full sm:flex-grow bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 focus:outline-none focus:ring-4 focus:ring-red-300">
-                    Reset DB
-                </button>
-                <button id="helpButton"
-                        class="w-12 h-12 flex items-center justify-center bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg transition duration-300 focus:outline-none focus:ring-4 focus:ring-green-300 flex-shrink-0">
-                    ?
-                </button>
+                <button id="syncAllWinesButton" class="w-full sm:flex-grow bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700">Sync ToDo from DB</button>
+                <button id="reinitializeDbButton" class="w-full sm:flex-grow bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg">Reset DB</button>
+                <button id="helpButton" class="w-12 h-12 flex items-center justify-center bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg flex-shrink-0">?</button>
             </div>
             <div id="reinitializeDbMessage" class="mt-3 text-center font-medium"></div>
             <div id="syncMessage" class="mt-3 text-center font-medium"></div>
         </section>
 
-        <div id="root" class="w-full max-w-4xl px-4">
-            </div>
+        <div id="root" class="w-full max-w-4xl px-4"></div>
     </main>
 
     <footer class="mt-8 text-center text-gray-500 text-sm px-4">
@@ -404,22 +278,9 @@
         <div class="modal-content">
             <button class="modal-close-button" onclick="closeHelpModal()">&times;</button>
             <h3 class="text-xl font-semibold mb-4">Maintenance Help</h3>
-            <p class="text-sm">
-                This section provides tools to manage your wine inventory database and its synchronization with the Home Assistant ToDo list.
-            </p>
-            <ul class="list-disc pl-5 mt-3 text-sm space-y-2">
-                <li>
-                    <strong>Sync ToDo from DB:</strong> This button will synchronize your entire wine inventory from the Wonderful-Wino database to your ToDo list. It attempts to update or re-add every wine from your inventory into the list.
-                    <p class="text-sm mt-3">
-                        <span class="font-bold">Important Note:</span> If your ToDo list contains items that are no longer in your inventory, the "Sync" operation will not remove them. You can clear these manually by “completing” them via the ToDo list in the same manner as when consuming a wine.
-                    </p>
-                </li>
-                <li><strong>Reset DB:</strong> <span class="font-bold text-red-600">WARNING:</span> This action will permanently delete ALL your wine data from the Wonderful-Wino database. This cannot be undone. Use this only if you want to start your wine inventory from scratch.</li>
-            </ul>
+            <p class="text-sm">...</p>
             <div class="mt-6 text-right">
-                <button onclick="closeHelpModal()" class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500">
-                    Close
-                </button>
+                <button onclick="closeHelpModal()" class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Close</button>
             </div>
         </div>
     </div>
@@ -431,58 +292,25 @@
             <form id="entryForm">
                 <input type="hidden" id="entryVivinoUrl">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="sm:col-span-2"><label class="block text-sm font-medium">Wine Name *</label><input type="text" id="manualNameInput" class="mt-1 block w-full border rounded-md p-2" required></div>
+                    <div><label class="block text-sm font-medium">Vintage *</label><input type="number" id="manualVintageInput" class="mt-1 block w-full border rounded-md p-2" required></div>
+                    <div><label class="block text-sm font-medium">Varietal</label><input type="text" id="manualVarietalInput" class="mt-1 block w-full border rounded-md p-2"></div>
+                    <div><label class="block text-sm font-medium">Region</label><input type="text" id="manualRegionInput" class="mt-1 block w-full border rounded-md p-2"></div>
+                    <div><label class="block text-sm font-medium">Country</label><input type="text" id="manualCountryInput" class="mt-1 block w-full border rounded-md p-2"></div>
+                    <div class="sm:col-span-2"><label class="block text-sm font-medium">Quantity *</label><input type="number" id="manualQuantityInput" min="0" value="1" class="mt-1 block w-full border rounded-md p-2" required></div>
                     <div class="sm:col-span-2">
-                        <label for="manualNameInput" class="block text-sm font-medium">Wine Name *</label>
-                        <input type="text" id="manualNameInput" placeholder="e.g., Chateau Montelena Chardonnay"
-                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500" required>
-                    </div>
-                    <div>
-                        <label for="manualVintageInput" class="block text-sm font-medium">Vintage *</label>
-                        <input type="number" id="manualVintageInput" placeholder="e.g., 2019"
-                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500" required>
-                    </div>
-                    <div>
-                        <label for="manualVarietalInput" class="block text-sm font-medium">Varietal</label>
-                        <input type="text" id="manualVarietalInput" placeholder="e.g., Chardonnay"
-                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500">
-                    </div>
-                    <div>
-                        <label for="manualRegionInput" class="block text-sm font-medium">Region</label>
-                        <input type="text" id="manualRegionInput" placeholder="e.g., Napa Valley"
-                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500">
-                    </div>
-                    <div>
-                        <label for="manualCountryInput" class="block text-sm font-medium">Country</label>
-                        <input type="text" id="manualCountryInput" placeholder="e.g., USA"
-                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500">
-                    </div>
-                    <div class="sm:col-span-2">
-                        <label for="manualQuantityInput" class="block text-sm font-medium">Quantity *</label>
-                        <input type="number" id="manualQuantityInput" min="1" value="1"
-                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500" required>
-                    </div>
-                    <div class="sm:col-span-2">
-                        <label id="costTierSelector-label" class="block text-sm font-medium mb-0">Cost Tier</label>
-                        <div id="costTierSelector" class="flex items-center gap-2 cost-tier-selector">
-                            <span data-value="1">$</span>
-                            <span data-value="2">$$</span>
-                            <span data-value="3">$$$</span>
-                            <span data-value="4">$$$$</span>
-                            <span data-value="5">$$$$$</span>
+                        <label class="block text-sm font-medium">Cost Tier</label>
+                        <div id="costTierSelector" class="flex items-center gap-2 mt-1 cost-tier-selector">
+                            <span data-value="1">$</span><span data-value="2">$$</span>
+                            <span data-value="3">$$$</span><span data-value="4">$$$$</span><span data-value="5">$$$$$</span>
                         </div>
                         <input type="hidden" id="manualCostTierInput">
                     </div>
                 </div>
                 <div id="entryMessage" class="mt-4 text-center hidden"></div>
                 <div class="mt-6 flex justify-end gap-4">
-                     <button type="button" onclick="closeEntryModal()"
-                            class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400">
-                        Cancel
-                    </button>
-                    <button type="submit" id="entrySubmitBtn"
-                            class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500">
-                        Add Wine
-                    </button>
+                    <button type="button" onclick="closeEntryModal()" class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Cancel</button>
+                    <button type="submit" id="entrySubmitBtn" class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Add Wine</button>
                 </div>
             </form>
         </div>
@@ -490,46 +318,32 @@
 
 
     <script>
-        // Define BASE_URL for API calls, using __ingress_url if available
         let BASE_URL = '';
         if (typeof window !== 'undefined' && typeof window.__ingress_url !== 'undefined' && window.__ingress_url !== '') {
             BASE_URL = window.__ingress_url;
         } else {
             const pathParts = window.location.pathname.split('/');
-            if (pathParts.length > 0 && pathParts[pathParts.length - 1].includes('.')) {
-                pathParts.pop();
-            }
+            if (pathParts.length > 0 && pathParts[pathParts.length - 1].includes('.')) { pathParts.pop(); }
             BASE_URL = pathParts.join('/');
-            if (BASE_URL !== '' && !BASE_URL.endsWith('/')) {
-                BASE_URL += '/';
-            }
+            if (BASE_URL !== '' && !BASE_URL.endsWith('/')) { BASE_URL += '/'; }
         }
         console.log('Calculated BASE_URL:', BASE_URL);
 
-        // Global variables
         let currentInventory = [];
         let currentSortBy = 'name';
         let currentSortDirection = 'asc';
-        let currentFilter = 'on_hand'; // STEP 2.3: Added filter state
+        let currentFilter = 'on_hand';
 
-        // --- Utility Functions for Messaging ---
         function showMessage(elementId, message, type = 'info', isModal = false) {
             const element = document.getElementById(elementId);
             element.textContent = message;
             element.className = `mt-4 text-center p-2 rounded-md ${type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`;
             element.style.display = 'block';
-
-            if (!isModal) {
-                 setTimeout(() => {
-                    element.style.display = 'none';
-                }, 5000);
-            }
+            if (!isModal) { setTimeout(() => { element.style.display = 'none'; }, 5000); }
         }
 
-        // --- Sorting Logic (Unchanged) ---
         function sortInventory(inventory, sortBy, sortDirection) {
             const sortedInventory = [...inventory];
-
             sortedInventory.sort((a, b) => {
                 let comparison = 0;
                 const getValue = (item, prop) => {
@@ -542,29 +356,23 @@
                     }
                     return typeof value === 'string' ? value.toLowerCase() : value;
                 };
-
                 const valA = getValue(a, sortBy);
                 const valB = getValue(b, sortBy);
-
                 if (valA < valB) comparison = -1;
                 if (valA > valB) comparison = 1;
-
                 if (comparison === 0) {
                     const nameA = getValue(a, 'name');
                     const nameB = getValue(b, 'name');
                     if (nameA < nameB) comparison = -1;
                     if (nameA > nameB) comparison = 1;
-
                     if (comparison === 0) {
                         const vintageA = getValue(a, 'vintage');
                         const vintageB = getValue(b, 'vintage');
                         comparison = vintageA - vintageB;
                     }
                 }
-
                 return sortDirection === 'desc' ? -comparison : comparison;
             });
-
             return sortedInventory;
         }
 
@@ -573,17 +381,13 @@
             displayInventory(sortedData);
         }
 
-        // --- Fetch Inventory ---
         async function fetchInventory() {
             const inventoryTableBody = document.getElementById('inventoryTableBody');
             try {
                 inventoryTableBody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-gray-500">Loading inventory...</td></tr>';
-                // STEP 2.3: Modified URL to include the filter parameter
                 const url = `${BASE_URL}inventory?filter=${currentFilter}`;
                 const response = await fetch(url);
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
+                if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`); }
                 currentInventory = await response.json();
                 applySortAndDisplayInventory();
             } catch (error) {
@@ -593,109 +397,93 @@
             }
         }
 
-        // --- Display Inventory ---
         function displayInventory(inventory) {
             const container = document.getElementById('inventoryTableBody');
             container.innerHTML = '';
-
             if (inventory.length === 0) {
-                // STEP 2.3: Made the "no wines" message dynamic
                 const filterText = currentFilter.replace('_', ' ');
                 container.innerHTML = `<tr><td colspan="3" class="py-4 text-center text-gray-500">No wines found for filter: ${filterText}</td></tr>`;
                 return;
             }
-
             inventory.forEach(item => {
                 const row = document.createElement('tr');
                 row.className = 'border-b border-gray-200 flex flex-col sm:table-row';
 
                 const imageCell = document.createElement('td');
                 imageCell.className = 'py-4 sm:p-4 flex justify-center sm:block';
-                imageCell.innerHTML = item.image_url
-                    ? `<img src="${item.image_url}" class="h-24 w-24 object-cover rounded-md" alt="Wine Image">`
-                    : '<div class="text-gray-400 text-center w-24 h-24 flex items-center justify-center bg-gray-100 rounded-md">No Image</div>';
+                imageCell.innerHTML = item.image_url ? `<img src="${item.image_url}" class="h-24 w-24 object-cover rounded-md" alt="Wine Image">` : '<div class="text-gray-400 text-center w-24 h-24 flex items-center justify-center bg-gray-100 rounded-md">No Image</div>';
 
                 const detailsCell = document.createElement('td');
                 detailsCell.className = 'py-4 sm:p-4 text-sm text-gray-900 wine-details-cell w-full sm:w-auto text-center sm:text-left';
                 let detailsHtml = `<h4>${item.name || 'N/A'} ${item.vintage ? `(${item.vintage})` : ''}</h4>`;
-                if (item.varietal && item.varietal !== "Unknown Varietal") {
-                    detailsHtml += `<p><strong>Varietal:</strong> ${item.varietal}</p>`;
-                }
+                if (item.varietal && item.varietal !== "Unknown Varietal") { detailsHtml += `<p><strong>Varietal:</strong> ${item.varietal}</p>`; }
                 let location = [];
                 if (item.region && item.region !== "Unknown Region") location.push(item.region);
                 if (item.country && item.country !== "Unknown Country") location.push(item.country);
-                if (location.length > 0) {
-                    detailsHtml += `<p><strong>Origin:</strong> ${location.join(', ')}</p>`;
+                if (location.length > 0) { detailsHtml += `<p><strong>Origin:</strong> ${location.join(', ')}</p>`; }
+                
+                // --- STEP 2.6 CHANGE STARTS HERE ---
+                // This block replaces the old "Rating" display
+                
+                // Calculate display rating (forward-compatible for Phase 3)
+                let display_rating = item.vivino_rating;
+                if (item.personal_rating !== null && item.vivino_rating !== null) {
+                    display_rating = (item.personal_rating + item.vivino_rating) / 2;
+                } else if (item.personal_rating !== null) {
+                    display_rating = item.personal_rating;
                 }
-                if (item.vivino_rating) {
-                    // This will be updated in a future step to show the new format
-                    detailsHtml += `<p><strong>Rating:</strong> ${item.vivino_rating.toFixed(1)} ⭐</p>`;
+
+                // Add Quality line
+                if (display_rating !== null) {
+                    detailsHtml += `<p><strong>Quality:</strong> ⭐ ${display_rating.toFixed(1)}</p>`;
                 }
+
+                // Add Cost line
+                if (item.cost_tier) {
+                    detailsHtml += `<p><strong>Cost:</strong> ${'$'.repeat(item.cost_tier)}</p>`;
+                }
+                // --- STEP 2.6 CHANGE ENDS HERE ---
+
                 detailsCell.innerHTML = detailsHtml;
 
                 const actionsCell = document.createElement('td');
                 actionsCell.className = 'py-4 sm:p-4 flex flex-row justify-center items-center gap-2 w-full sm:w-auto';
-
                 const consumeBtn = document.createElement('button');
-                consumeBtn.innerHTML = '🍷';
-                consumeBtn.title = 'Consume 1 Bottle';
-                consumeBtn.className = 'text-green-600 hover:text-green-900 text-xl';
+                consumeBtn.innerHTML = '🍷'; consumeBtn.title = 'Consume 1 Bottle'; consumeBtn.className = 'text-green-600 hover:text-green-900 text-xl';
                 consumeBtn.onclick = () => consumeWine(item.vivino_url);
-
                 const qtyInput = document.createElement('input');
-                qtyInput.type = 'number';
-                qtyInput.value = item.quantity;
-                qtyInput.min = 0;
+                qtyInput.type = 'number'; qtyInput.value = item.quantity; qtyInput.min = 0;
                 qtyInput.className = 'w-16 text-center border border-gray-300 rounded-md px-2 py-1';
                 qtyInput.title = 'Edit Quantity';
                 qtyInput.onblur = () => setWineQuantity(item.vivino_url, qtyInput.value);
-                qtyInput.onkeydown = (e) => {
-                    if (e.key === 'Enter') qtyInput.blur();
-                };
-
+                qtyInput.onkeydown = (e) => { if (e.key === 'Enter') qtyInput.blur(); };
                 const editBtn = document.createElement('button');
-                editBtn.innerHTML = '✏️';
-                editBtn.title = 'Edit Wine Details';
-                editBtn.className = 'text-yellow-600 hover:text-yellow-900 text-xl';
+                editBtn.innerHTML = '✏️'; editBtn.title = 'Edit Wine Details'; editBtn.className = 'text-yellow-600 hover:text-yellow-900 text-xl';
                 editBtn.onclick = () => openEditModal(item);
-
                 const duplicateBtn = document.createElement('button');
-                duplicateBtn.innerHTML = '📋';
-                duplicateBtn.title = 'Duplicate Wine (for new vintage)';
-                duplicateBtn.className = 'text-cyan-600 hover:text-cyan-900 text-xl';
+                duplicateBtn.innerHTML = '📋'; duplicateBtn.title = 'Duplicate Wine (for new vintage)'; duplicateBtn.className = 'text-cyan-600 hover:text-cyan-900 text-xl';
                 duplicateBtn.onclick = () => openDuplicateModal(item);
-
                 const deleteBtn = document.createElement('button');
-                deleteBtn.innerHTML = '🗑️';
-                deleteBtn.title = 'Delete Wine from Inventory';
-                deleteBtn.className = 'text-red-600 hover:text-red-900 text-xl';
+                deleteBtn.innerHTML = '🗑️'; deleteBtn.title = 'Delete Wine from Inventory'; deleteBtn.className = 'text-red-600 hover:text-red-900 text-xl';
                 deleteBtn.onclick = () => deleteWine(item.vivino_url);
-
-                actionsCell.appendChild(consumeBtn);
-                actionsCell.appendChild(qtyInput);
-                actionsCell.appendChild(editBtn);
-                actionsCell.appendChild(duplicateBtn);
-                actionsCell.appendChild(deleteBtn);
-
-                row.appendChild(imageCell);
-                row.appendChild(detailsCell);
+                actionsCell.appendChild(consumeBtn); actionsCell.appendChild(qtyInput);
+                actionsCell.appendChild(editBtn); actionsCell.appendChild(duplicateBtn); actionsCell.appendChild(deleteBtn);
+                row.appendChild(imageCell); row.appendChild(detailsCell);
                 actionsCell.classList.add('flex', 'justify-center', 'items-center', 'sm:justify-start');
                 row.appendChild(actionsCell);
-
                 container.appendChild(row);
             });
         }
 
-        // --- Scan Wine ---
         document.getElementById('scanWineForm').addEventListener('submit', async function(event) {
             event.preventDefault();
-            const vivinoUrl = document.getElementById('vivinoUrlInput').value;
-            const quantity = document.getElementById('quantityInput').value;
+            const payload = {
+                vivino_url: document.getElementById('vivinoUrlInput').value,
+                quantity: parseInt(document.getElementById('quantityInput').value, 10) || 1
+            };
             try {
                 const response = await fetch(`${BASE_URL}scan-wine`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ vivino_url: vivinoUrl, quantity: parseInt(quantity, 10) || 1 })
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
                 });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.message || 'Failed to scan wine');
@@ -707,13 +495,10 @@
             }
         });
         
-        // --- Add/Edit Wine (Manual/Edit Form) ---
         document.getElementById('entryForm').addEventListener('submit', async function(event) {
             event.preventDefault();
-
             const vivinoUrl = document.getElementById('entryVivinoUrl').value;
             const isEditMode = !!vivinoUrl;
-
             const payload = {
                 name: document.getElementById('manualNameInput').value,
                 vintage: parseInt(document.getElementById('manualVintageInput').value, 10),
@@ -723,53 +508,31 @@
                 quantity: parseInt(document.getElementById('manualQuantityInput').value, 10),
                 cost_tier: parseInt(document.getElementById('manualCostTierInput').value, 10) || null
             };
-
             if (!payload.name || isNaN(payload.vintage) || isNaN(payload.quantity)) {
                 showMessage('entryMessage', 'Please fill in all required fields.', 'error', true);
                 return;
             }
-
-            let url = '';
-            let successMessage = '';
-            
-            if (isEditMode) {
-                payload.vivino_url = vivinoUrl;
-                url = `${BASE_URL}edit-wine`;
-                successMessage = 'Wine updated successfully!';
-            } else {
-                url = `${BASE_URL}add-manual-wine`;
-                successMessage = 'Wine added successfully!';
-            }
-
+            let url = isEditMode ? `${BASE_URL}edit-wine` : `${BASE_URL}add-manual-wine`;
+            if (isEditMode) { payload.vivino_url = vivinoUrl; }
             try {
                 const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
                 });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.message || 'Failed to process request');
-                
-                showMessage('entryMessage', result.message || successMessage, 'info', true);
+                showMessage('entryMessage', result.message || (isEditMode ? 'Wine updated!' : 'Wine added!'), 'info', true);
                 fetchInventory();
-                
-                setTimeout(() => {
-                    closeEntryModal();
-                }, 1500);
-
+                setTimeout(closeEntryModal, 1500);
             } catch (error) {
                 showMessage('entryMessage', `Error: ${error.message}`, 'error', true);
             }
         });
 
-
-        // --- Consume, Set Quantity, Delete ---
         async function consumeWine(vivinoUrl) {
             if (!confirm('Consume one unit of this wine?')) return;
             try {
                 const response = await fetch(`${BASE_URL}inventory/wine/consume`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ vivino_url: vivinoUrl })
                 });
                 const result = await response.json();
@@ -780,18 +543,15 @@
                 showMessage('inventoryMessage', `Error: ${error.message}`, 'error');
             }
         }
-
         async function setWineQuantity(vivinoUrl, newQuantity) {
             newQuantity = parseInt(newQuantity, 10);
             if (isNaN(newQuantity) || newQuantity < 0) {
                 showMessage('inventoryMessage', 'Quantity must be a non-negative number.', 'error');
-                fetchInventory();
-                return;
+                fetchInventory(); return;
             }
             try {
                 const response = await fetch(`${BASE_URL}inventory/wine/set_quantity`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ vivino_url: vivinoUrl, quantity: newQuantity })
                 });
                 const result = await response.json();
@@ -802,13 +562,11 @@
                 showMessage('inventoryMessage', `Error: ${error.message}`, 'error');
             }
         }
-
         async function deleteWine(vivinoUrl) {
             if (!confirm('Delete this wine from your inventory? This cannot be undone.')) return;
             try {
                 const response = await fetch(`${BASE_URL}inventory/wine`, {
-                    method: 'DELETE',
-                    headers: { 'Content-Type': 'application/json' },
+                    method: 'DELETE', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ vivino_url: vivinoUrl })
                 });
                 const result = await response.json();
@@ -820,7 +578,6 @@
             }
         }
 
-        // --- Maintenance Buttons ---
         document.getElementById('reinitializeDbButton').addEventListener('click', async () => {
             if (!confirm('ARE YOU SURE? This will permanently delete ALL wine data!')) return;
             try {
@@ -833,7 +590,6 @@
                 showMessage('reinitializeDbMessage', `Error: ${error.message}`, 'error');
             }
         });
-
         document.getElementById('syncAllWinesButton').addEventListener('click', async () => {
             if (!confirm('Sync all wines to your Home Assistant To-Do list?')) return;
             try {
@@ -845,8 +601,6 @@
                 showMessage('syncMessage', `Error: ${error.message}`, 'error');
             }
         });
-
-        // --- Vivino Search ---
         document.getElementById('vivinoSearchForm').addEventListener('submit', function(event) {
             event.preventDefault();
             const query = document.getElementById('vivinoSearchInput').value;
@@ -854,7 +608,6 @@
             this.reset();
         });
 
-        // --- Modal Functionality ---
         const helpModal = document.getElementById('helpModal');
         const entryModal = document.getElementById('entryModal');
         const costTierSelector = document.getElementById('costTierSelector');
@@ -863,19 +616,15 @@
 
         document.getElementById('helpButton').addEventListener('click', () => {
             helpModal.classList.remove('hidden');
-            fetchInventory();
         });
         document.getElementById('openEntryModalBtn').addEventListener('click', () => openAddModal());
 
-        function closeHelpModal() {
-            helpModal.classList.add('hidden');
-        }
+        function closeHelpModal() { helpModal.classList.add('hidden'); }
         function closeEntryModal() {
             entryModal.classList.add('hidden');
             document.getElementById('entryForm').reset();
             document.getElementById('entryMessage').style.display = 'none';
         }
-
         function openAddModal() {
             document.getElementById('entryForm').reset();
             document.getElementById('entryVivinoUrl').value = '';
@@ -884,7 +633,6 @@
             updateCostTierSelector(null);
             entryModal.classList.remove('hidden');
         }
-
         function openEditModal(wine) {
             document.getElementById('entryForm').reset();
             document.getElementById('entryVivinoUrl').value = wine.vivino_url;
@@ -899,7 +647,6 @@
             document.getElementById('entrySubmitBtn').textContent = 'Save Changes';
             entryModal.classList.remove('hidden');
         }
-
         function openDuplicateModal(wine) {
             document.getElementById('entryForm').reset();
             document.getElementById('entryVivinoUrl').value = ''; 
@@ -916,101 +663,75 @@
             document.getElementById('manualVintageInput').focus();
         }
 
-        // --- START: Added new functions for the cost tier selector ---
         costTierSelector.addEventListener('click', (e) => {
             if (e.target.matches('span')) {
                 const value = e.target.dataset.value;
                 const currentValue = manualCostTierInput.value;
-                // If the clicked value is already selected, unselect it. Otherwise, select it.
                 const newValue = (currentValue === value) ? '' : value;
                 updateCostTierSelector(newValue);
             }
         });
-
         function updateCostTierSelector(selectedValue) {
             manualCostTierInput.value = selectedValue || '';
             costTierSelector.querySelectorAll('span').forEach(span => {
                 span.classList.toggle('selected', span.dataset.value == selectedValue);
             });
         }
-        // --- END: Added new functions for the cost tier selector ---
 
-
-        // --- Sort Controls ---
         const sortSelect = document.getElementById('sortSelect');
         const sortDirectionToggle = document.getElementById('sortDirectionToggle');
         const sortAscIcon = document.getElementById('sortAscIcon');
         const sortDescIcon = document.getElementById('sortDescIcon');
-
         function updateSortIcons() {
             sortAscIcon.classList.toggle('hidden', currentSortDirection === 'desc');
             sortDescIcon.classList.toggle('hidden', currentSortDirection === 'asc');
         }
-
         sortSelect.addEventListener('change', (event) => {
             currentSortBy = event.target.value;
             applySortAndDisplayInventory();
         });
-
         sortDirectionToggle.addEventListener('click', () => {
             currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
             updateSortIcons();
-            fetchInventory();
             applySortAndDisplayInventory();
         });
 
-        // --- Theme Toggling Logic ---
         const themeToggle = document.getElementById('themeToggle');
         const themeIcon = document.getElementById('themeIcon');
         const themeText = document.getElementById('themeText');
-
         function enableDarkMode() {
             document.body.classList.add('dark-theme');
             localStorage.setItem('theme', 'dark');
             themeIcon.textContent = '🌙';
             themeText.textContent = 'Dark';
         }
-
         function enableLightMode() {
             document.body.classList.remove('dark-theme');
             localStorage.setItem('theme', 'light');
             themeIcon.textContent = '☀️';
             themeText.textContent = 'Light';
         }
-        
         themeToggle.addEventListener('click', () => {
              if (document.body.classList.contains('dark-theme')) {
-                fetchInventory();
                 enableLightMode();
             } else {
-                fetchInventory();
                 enableDarkMode();
             }
         });
         
-        // --- STEP 2.3: Added event listener for the new filter buttons ---
         const filterContainer = document.getElementById('inventory-filters');
         const inventoryHeading = document.getElementById('inventory-heading');
-
         filterContainer.addEventListener('click', (e) => {
             if (e.target.matches('.filter-button')) {
-                // Update state
                 currentFilter = e.target.dataset.filter;
-
-                // Update UI
                 filterContainer.querySelectorAll('.filter-button').forEach(btn => btn.classList.remove('active'));
                 e.target.classList.add('active');
-                
-                // Update heading text
                 const headingText = `Wine ${currentFilter.replace('_', ' ')}`;
                 inventoryHeading.textContent = headingText.charAt(0).toUpperCase() + headingText.slice(1);
-
-                // Fetch new data
                 fetchInventory();
             }
         });
 
-        // --- Page Load ---
         document.addEventListener('DOMContentLoaded', () => {
             updateSortIcons();
             const savedTheme = localStorage.getItem('theme');
