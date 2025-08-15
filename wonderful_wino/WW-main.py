@@ -85,13 +85,13 @@ def format_wine_for_todo(wine: dict) -> str:
     """
     Formats the wine name and vintage for display in the Home Assistant To-Do list item summary.
     This format is also used for matching items for removal/update.
-    Example: "Wine Name (2020)"
+    Example: "2020 Wine name"
     """
     name = wine.get("name") or "n/a"
     vintage = wine.get("vintage")
 
     if vintage:
-        return f"{name} ({vintage})"
+        return f"{vintage} {name}"
     else:
         return name # If vintage is missing
 
