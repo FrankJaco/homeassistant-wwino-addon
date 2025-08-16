@@ -1936,5 +1936,6 @@ if __name__ == '__main__':
         logger.info("Ensuring database tables exist.")
         init_db() # Call your existing init_db function
 
+
     logger.info("Flask app starting on port 5000...")
     app.run(host='0.0.0.0', port=5000)
