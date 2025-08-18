@@ -78,6 +78,36 @@
             border-color: var(--accent-color);
         }
 
+        /* Styles for the new Taste Rating selector */
+        #tasteRatingSelector {
+            --star-color: #d1d5db; /* color of empty star */
+            --star-color-filled: #f59e0b; /* color of filled star (amber) */
+        }
+        #tasteRatingSelector span {
+            position: relative;
+            color: var(--star-color);
+            transition: color 0.2s;
+        }
+        #tasteRatingSelector span::before {
+            position: absolute;
+            content: "⭐";
+            top: 0;
+            left: 0;
+            width: 50%;
+            overflow: hidden;
+            color: var(--star-color-filled);
+            opacity: 0;
+        }
+        #tasteRatingSelector span.hover,
+        #tasteRatingSelector span.rated {
+            color: var(--star-color-filled);
+        }
+        #tasteRatingSelector span.hover-half::before,
+        #tasteRatingSelector span.rated-half::before {
+            opacity: 1;
+        }
+
+
         /* Custom styles to ensure Inter font is applied universally and for basic body reset */
         body {
             font-family: 'Inter', sans-serif;
@@ -201,7 +231,7 @@
                 <form id="scanWineForm" class="flex flex-col gap-4">
                     <input type="text" id="vivinoUrlInput" placeholder="Paste Vivino URL here" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500" required>
                     
-                    <p class="text-gray-700 mb-2 text-sm">3. Optionally indicate cost tier, and quantity then click Add From URL.</p>
+                    <p class="text-gray-700 -mb-2 text-sm">3. Optionally indicate cost tier, set quantity, then click Add From URL.</p>
                     <div class="flex flex-wrap gap-4 items-center">
                         <div class="flex items-center gap-2">
                             <div id="mainCostTierSelector" class="flex items-center gap-2 cost-tier-selector">
@@ -345,6 +375,29 @@
             </form>
         </div>
     </div>
+    
+    <div id="tasteModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 class="text-xl font-semibold mb-2">Consume Wine</h3>
+            <p id="tasteModalWineName" class="mb-4 text-gray-700"></p>
+            <form id="tasteForm">
+                <input type="hidden" id="tasteVivinoUrl">
+                <label class="block text-sm font-medium mb-2">How did it taste? (Optional)</label>
+                <div id="tasteRatingSelector" class="flex text-4xl text-gray-400 cursor-pointer mb-6">
+                    <span data-value="1">⭐</span>
+                    <span data-value="2">⭐</span>
+                    <span data-value="3">⭐</span>
+                    <span data-value="4">⭐</span>
+                    <span data-value="5">⭐</span>
+                </div>
+                <input type="hidden" id="tasteRatingInput">
+                <div class="mt-6 flex justify-end gap-4">
+                     <button type="button" onclick="closeTasteModal()" class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Cancel</button>
+                    <button type="submit" class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Consume</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
 
     <script>
@@ -452,7 +505,6 @@
                 if (item.country && item.country !== "Unknown Country") location.push(item.country);
                 if (location.length > 0) { detailsHtml += `<p><strong>Origin:</strong> ${location.join(', ')}</p>`; }
                 
-                // --- THIS IS THE FINAL CHANGE FOR PHASE 2 ---
                 let display_rating = item.vivino_rating;
                 if (item.personal_rating !== null && item.vivino_rating !== null) {
                     display_rating = (item.personal_rating + item.vivino_rating) / 2;
@@ -467,7 +519,6 @@
                 if (item.cost_tier) {
                     detailsHtml += `<p><strong>Cost:</strong> ${'$'.repeat(item.cost_tier)}</p>`;
                 }
-                // --- END OF CHANGE ---
 
                 detailsCell.innerHTML = detailsHtml;
 
@@ -556,18 +607,11 @@
         });
 
         async function consumeWine(vivinoUrl) {
-            if (!confirm('Consume one unit of this wine?')) return;
-            try {
-                const response = await fetch(`${BASE_URL}inventory/wine/consume`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ vivino_url: vivinoUrl })
-                });
-                const result = await response.json();
-                if (!response.ok) throw new Error(result.error || 'Failed to consume wine');
-                showMessage('inventoryMessage', 'Wine consumed successfully!');
-                fetchInventory();
-            } catch (error) {
-                showMessage('inventoryMessage', `Error: ${error.message}`, 'error');
+            const wine = currentInventory.find(w => w.vivino_url === vivinoUrl);
+            if (wine) {
+                openTasteModal(wine);
+            } else {
+                showMessage('inventoryMessage', 'Error: Could not find wine to consume.', 'error');
             }
         }
         async function setWineQuantity(vivinoUrl, newQuantity) {
@@ -689,6 +733,99 @@
             entryModal.classList.remove('hidden');
             document.getElementById('manualVintageInput').focus();
         }
+
+        const tasteModal = document.getElementById('tasteModal');
+        const tasteForm = document.getElementById('tasteForm');
+        const tasteRatingSelector = document.getElementById('tasteRatingSelector');
+        const tasteRatingInput = document.getElementById('tasteRatingInput');
+        const tasteVivinoUrlInput = document.getElementById('tasteVivinoUrl');
+        const tasteModalWineName = document.getElementById('tasteModalWineName');
+
+        function openTasteModal(wine) {
+            tasteVivinoUrlInput.value = wine.vivino_url;
+            tasteModalWineName.textContent = `${wine.name} (${wine.vintage || 'NV'})`;
+            resetTasteStars();
+            tasteModal.classList.remove('hidden');
+        }
+
+        function closeTasteModal() {
+            tasteModal.classList.add('hidden');
+            tasteForm.reset();
+        }
+        
+        function updateTasteStars(rating) {
+            tasteRatingSelector.querySelectorAll('span').forEach((star, index) => {
+                const starValue = index + 1;
+                star.className = '';
+                if (rating >= starValue) {
+                    star.classList.add('rated');
+                } else if (rating > index && rating < starValue) {
+                    star.classList.add('rated-half');
+                }
+            });
+        }
+
+        function resetTasteStars() {
+            tasteRatingInput.value = '';
+            updateTasteStars(0);
+        }
+
+        tasteRatingSelector.addEventListener('mousemove', e => {
+            if (!e.target.matches('span')) return;
+            const star = e.target;
+            const starRect = star.getBoundingClientRect();
+            const isHalf = (e.clientX - starRect.left) < (starRect.width / 2);
+            const rating = parseInt(star.dataset.value, 10) - (isHalf ? 0.5 : 0);
+            
+            tasteRatingSelector.querySelectorAll('span').forEach((s, index) => {
+                const starValue = index + 1;
+                s.className = '';
+                if (rating >= starValue) {
+                    s.classList.add('hover');
+                } else if (rating > index && rating < starValue) {
+                    s.classList.add('hover-half');
+                }
+            });
+        });
+
+        tasteRatingSelector.addEventListener('mouseleave', () => {
+            const currentRating = parseFloat(tasteRatingInput.value) || 0;
+            updateTasteStars(currentRating);
+        });
+
+        tasteRatingSelector.addEventListener('click', e => {
+            if (!e.target.matches('span')) return;
+            const star = e.target;
+            const starRect = star.getBoundingClientRect();
+            const isHalf = (e.clientX - starRect.left) < (starRect.width / 2);
+            const rating = parseInt(star.dataset.value, 10) - (isHalf ? 0.5 : 0);
+            
+            tasteRatingInput.value = rating;
+            updateTasteStars(rating);
+        });
+
+        tasteForm.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const vivinoUrl = tasteVivinoUrlInput.value;
+            const rating = tasteRatingInput.value ? parseFloat(tasteRatingInput.value) : null;
+            
+            try {
+                const response = await fetch(`${BASE_URL}inventory/wine/consume`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ vivino_url: vivinoUrl, personal_rating: rating })
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error || 'Failed to consume wine');
+                
+                showMessage('inventoryMessage', 'Wine consumed successfully!');
+                closeTasteModal();
+                fetchInventory();
+
+            } catch (error) {
+                showMessage('inventoryMessage', `Error: ${error.message}`, 'error');
+            }
+        });
 
         costTierSelector.addEventListener('click', (e) => {
             if (e.target.matches('span')) {

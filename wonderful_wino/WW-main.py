@@ -1657,18 +1657,19 @@ def consume_wine_from_webhook():
 def consume_wine():
     """
     Endpoint for the frontend to consume (decrement quantity) a wine by its Vivino URL.
-    Triggers synchronization with Home Assistant To-Do list.
+    Now optionally accepts a personal_rating.
     """
     data = request.get_json()
     vivino_url = data.get('vivino_url')
+    personal_rating = data.get('personal_rating') # Get optional rating
 
     if not vivino_url:
         return jsonify({'error': 'vivino_url is required'}), 400
 
     conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     try:
-        # Fetch the current wine data to pass to sync_to_ha_todo later
         cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url,))
         wine_data_row = cursor.fetchone()
 
@@ -1676,24 +1677,27 @@ def consume_wine():
             logger.warning(f"Wine not found for consumption: {vivino_url}")
             return jsonify({'error': 'Wine not found in inventory'}), 404
 
-        columns = [description[0] for description in cursor.description]
-        wine_data_dict = dict(zip(columns, wine_data_row))
-
+        wine_data_dict = dict(wine_data_row)
         current_quantity = wine_data_dict['quantity']
         wine_id = wine_data_dict['id']
 
         if current_quantity > 0:
             new_quantity = current_quantity - 1
-            # PHASE 1 CHANGE: Always update, never delete
-            cursor.execute("UPDATE wines SET quantity = ?, added_at = CURRENT_TIMESTAMP WHERE id = ?", (new_quantity, wine_id))
-            logger.info(f"Decremented quantity for wine {vivino_url} to {new_quantity}.")
+            
+            # If a rating was passed, update it along with the quantity
+            if personal_rating is not None:
+                cursor.execute("UPDATE wines SET quantity = ?, personal_rating = ? WHERE id = ?", (new_quantity, personal_rating, wine_id))
+                logger.info(f"Decremented quantity and saved rating {personal_rating} for wine {vivino_url}.")
+                wine_data_dict['personal_rating'] = personal_rating # Ensure sync uses new rating
+            else:
+                cursor.execute("UPDATE wines SET quantity = ? WHERE id = ?", (new_quantity, wine_id))
+                logger.info(f"Decremented quantity for wine {vivino_url} to {new_quantity}.")
+
             sync_to_ha_todo(wine_data_dict, new_quantity)
         else:
-            # If quantity is already 0, do nothing
             new_quantity = 0
             logger.warning(f"Attempted to consume wine {vivino_url} with quantity 0. No change made.")
             
-
         conn.commit()
         return jsonify({'status': 'success', 'new_quantity': new_quantity})
     except sqlite3.Error as e:
@@ -1701,7 +1705,8 @@ def consume_wine():
         conn.rollback()
         return jsonify({'error': 'Database error'}), 500
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 
 @app.route('/inventory/wine', methods=['DELETE'])
