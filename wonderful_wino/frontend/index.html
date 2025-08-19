@@ -80,31 +80,36 @@
 
         /* Styles for the new Taste Rating selector */
         #tasteRatingSelector {
-            --star-color: #d1d5db; /* color of empty star */
-            --star-color-filled: #f59e0b; /* color of filled star (amber) */
+            --star-color-empty: #d1d5db; 
+            --star-color-filled: #f59e0b; /* amber */
         }
         #tasteRatingSelector span {
             position: relative;
-            color: var(--star-color);
+            color: var(--star-color-empty);
             transition: color 0.2s;
         }
+        /* This is the full, colored star that overlays the empty one */
         #tasteRatingSelector span::before {
             position: absolute;
-            content: "⭐";
+            content: "⭐"; /* The filled star character */
             top: 0;
             left: 0;
-            width: 50%;
-            overflow: hidden;
             color: var(--star-color-filled);
-            opacity: 0;
+            opacity: 0; /* Hidden by default */
+            transition: opacity 0.2s;
         }
-        #tasteRatingSelector span.hover,
-        #tasteRatingSelector span.rated {
-            color: var(--star-color-filled);
-        }
+        /* This creates the half-star effect by clipping the overlay */
         #tasteRatingSelector span.hover-half::before,
         #tasteRatingSelector span.rated-half::before {
             opacity: 1;
+            width: 50%;
+            overflow: hidden;
+        }
+        /* This creates the full-star effect by showing the full overlay */
+        #tasteRatingSelector span.hover::before,
+        #tasteRatingSelector span.rated::before {
+            opacity: 1;
+            width: 100%;
         }
 
 
@@ -312,12 +317,14 @@
         </section>
 
         <div id="root" class="w-full max-w-4xl px-4"></div>
+
     </main>
-    
+
     <footer class="mt-8 text-center text-gray-500 text-sm px-4">
         <p>&copy; 2025 Wonderful-Wino. All rights reserved.</p>
     </footer>
 
+    <!-- Help Modal -->
     <div id="helpModal" class="modal-overlay hidden">
         <div class="modal-content">
             <button class="modal-close-button" onclick="closeHelpModal()">&times;</button>
@@ -342,22 +349,49 @@
         </div>
     </div>
 
-    <div id="entryModal" class="modal-overlay hidden">
+    <!-- Manual Entry Modal -->
+    <div id="manualEntryModal" class="modal-overlay hidden">
         <div class="modal-content">
-            <button class="modal-close-button" onclick="closeEntryModal()">&times;</button>
-            <h3 id="entryModalTitle" class="text-xl font-semibold mb-4">Add Wine Manually</h3>
-            <form id="entryForm">
-                <input type="hidden" id="entryVivinoUrl">
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div class="sm:col-span-2"><label class="block text-sm font-medium">Wine Name *</label><input type="text" id="manualNameInput" class="mt-1 block w-full border rounded-md p-2" required></div>
-                    <div><label class="block text-sm font-medium">Vintage *</label><input type="number" id="manualVintageInput" class="mt-1 block w-full border rounded-md p-2" required></div>
-                    <div><label class="block text-sm font-medium">Varietal</label><input type="text" id="manualVarietalInput" class="mt-1 block w-full border rounded-md p-2"></div>
-                    <div><label class="block text-sm font-medium">Region</label><input type="text" id="manualRegionInput" class="mt-1 block w-full border rounded-md p-2"></div>
-                    <div><label class="block text-sm font-medium">Country</label><input type="text" id="manualCountryInput" class="mt-1 block w-full border rounded-md p-2"></div>
-                    <div class="sm:col-span-2"><label class="block text-sm font-medium">Quantity *</label><input type="number" id="manualQuantityInput" min="0" value="1" class="mt-1 block w-full border rounded-md p-2" required></div>
-                    <div class="sm:col-span-2">
-                        <label class="block text-sm font-medium">Cost Tier</label>
-                        <div id="costTierSelector" class="flex items-center gap-2 mt-1 cost-tier-selector">
+            <button class="modal-close-button" onclick="closeManualEntryModal()">&times;</button>
+            <h3 class="text-xl font-semibold mb-2">Manual Wine Entry</h3>
+            <p class="mb-4 text-sm text-gray-700">Add a wine to your inventory manually.</p>
+            <form id="manualEntryForm">
+                <div class="mb-4">
+                    <label for="manualWineName" class="block text-sm font-medium mb-1">Wine Name</label>
+                    <input type="text" id="manualWineName" name="name" class="w-full px-4 py-2 border border-gray-300 rounded-md" required>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="manualVintage" class="block text-sm font-medium mb-1">Vintage</label>
+                        <input type="number" id="manualVintage" name="vintage" class="w-full px-4 py-2 border border-gray-300 rounded-md">
+                    </div>
+                    <div>
+                        <label for="manualCountry" class="block text-sm font-medium mb-1">Country</label>
+                        <input type="text" id="manualCountry" name="country" class="w-full px-4 py-2 border border-gray-300 rounded-md">
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label for="manualVarietal" class="block text-sm font-medium mb-1">Varietal</label>
+                    <input type="text" id="manualVarietal" name="varietal" class="w-full px-4 py-2 border border-gray-300 rounded-md">
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="manualRegion" class="block text-sm font-medium mb-1">Region</label>
+                        <input type="text" id="manualRegion" name="region" class="w-full px-4 py-2 border border-gray-300 rounded-md">
+                    </div>
+                    <div>
+                        <label for="manualSubRegion" class="block text-sm font-medium mb-1">Sub-Region</label>
+                        <input type="text" id="manualSubRegion" name="sub_region" class="w-full px-4 py-2 border border-gray-300 rounded-md">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4 items-center">
+                    <div>
+                        <label for="manualVivinoRating" class="block text-sm font-medium mb-1">Vivino Rating (out of 5)</label>
+                        <input type="number" step="0.1" min="0" max="5" id="manualVivinoRating" name="vivino_rating" class="w-full px-4 py-2 border border-gray-300 rounded-md">
+                    </div>
+                    <div class="flex items-center gap-2 mt-4 sm:mt-0">
+                        <label for="manualCostTierSelector" class="block text-sm font-medium">Cost Tier:</label>
+                        <div id="manualCostTierSelector" class="flex items-center gap-2 cost-tier-selector">
                             <span data-value="1" title="e.g., Under $8">$</span>
                             <span data-value="2" title="e.g., $8 - $15">$$</span>
                             <span data-value="3" title="e.g., $15 - $25">$$$</span>
@@ -367,15 +401,43 @@
                         <input type="hidden" id="manualCostTierInput">
                     </div>
                 </div>
-                <div id="entryMessage" class="mt-4 text-center hidden"></div>
+                <div class="mb-4">
+                    <label for="manualVivinoUrl" class="block text-sm font-medium mb-1">Vivino URL (Optional)</label>
+                    <input type="text" id="manualVivinoUrl" name="vivino_url" class="w-full px-4 py-2 border border-gray-300 rounded-md">
+                </div>
                 <div class="mt-6 flex justify-end gap-4">
-                    <button type="button" onclick="closeEntryModal()" class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Cancel</button>
-                    <button type="submit" id="entrySubmitBtn" class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Add Wine</button>
+                    <button type="button" onclick="closeManualEntryModal()" class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Cancel</button>
+                    <button type="submit" class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Add Wine</button>
                 </div>
             </form>
         </div>
     </div>
-    
+
+    <!-- Confirm Modal -->
+    <div id="confirmModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 class="text-xl font-semibold mb-4" id="confirmModalTitle">Are you sure?</h3>
+            <p id="confirmModalMessage" class="mb-6 text-gray-700">This action cannot be undone.</p>
+            <div class="flex justify-end gap-4">
+                <button id="cancelConfirmBtn" class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Cancel</button>
+                <button id="confirmBtn" class="bg-red-600 text-white px-6 py-2 rounded-md hover:bg-red-700">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Modal -->
+    <div id="deleteModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 class="text-xl font-semibold mb-2">Delete Wine</h3>
+            <p id="deleteModalMessage" class="mb-6 text-gray-700"></p>
+            <div class="flex justify-end gap-4">
+                <button onclick="closeDeleteModal()" class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Cancel</button>
+                <button id="confirmDeleteBtn" class="bg-red-600 text-white px-6 py-2 rounded-md hover:bg-red-700">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Taste Modal -->
     <div id="tasteModal" class="modal-overlay hidden">
         <div class="modal-content">
             <h3 class="text-xl font-semibold mb-2">Consume Wine</h3>
@@ -383,363 +445,104 @@
             <form id="tasteForm">
                 <input type="hidden" id="tasteVivinoUrl">
                 <label class="block text-sm font-medium mb-2">How did it taste? (Optional)</label>
-                <div id="tasteRatingSelector" class="flex text-4xl text-gray-400 cursor-pointer mb-6">
-                    <span data-value="1">⭐</span>
-                    <span data-value="2">⭐</span>
-                    <span data-value="3">⭐</span>
-                    <span data-value="4">⭐</span>
-                    <span data-value="5">⭐</span>
+                <div id="tasteRatingSelector" class="flex text-4xl text-gray-400 cursor-pointer">
+                    <span data-value="1">☆</span>
+                    <span data-value="2">☆</span>
+                    <span data-value="3">☆</span>
+                    <span data-value="4">☆</span>
+                    <span data-value="5">☆</span>
                 </div>
+                <p id="tasteRatingFeedback" class="text-sm text-center h-6 mb-4"></p>
+                <!-- Hidden input to store the rating value -->
                 <input type="hidden" id="tasteRatingInput">
                 <div class="mt-6 flex justify-end gap-4">
-                     <button type="button" onclick="closeTasteModal()" class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Cancel</button>
+                    <button type="button" onclick="closeTasteModal()" class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Cancel</button>
                     <button type="submit" class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Consume</button>
                 </div>
             </form>
         </div>
     </div>
 
-
+    <!-- Script imports and code -->
     <script>
-        let BASE_URL = '';
-        if (typeof window !== 'undefined' && typeof window.__ingress_url !== 'undefined' && window.__ingress_url !== '') {
-            BASE_URL = window.__ingress_url;
-        } else {
-            const pathParts = window.location.pathname.split('/');
-            if (pathParts.length > 0 && pathParts[pathParts.length - 1].includes('.')) { pathParts.pop(); }
-            BASE_URL = pathParts.join('/');
-            if (BASE_URL !== '' && !BASE_URL.endsWith('/')) { BASE_URL += '/'; }
-        }
-        console.log('Calculated BASE_URL:', BASE_URL);
-
-        let currentInventory = [];
-        let currentSortBy = 'name';
-        let currentSortDirection = 'asc';
-        let currentFilter = 'on_hand';
-
-        function showMessage(elementId, message, type = 'info', isModal = false) {
-            const element = document.getElementById(elementId);
-            element.textContent = message;
-            element.className = `mt-4 text-center p-2 rounded-md ${type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`;
-            element.style.display = 'block';
-            if (!isModal) { setTimeout(() => { element.style.display = 'none'; }, 5000); }
-        }
-
-        function sortInventory(inventory, sortBy, sortDirection) {
-            const sortedInventory = [...inventory];
-            sortedInventory.sort((a, b) => {
-                let comparison = 0;
-                const getValue = (item, prop) => {
-                    let value = item[prop];
-                    if (value == null) {
-                        if (prop === 'vintage' || prop === 'vivino_rating' || prop === 'quantity') {
-                            return sortDirection === 'asc' ? Infinity : -Infinity;
-                        }
-                        return '';
-                    }
-                    return typeof value === 'string' ? value.toLowerCase() : value;
-                };
-                const valA = getValue(a, sortBy);
-                const valB = getValue(b, sortBy);
-                if (valA < valB) comparison = -1;
-                if (valA > valB) comparison = 1;
-                if (comparison === 0) {
-                    const nameA = getValue(a, 'name');
-                    const nameB = getValue(b, 'name');
-                    if (nameA < nameB) comparison = -1;
-                    if (nameA > nameB) comparison = 1;
-                    if (comparison === 0) {
-                        const vintageA = getValue(a, 'vintage');
-                        const vintageB = getValue(b, 'vintage');
-                        comparison = vintageA - vintageB;
-                    }
-                }
-                return sortDirection === 'desc' ? -comparison : comparison;
-            });
-            return sortedInventory;
-        }
-
-        function applySortAndDisplayInventory() {
-            const sortedData = sortInventory(currentInventory, currentSortBy, currentSortDirection);
-            displayInventory(sortedData);
-        }
-
-        async function fetchInventory() {
-            const inventoryTableBody = document.getElementById('inventoryTableBody');
-            try {
-                inventoryTableBody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-gray-500">Loading inventory...</td></tr>';
-                const url = `${BASE_URL}inventory?filter=${currentFilter}`;
-                const response = await fetch(url);
-                if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`); }
-                currentInventory = await response.json();
-                applySortAndDisplayInventory();
-            } catch (error) {
-                console.error('Error fetching inventory:', error);
-                showMessage('inventoryMessage', `Failed to load inventory: ${error.message}`, 'error');
-                inventoryTableBody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-gray-500">Error loading inventory.</td></tr>';
-            }
-        }
-
-        function displayInventory(inventory) {
-            const container = document.getElementById('inventoryTableBody');
-            container.innerHTML = '';
-            if (inventory.length === 0) {
-                const filterText = currentFilter.replace('_', ' ');
-                container.innerHTML = `<tr><td colspan="3" class="py-4 text-center text-gray-500">No wines found for filter: ${filterText}</td></tr>`;
-                return;
-            }
-            inventory.forEach(item => {
-                const row = document.createElement('tr');
-                row.className = 'border-b border-gray-200 flex flex-col sm:table-row';
-
-                const imageCell = document.createElement('td');
-                imageCell.className = 'py-4 sm:p-4 flex justify-center sm:block';
-                imageCell.innerHTML = item.image_url ? `<img src="${item.image_url}" class="h-24 w-24 object-cover rounded-md" alt="Wine Image">` : '<div class="text-gray-400 text-center w-24 h-24 flex items-center justify-center bg-gray-100 rounded-md">No Image</div>';
-
-                const detailsCell = document.createElement('td');
-                detailsCell.className = 'py-4 sm:p-4 text-sm text-gray-900 wine-details-cell w-full sm:w-auto text-center sm:text-left';
-                let detailsHtml = `<h4>${item.name || 'N/A'} ${item.vintage ? `(${item.vintage})` : ''}</h4>`;
-                if (item.varietal && item.varietal !== "Unknown Varietal") { detailsHtml += `<p><strong>Varietal:</strong> ${item.varietal}</p>`; }
-                let location = [];
-                if (item.region && item.region !== "Unknown Region") location.push(item.region);
-                if (item.country && item.country !== "Unknown Country") location.push(item.country);
-                if (location.length > 0) { detailsHtml += `<p><strong>Origin:</strong> ${location.join(', ')}</p>`; }
-                
-                let display_rating = item.vivino_rating;
-                if (item.personal_rating !== null && item.vivino_rating !== null) {
-                    display_rating = (item.personal_rating + item.vivino_rating) / 2;
-                } else if (item.personal_rating !== null) {
-                    display_rating = item.personal_rating;
-                }
-
-                if (display_rating !== null) {
-                    detailsHtml += `<p><strong>Quality:</strong> ⭐ ${display_rating.toFixed(1)}</p>`;
-                }
-
-                if (item.cost_tier) {
-                    detailsHtml += `<p><strong>Cost:</strong> ${'$'.repeat(item.cost_tier)}</p>`;
-                }
-
-                detailsCell.innerHTML = detailsHtml;
-
-                const actionsCell = document.createElement('td');
-                actionsCell.className = 'py-4 sm:p-4 flex flex-row justify-center items-center gap-2 w-full sm:w-auto';
-                const consumeBtn = document.createElement('button');
-                consumeBtn.innerHTML = '🍷'; consumeBtn.title = 'Consume 1 Bottle'; consumeBtn.className = 'text-green-600 hover:text-green-900 text-xl';
-                consumeBtn.onclick = () => consumeWine(item.vivino_url);
-                const qtyInput = document.createElement('input');
-                qtyInput.type = 'number'; qtyInput.value = item.quantity; qtyInput.min = 0;
-                qtyInput.className = 'w-16 text-center border border-gray-300 rounded-md px-2 py-1';
-                qtyInput.title = 'Edit Quantity';
-                qtyInput.onblur = () => setWineQuantity(item.vivino_url, qtyInput.value);
-                qtyInput.onkeydown = (e) => { if (e.key === 'Enter') qtyInput.blur(); };
-                const editBtn = document.createElement('button');
-                editBtn.innerHTML = '✏️'; editBtn.title = 'Edit Wine Details'; editBtn.className = 'text-yellow-600 hover:text-yellow-900 text-xl';
-                editBtn.onclick = () => openEditModal(item);
-                const duplicateBtn = document.createElement('button');
-                duplicateBtn.innerHTML = '📋'; duplicateBtn.title = 'Duplicate Wine (for new vintage)'; duplicateBtn.className = 'text-cyan-600 hover:text-cyan-900 text-xl';
-                duplicateBtn.onclick = () => openDuplicateModal(item);
-                const deleteBtn = document.createElement('button');
-                deleteBtn.innerHTML = '🗑️'; deleteBtn.title = 'Delete Wine from Inventory'; deleteBtn.className = 'text-red-600 hover:text-red-900 text-xl';
-                deleteBtn.onclick = () => deleteWine(item.vivino_url);
-                actionsCell.appendChild(consumeBtn); actionsCell.appendChild(qtyInput);
-                actionsCell.appendChild(editBtn); actionsCell.appendChild(duplicateBtn); actionsCell.appendChild(deleteBtn);
-                row.appendChild(imageCell); row.appendChild(detailsCell);
-                actionsCell.classList.add('flex', 'justify-center', 'items-center', 'sm:justify-start');
-                row.appendChild(actionsCell);
-                container.appendChild(row);
-            });
-        }
-
-        document.getElementById('scanWineForm').addEventListener('submit', async function(event) {
-            event.preventDefault();
-            const payload = {
-                vivino_url: document.getElementById('vivinoUrlInput').value,
-                quantity: parseInt(document.getElementById('quantityInput').value, 10) || 1,
-                cost_tier: parseInt(document.getElementById('mainCostTierInput').value, 10) || null
-            };
-            try {
-                const response = await fetch(`${BASE_URL}scan-wine`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-                });
-                const result = await response.json();
-                if (!response.ok) throw new Error(result.message || 'Failed to scan wine');
-                showMessage('scanMessage', result.message || 'Wine scanned successfully!');
-                document.getElementById('scanWineForm').reset();
-                updateMainCostTierSelector(null); // Clear selector on successful scan
-                fetchInventory();
-            } catch (error) {
-                showMessage('scanMessage', `Error: ${error.message}`, 'error');
-            }
-        });
-        
-        document.getElementById('entryForm').addEventListener('submit', async function(event) {
-            event.preventDefault();
-            const vivinoUrl = document.getElementById('entryVivinoUrl').value;
-            const isEditMode = !!vivinoUrl;
-            const payload = {
-                name: document.getElementById('manualNameInput').value,
-                vintage: parseInt(document.getElementById('manualVintageInput').value, 10),
-                varietal: document.getElementById('manualVarietalInput').value,
-                region: document.getElementById('manualRegionInput').value,
-                country: document.getElementById('manualCountryInput').value,
-                quantity: parseInt(document.getElementById('manualQuantityInput').value, 10),
-                cost_tier: parseInt(document.getElementById('manualCostTierInput').value, 10) || null
-            };
-            if (!payload.name || isNaN(payload.vintage) || isNaN(payload.quantity)) {
-                showMessage('entryMessage', 'Please fill in all required fields.', 'error', true);
-                return;
-            }
-            let url = isEditMode ? `${BASE_URL}edit-wine` : `${BASE_URL}add-manual-wine`;
-            if (isEditMode) { payload.vivino_url = vivinoUrl; }
-            try {
-                const response = await fetch(url, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-                });
-                const result = await response.json();
-                if (!response.ok) throw new Error(result.message || 'Failed to process request');
-                showMessage('entryMessage', result.message || (isEditMode ? 'Wine updated!' : 'Wine added!'), 'info', true);
-                fetchInventory();
-                setTimeout(closeEntryModal, 1500);
-            } catch (error) {
-                showMessage('entryMessage', `Error: ${error.message}`, 'error', true);
-            }
-        });
-
-        async function consumeWine(vivinoUrl) {
-            const wine = currentInventory.find(w => w.vivino_url === vivinoUrl);
-            if (wine) {
-                openTasteModal(wine);
-            } else {
-                showMessage('inventoryMessage', 'Error: Could not find wine to consume.', 'error');
-            }
-        }
-        async function setWineQuantity(vivinoUrl, newQuantity) {
-            newQuantity = parseInt(newQuantity, 10);
-            if (isNaN(newQuantity) || newQuantity < 0) {
-                showMessage('inventoryMessage', 'Quantity must be a non-negative number.', 'error');
-                fetchInventory(); return;
-            }
-            try {
-                const response = await fetch(`${BASE_URL}inventory/wine/set_quantity`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ vivino_url: vivinoUrl, quantity: newQuantity })
-                });
-                const result = await response.json();
-                if (!response.ok) throw new Error(result.message || 'Failed to set quantity');
-                showMessage('inventoryMessage', result.message || 'Quantity updated!');
-                fetchInventory();
-            } catch (error) {
-                showMessage('inventoryMessage', `Error: ${error.message}`, 'error');
-            }
-        }
-        async function deleteWine(vivinoUrl) {
-            if (!confirm('Delete this wine from your inventory? This cannot be undone.')) return;
-            try {
-                const response = await fetch(`${BASE_URL}inventory/wine`, {
-                    method: 'DELETE', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ vivino_url: vivinoUrl })
-                });
-                const result = await response.json();
-                if (!response.ok) throw new Error(result.message || 'Failed to delete wine');
-                showMessage('inventoryMessage', result.message || 'Wine deleted!');
-                fetchInventory();
-            } catch (error) {
-                showMessage('inventoryMessage', `Error: ${error.message}`, 'error');
-            }
-        }
-
-        document.getElementById('reinitializeDbButton').addEventListener('click', async () => {
-            if (!confirm('ARE YOU SURE? This will permanently delete ALL wine data!')) return;
-            try {
-                const response = await fetch(`${BASE_URL}reinitialize-database-action`, { method: 'POST' });
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.message);
-                showMessage('reinitializeDbMessage', data.message);
-                fetchInventory();
-            } catch (error) {
-                showMessage('reinitializeDbMessage', `Error: ${error.message}`, 'error');
-            }
-        });
-        document.getElementById('syncAllWinesButton').addEventListener('click', async () => {
-            if (!confirm('Sync all wines to your Home Assistant To-Do list?')) return;
-            try {
-                const response = await fetch(`${BASE_URL}sync-all-wines`, { method: 'POST' });
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.message);
-                showMessage('syncMessage', data.message);
-            } catch (error) {
-                showMessage('syncMessage', `Error: ${error.message}`, 'error');
-            }
-        });
-        document.getElementById('vivinoSearchForm').addEventListener('submit', function(event) {
-            event.preventDefault();
-            const query = document.getElementById('vivinoSearchInput').value;
-            window.open(`https://www.vivino.com/search/wines?q=${encodeURIComponent(query)}`, '_blank');
-            this.reset();
-        });
-
+        // --- Modal Functionality ---
+        const manualEntryModal = document.getElementById('manualEntryModal');
+        const confirmModal = document.getElementById('confirmModal');
+        const deleteModal = document.getElementById('deleteModal');
         const helpModal = document.getElementById('helpModal');
-        const entryModal = document.getElementById('entryModal');
-        const costTierSelector = document.getElementById('costTierSelector');
-        const manualCostTierInput = document.getElementById('manualCostTierInput');
 
-
-        document.getElementById('helpButton').addEventListener('click', () => {
-            helpModal.classList.remove('hidden');
-        });
-        document.getElementById('openEntryModalBtn').addEventListener('click', () => openAddModal());
-
-        function closeHelpModal() { helpModal.classList.add('hidden'); }
-        function closeEntryModal() {
-            entryModal.classList.add('hidden');
-            document.getElementById('entryForm').reset();
-            document.getElementById('entryMessage').style.display = 'none';
-        }
-        function openAddModal() {
-            document.getElementById('entryForm').reset();
-            document.getElementById('entryVivinoUrl').value = '';
-            document.getElementById('entryModalTitle').textContent = 'Add Wine Manually';
-            document.getElementById('entrySubmitBtn').textContent = 'Add Wine';
-            updateCostTierSelector(null);
-            entryModal.classList.remove('hidden');
-        }
-        function openEditModal(wine) {
-            document.getElementById('entryForm').reset();
-            document.getElementById('entryVivinoUrl').value = wine.vivino_url;
-            document.getElementById('manualNameInput').value = wine.name;
-            document.getElementById('manualVintageInput').value = wine.vintage;
-            document.getElementById('manualVarietalInput').value = wine.varietal !== 'Unknown Varietal' ? wine.varietal : '';
-            document.getElementById('manualRegionInput').value = wine.region !== 'Unknown Region' ? wine.region : '';
-            document.getElementById('manualCountryInput').value = wine.country !== 'Unknown Country' ? wine.country : '';
-            document.getElementById('manualQuantityInput').value = wine.quantity;
-            updateCostTierSelector(wine.cost_tier);
-            document.getElementById('entryModalTitle').textContent = 'Edit Wine';
-            document.getElementById('entrySubmitBtn').textContent = 'Save Changes';
-            entryModal.classList.remove('hidden');
-        }
-        function openDuplicateModal(wine) {
-            document.getElementById('entryForm').reset();
-            document.getElementById('entryVivinoUrl').value = ''; 
-            document.getElementById('manualNameInput').value = wine.name;
-            document.getElementById('manualVarietalInput').value = wine.varietal !== 'Unknown Varietal' ? wine.varietal : '';
-            document.getElementById('manualRegionInput').value = wine.region !== 'Unknown Region' ? wine.region : '';
-            document.getElementById('manualCountryInput').value = wine.country !== 'Unknown Country' ? wine.country : '';
-            document.getElementById('manualVintageInput').value = '';
-            document.getElementById('manualQuantityInput').value = 1;
-            updateCostTierSelector(wine.cost_tier);
-            document.getElementById('entryModalTitle').textContent = 'Duplicate Wine';
-            document.getElementById('entrySubmitBtn').textContent = 'Add Wine';
-            entryModal.classList.remove('hidden');
-            document.getElementById('manualVintageInput').focus();
+        function showMessage(elementId, text, type = 'info') {
+            const messageEl = document.getElementById(elementId);
+            if (messageEl) {
+                messageEl.textContent = text;
+                messageEl.classList.remove('hidden');
+                messageEl.classList.remove('text-green-600', 'text-red-600');
+                if (type === 'error') {
+                    messageEl.classList.add('text-red-600');
+                } else if (type === 'success') {
+                    messageEl.classList.add('text-green-600');
+                }
+            }
         }
 
+        function openManualEntryModal() {
+            manualEntryModal.classList.remove('hidden');
+        }
+
+        function closeManualEntryModal() {
+            manualEntryModal.classList.add('hidden');
+        }
+
+        function openConfirmModal(title, message, onConfirm) {
+            document.getElementById('confirmModalTitle').textContent = title;
+            document.getElementById('confirmModalMessage').textContent = message;
+            confirmModal.classList.remove('hidden');
+            const confirmBtn = document.getElementById('confirmBtn');
+            const cancelBtn = document.getElementById('cancelConfirmBtn');
+            
+            const handleConfirm = () => {
+                onConfirm();
+                closeConfirmModal();
+                confirmBtn.removeEventListener('click', handleConfirm);
+            };
+
+            const handleCancel = () => {
+                closeConfirmModal();
+                cancelBtn.removeEventListener('click', handleCancel);
+            };
+
+            confirmBtn.addEventListener('click', handleConfirm);
+            cancelBtn.addEventListener('click', handleCancel);
+        }
+
+        function closeConfirmModal() {
+            confirmModal.classList.add('hidden');
+        }
+
+        function openDeleteModal(wineName, onDelete) {
+            document.getElementById('deleteModalMessage').textContent = `Are you sure you want to delete ${wineName}? This action cannot be undone.`;
+            deleteModal.classList.remove('hidden');
+            const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+            const handleConfirm = () => {
+                onDelete();
+                closeDeleteModal();
+                confirmDeleteBtn.removeEventListener('click', handleConfirm);
+            };
+            confirmDeleteBtn.addEventListener('click', handleConfirm);
+        }
+
+        function closeDeleteModal() {
+            deleteModal.classList.add('hidden');
+        }
+        
+        // --- START: New functions for Taste Rating Modal ---
         const tasteModal = document.getElementById('tasteModal');
         const tasteForm = document.getElementById('tasteForm');
         const tasteRatingSelector = document.getElementById('tasteRatingSelector');
         const tasteRatingInput = document.getElementById('tasteRatingInput');
         const tasteVivinoUrlInput = document.getElementById('tasteVivinoUrl');
         const tasteModalWineName = document.getElementById('tasteModalWineName');
+        const tasteRatingFeedback = document.getElementById('tasteRatingFeedback');
 
         function openTasteModal(wine) {
             tasteVivinoUrlInput.value = wine.vivino_url;
@@ -756,7 +559,7 @@
         function updateTasteStars(rating) {
             tasteRatingSelector.querySelectorAll('span').forEach((star, index) => {
                 const starValue = index + 1;
-                star.className = '';
+                star.className = ''; // Reset classes
                 if (rating >= starValue) {
                     star.classList.add('rated');
                 } else if (rating > index && rating < starValue) {
@@ -764,19 +567,31 @@
                 }
             });
         }
+        
+        function updateFeedbackText(rating) {
+            if (rating > 0) {
+                tasteRatingFeedback.textContent = `${rating} star${rating > 1 ? 's' : ''}`;
+            } else {
+                tasteRatingFeedback.textContent = '';
+            }
+        }
 
         function resetTasteStars() {
             tasteRatingInput.value = '';
             updateTasteStars(0);
+            updateFeedbackText(0);
         }
 
         tasteRatingSelector.addEventListener('mousemove', e => {
             if (!e.target.matches('span')) return;
+
             const star = e.target;
             const starRect = star.getBoundingClientRect();
             const isHalf = (e.clientX - starRect.left) < (starRect.width / 2);
             const rating = parseInt(star.dataset.value, 10) - (isHalf ? 0.5 : 0);
             
+            updateFeedbackText(rating); // Update text on hover
+
             tasteRatingSelector.querySelectorAll('span').forEach((s, index) => {
                 const starValue = index + 1;
                 s.className = '';
@@ -791,10 +606,12 @@
         tasteRatingSelector.addEventListener('mouseleave', () => {
             const currentRating = parseFloat(tasteRatingInput.value) || 0;
             updateTasteStars(currentRating);
+            updateFeedbackText(currentRating); // Reset text to saved rating
         });
 
         tasteRatingSelector.addEventListener('click', e => {
             if (!e.target.matches('span')) return;
+
             const star = e.target;
             const starRect = star.getBoundingClientRect();
             const isHalf = (e.clientX - starRect.left) < (starRect.width / 2);
@@ -802,6 +619,7 @@
             
             tasteRatingInput.value = rating;
             updateTasteStars(rating);
+            updateFeedbackText(rating); // Update text on click
         });
 
         tasteForm.addEventListener('submit', async function(event) {
@@ -810,15 +628,15 @@
             const rating = tasteRatingInput.value ? parseFloat(tasteRatingInput.value) : null;
             
             try {
-                const response = await fetch(`${BASE_URL}inventory/wine/consume`, {
+                const response = await fetch(`${API_URL}/consume-wine`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ vivino_url: vivinoUrl, personal_rating: rating })
+                    body: JSON.stringify({ vivino_url: vivinoUrl, taste_rating: rating })
                 });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.error || 'Failed to consume wine');
                 
-                showMessage('inventoryMessage', 'Wine consumed successfully!');
+                showMessage('inventoryMessage', 'Wine consumed successfully!', 'success');
                 closeTasteModal();
                 fetchInventory();
 
@@ -826,67 +644,411 @@
                 showMessage('inventoryMessage', `Error: ${error.message}`, 'error');
             }
         });
+        // --- END: New functions for Taste Rating Modal ---
 
-        costTierSelector.addEventListener('click', (e) => {
-            if (e.target.matches('span')) {
-                const value = e.target.dataset.value;
-                const currentValue = manualCostTierInput.value;
-                const newValue = (currentValue === value) ? '' : value;
-                updateCostTierSelector(newValue);
+        // --- Frontend State and Configuration ---
+        const API_URL = '/api'; // Use a relative path
+        const costTierDescriptions = {
+            '1': 'Under $8',
+            '2': '$8 - $15',
+            '3': '$15 - $25',
+            '4': '$25 - $40',
+            '5': 'Over $40'
+        };
+
+        let currentFilter = 'on_hand';
+        let currentSortBy = 'name';
+        let currentSortDirection = 'asc';
+        let inventoryData = [];
+
+        // --- Data Fetching and Rendering ---
+        async function fetchInventory() {
+            try {
+                const response = await fetch(`${API_URL}/wines?filter=${currentFilter}&sort_by=${currentSortBy}&sort_direction=${currentSortDirection}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                inventoryData = data;
+                renderInventory(inventoryData);
+            } catch (error) {
+                console.error("Error fetching inventory:", error);
+                document.getElementById('inventoryMessage').textContent = `Error loading inventory: ${error.message}`;
+                document.getElementById('inventoryMessage').classList.remove('hidden');
             }
-        });
-        function updateCostTierSelector(selectedValue) {
-            manualCostTierInput.value = selectedValue || '';
-            costTierSelector.querySelectorAll('span').forEach(span => {
-                span.classList.toggle('selected', span.dataset.value == selectedValue);
+        }
+
+        function renderInventory(wines) {
+            const tableBody = document.getElementById('inventoryTableBody');
+            tableBody.innerHTML = '';
+            document.getElementById('inventoryMessage').classList.add('hidden');
+
+            if (wines.length === 0) {
+                document.getElementById('inventoryMessage').textContent = 'No wines found.';
+                document.getElementById('inventoryMessage').classList.remove('hidden');
+                return;
+            }
+
+            wines.forEach(wine => {
+                const row = document.createElement('tr');
+                row.classList.add('bg-white', 'hover:bg-gray-100', 'transition-colors', 'duration-200');
+
+                // Image Cell (hidden on small screens)
+                const imageCell = document.createElement('td');
+                imageCell.classList.add('px-6', 'py-4', 'whitespace-nowrap', 'hidden', 'sm:table-cell');
+                imageCell.innerHTML = `
+                    <img src="${wine.image_url}" alt="${wine.name}" class="h-16 w-16 rounded-md object-cover border border-gray-200">
+                `;
+                row.appendChild(imageCell);
+
+                // Wine Details Cell
+                const detailsCell = document.createElement('td');
+                detailsCell.classList.add('px-6', 'py-4', 'wine-details-cell');
+                detailsCell.innerHTML = `
+                    <h4 class="text-lg">${wine.name}</h4>
+                    <p class="text-sm text-gray-500">${wine.vintage}, ${wine.varietal}</p>
+                    <p class="text-sm text-gray-500">${wine.country}, ${wine.region}</p>
+                    <p class="text-sm">Vivino: <strong class="${wine.vivino_rating >= 4 ? 'text-green-600' : wine.vivino_rating >= 3 ? 'text-yellow-600' : 'text-gray-500'}">${wine.vivino_rating} ⭐</strong> |
+                    <span class="text-gray-500">Cost: ${'$'.repeat(wine.cost_tier || 1)} (${costTierDescriptions[wine.cost_tier || 1]})</span></p>
+                    <p class="text-sm text-gray-500">
+                        ${currentFilter === 'on_hand' ? `Quantity: <strong>${wine.quantity}</strong>` : ''}
+                        ${currentFilter === 'history' ? `Consumed: <strong>${new Date(wine.last_consumed).toLocaleDateString()}</strong>` : ''}
+                        ${currentFilter === 'all' ? `Quantity: <strong>${wine.quantity}</strong> | Last Consumed: <strong>${wine.last_consumed ? new Date(wine.last_consumed).toLocaleDateString() : 'N/A'}</strong>` : ''}
+                    </p>
+                    ${wine.notes ? `<p class="text-sm text-gray-500 mt-2">Notes: ${wine.notes}</p>` : ''}
+                `;
+                row.appendChild(detailsCell);
+
+                // Actions Cell
+                const actionsCell = document.createElement('td');
+                actionsCell.classList.add('px-6', 'py-4', 'whitespace-nowrap', 'text-center', 'sm:table-cell');
+                actionsCell.innerHTML = `
+                    <div class="flex items-center justify-center space-x-2">
+                        <button class="text-gray-500 hover:text-cyan-600" title="Edit" onclick="editWine('${wine.vivino_url}')">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.794.793-2.828-2.828.793-.794zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"></path></svg>
+                        </button>
+                        <button class="text-gray-500 hover:text-red-600" title="Delete" onclick="handleDelete('${wine.vivino_url}', '${wine.name}')">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                        </button>
+                        <button class="text-gray-500 hover:text-green-600" title="Consume" onclick="handleTaste('${wine.vivino_url}', '${wine.name}')">
+                             <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19.5 20.25l-7.5-7.5m-7.5 7.5l7.5-7.5m-7.5 0l7.5-7.5m7.5 7.5l-7.5-7.5M4.5 4.5l7.5 7.5m7.5-7.5l-7.5 7.5"></path></svg>
+                        </button>
+                    </div>
+                `;
+                row.appendChild(actionsCell);
+
+                // Add to table
+                tableBody.appendChild(row);
             });
         }
 
-        const mainCostTierSelector = document.getElementById('mainCostTierSelector');
-        const mainCostTierInput = document.getElementById('mainCostTierInput');
-
-        mainCostTierSelector.addEventListener('click', (e) => {
-            if (e.target.matches('span')) {
-                const value = e.target.dataset.value;
-                const currentValue = mainCostTierInput.value;
-                mainCostTierInput.value = (currentValue === value) ? '' : value;
-                updateMainCostTierSelector(mainCostTierInput.value);
+        // --- Form Handling ---
+        const vivinoSearchForm = document.getElementById('vivinoSearchForm');
+        vivinoSearchForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const query = document.getElementById('vivinoSearchInput').value;
+            if (query) {
+                window.open(`https://www.vivino.com/search/wines?q=${encodeURIComponent(query)}`, '_blank');
             }
         });
 
-        function updateMainCostTierSelector(selectedValue) {
-            mainCostTierInput.value = selectedValue || '';
-            mainCostTierSelector.querySelectorAll('span').forEach(span => {
-                span.classList.toggle('selected', span.dataset.value == selectedValue);
-            });
-        }
-        const sortSelect = document.getElementById('sortSelect');
-        const sortDirectionToggle = document.getElementById('sortDirectionToggle');
-        const sortAscIcon = document.getElementById('sortAscIcon');
-        const sortDescIcon = document.getElementById('sortDescIcon');
-        function updateSortIcons() {
-            sortAscIcon.classList.toggle('hidden', currentSortDirection === 'desc');
-            sortDescIcon.classList.toggle('hidden', currentSortDirection === 'asc');
-        }
-        sortSelect.addEventListener('change', (event) => {
-            currentSortBy = event.target.value;
-            applySortAndDisplayInventory();
-        });
-        sortDirectionToggle.addEventListener('click', () => {
-            currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
-            updateSortIcons();
-            applySortAndDisplayInventory();
+        const scanWineForm = document.getElementById('scanWineForm');
+        scanWineForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const vivinoUrl = document.getElementById('vivinoUrlInput').value;
+            const quantity = parseInt(document.getElementById('quantityInput').value, 10);
+            const costTier = document.getElementById('mainCostTierInput').value;
+            const scanMessage = document.getElementById('scanMessage');
+            scanMessage.classList.add('hidden');
+            scanMessage.textContent = '';
+            
+            if (!vivinoUrl) {
+                scanMessage.textContent = 'Please enter a Vivino URL.';
+                scanMessage.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/scan-wine`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ vivino_url: vivinoUrl, quantity, cost_tier: costTier }),
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    scanMessage.textContent = data.message;
+                    scanMessage.classList.remove('hidden');
+                    document.getElementById('vivinoUrlInput').value = '';
+                    document.getElementById('quantityInput').value = 1;
+                    const tierSelector = document.getElementById('mainCostTierSelector');
+                    tierSelector.querySelectorAll('.selected').forEach(s => s.classList.remove('selected'));
+                    document.getElementById('mainCostTierInput').value = '';
+                    fetchInventory();
+                } else {
+                    scanMessage.textContent = `Error: ${data.error}`;
+                    scanMessage.classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Error adding wine:', error);
+                scanMessage.textContent = `An unexpected error occurred: ${error.message}`;
+                scanMessage.classList.remove('hidden');
+            }
         });
 
+        const manualEntryForm = document.getElementById('manualEntryForm');
+        manualEntryForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(manualEntryForm);
+            const data = Object.fromEntries(formData.entries());
+            data.quantity = 1; // Always add 1 for manual entry
+
+            // Ensure numeric fields are correctly typed
+            if (data.vintage) data.vintage = parseInt(data.vintage, 10);
+            if (data.vivino_rating) data.vivino_rating = parseFloat(data.vivino_rating);
+            if (data.cost_tier) data.cost_tier = parseInt(data.cost_tier, 10);
+
+            try {
+                const response = await fetch(`${API_URL}/add-wine`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    console.log('Wine added:', result);
+                    closeManualEntryModal();
+                    manualEntryForm.reset();
+                    fetchInventory();
+                } else {
+                    console.error('Error adding wine:', result.error);
+                }
+            } catch (error) {
+                console.error('Network error:', error);
+            }
+        });
+
+        // --- Action Handlers ---
+        async function editWine(vivinoUrl) {
+            alert('Editing functionality is not yet implemented.');
+            // TODO: Implement edit functionality. This would likely open a modal with the wine's current data.
+        }
+
+        async function handleDelete(vivinoUrl, wineName) {
+            openDeleteModal(wineName, async () => {
+                try {
+                    const response = await fetch(`${API_URL}/delete-wine?vivino_url=${encodeURIComponent(vivinoUrl)}`, {
+                        method: 'DELETE',
+                    });
+                    const result = await response.json();
+                    if (response.ok) {
+                        console.log('Wine deleted:', result.message);
+                        fetchInventory();
+                    } else {
+                        console.error('Error deleting wine:', result.error);
+                    }
+                } catch (error) {
+                    console.error('Network error:', error);
+                }
+            });
+        }
+        
+        async function handleTaste(vivinoUrl, wineName) {
+            const wine = inventoryData.find(w => w.vivino_url === vivinoUrl);
+            if (wine) {
+                openTasteModal(wine);
+            } else {
+                console.error('Wine not found in local data:', vivinoUrl);
+            }
+        }
+
+        // --- Other Functionality ---
+        function setupCostTierSelectors() {
+            const selectors = document.querySelectorAll('.cost-tier-selector');
+            selectors.forEach(selector => {
+                const hiddenInput = selector.nextElementSibling;
+                selector.addEventListener('click', (e) => {
+                    const span = e.target.closest('span');
+                    if (span) {
+                        const value = span.dataset.value;
+                        selector.querySelectorAll('span').forEach(s => s.classList.remove('selected'));
+                        span.classList.add('selected');
+                        hiddenInput.value = value;
+                    }
+                });
+            });
+        }
+
+        function setupTasteRatingSelector() {
+            const selector = document.getElementById('tasteRatingSelector');
+            const feedback = document.getElementById('tasteRatingFeedback');
+            const feedbackMessages = {
+                1: "I've had better.",
+                2: "It's alright.",
+                3: "A decent drop.",
+                4: "Quite good!",
+                5: "Outstanding!"
+            };
+
+            const updateStars = (rating) => {
+                selector.querySelectorAll('span').forEach(star => {
+                    star.classList.remove('rated', 'rated-half', 'hover', 'hover-half');
+                    if (parseInt(star.dataset.value) <= rating) {
+                        star.classList.add('rated');
+                    }
+                });
+            };
+
+            selector.addEventListener('mousemove', (e) => {
+                const target = e.target.closest('span');
+                if (!target) return;
+                const rect = target.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const value = parseInt(target.dataset.value);
+                
+                let hoverValue = value;
+                if (x < rect.width / 2) {
+                    hoverValue -= 0.5;
+                }
+
+                selector.querySelectorAll('span').forEach(star => {
+                    const starValue = parseInt(star.dataset.value);
+                    star.classList.remove('hover', 'hover-half');
+                    if (starValue <= hoverValue) {
+                        star.classList.add('hover');
+                    } else if (starValue - 0.5 === hoverValue) {
+                        star.classList.add('hover-half');
+                    }
+                });
+
+                if (hoverValue === 0.5) feedback.textContent = "Not for me.";
+                else if (hoverValue === 1) feedback.textContent = feedbackMessages[1];
+                else if (hoverValue === 1.5) feedback.textContent = "Drinkable.";
+                else if (hoverValue === 2) feedback.textContent = feedbackMessages[2];
+                else if (hoverValue === 2.5) feedback.textContent = "Acceptable.";
+                else if (hoverValue === 3) feedback.textContent = feedbackMessages[3];
+                else if (hoverValue === 3.5) feedback.textContent = "Very good.";
+                else if (hoverValue === 4) feedback.textContent = feedbackMessages[4];
+                else if (hoverValue === 4.5) feedback.textContent = "Excellent!";
+                else if (hoverValue === 5) feedback.textContent = feedbackMessages[5];
+            });
+
+            selector.addEventListener('mouseleave', () => {
+                selector.querySelectorAll('span').forEach(star => star.classList.remove('hover', 'hover-half'));
+                const ratedStar = selector.querySelector('[data-rated="true"]');
+                if (ratedStar) {
+                    const rating = parseFloat(ratedStar.dataset.value);
+                    if (rating === 0.5) feedback.textContent = "Not for me.";
+                    else if (rating === 1.5) feedback.textContent = "Drinkable.";
+                    else if (rating === 2.5) feedback.textContent = "Acceptable.";
+                    else if (rating === 3.5) feedback.textContent = "Very good.";
+                    else if (rating === 4.5) feedback.textContent = "Excellent!";
+                    else {
+                        feedback.textContent = feedbackMessages[rating] || '';
+                    }
+                } else {
+                    feedback.textContent = '';
+                }
+            });
+
+            selector.addEventListener('click', (e) => {
+                const target = e.target.closest('span');
+                if (!target) return;
+                const rect = target.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const value = parseInt(target.dataset.value);
+                let finalRating = value;
+
+                if (x < rect.width / 2) {
+                    finalRating -= 0.5;
+                }
+
+                selector.querySelectorAll('span').forEach(star => {
+                    star.dataset.rated = 'false';
+                    star.classList.remove('rated', 'rated-half');
+                });
+                
+                if (finalRating > 0) {
+                    const ratedStar = selector.querySelector(`[data-value="${Math.ceil(finalRating)}"]`);
+                    ratedStar.dataset.rated = 'true';
+                    
+                    for (let i = 1; i <= Math.floor(finalRating); i++) {
+                         selector.querySelector(`[data-value="${i}"]`).classList.add('rated');
+                    }
+
+                    if (finalRating % 1 !== 0) {
+                        ratedStar.classList.add('rated-half');
+                    }
+                    
+                    if (finalRating === 0.5) feedback.textContent = "Not for me.";
+                    else if (finalRating === 1.5) feedback.textContent = "Drinkable.";
+                    else if (finalRating === 2.5) feedback.textContent = "Acceptable.";
+                    else if (finalRating === 3.5) feedback.textContent = "Very good.";
+                    else if (finalRating === 4.5) feedback.textContent = "Excellent!";
+                    else {
+                        feedback.textContent = feedbackMessages[finalRating] || '';
+                    }
+                }
+            });
+        }
+
+
+        // --- Maintenance Buttons ---
+        document.getElementById('reinitializeDbButton').addEventListener('click', () => {
+            openConfirmModal(
+                'Are you sure you want to reset the database?',
+                'This action will permanently delete all your wine data. This cannot be undone.',
+                async () => {
+                    const messageEl = document.getElementById('reinitializeDbMessage');
+                    messageEl.textContent = 'Resetting database...';
+                    messageEl.classList.remove('hidden');
+                    try {
+                        const response = await fetch(`${API_URL}/reinitialize-db`, { method: 'POST' });
+                        const result = await response.json();
+                        if (response.ok) {
+                            messageEl.textContent = 'Database reset successfully!';
+                            fetchInventory();
+                        } else {
+                            messageEl.textContent = `Error: ${result.error}`;
+                        }
+                    } catch (error) {
+                        messageEl.textContent = `An unexpected error occurred: ${error.message}`;
+                    }
+                }
+            );
+        });
+
+        document.getElementById('syncAllWinesButton').addEventListener('click', async () => {
+            const messageEl = document.getElementById('syncMessage');
+            messageEl.textContent = 'Syncing...';
+            messageEl.classList.remove('hidden');
+            try {
+                const response = await fetch(`${API_URL}/sync-all-wines`, { method: 'POST' });
+                const result = await response.json();
+                if (response.ok) {
+                    messageEl.textContent = 'Sync completed successfully!';
+                } else {
+                    messageEl.textContent = `Error: ${result.error}`;
+                }
+            } catch (error) {
+                messageEl.textContent = `An unexpected error occurred: ${error.message}`;
+            }
+        });
+
+        // --- Theme Toggle and Sort Functionality ---
         const themeToggle = document.getElementById('themeToggle');
         const themeIcon = document.getElementById('themeIcon');
         const themeText = document.getElementById('themeText');
+
         function enableDarkMode() {
             document.body.classList.add('dark-theme');
             localStorage.setItem('theme', 'dark');
             themeIcon.textContent = '🌙';
             themeText.textContent = 'Dark';
         }
+
         function enableLightMode() {
             document.body.classList.remove('dark-theme');
             localStorage.setItem('theme', 'light');
@@ -916,8 +1078,39 @@
             }
         });
 
+        const sortSelect = document.getElementById('sortSelect');
+        const sortDirectionToggle = document.getElementById('sortDirectionToggle');
+        const sortAscIcon = document.getElementById('sortAscIcon');
+        const sortDescIcon = document.getElementById('sortDescIcon');
+
+        function updateSortIcons() {
+            if (currentSortDirection === 'asc') {
+                sortAscIcon.classList.remove('hidden');
+                sortDescIcon.classList.add('hidden');
+            } else {
+                sortAscIcon.classList.add('hidden');
+                sortDescIcon.classList.remove('hidden');
+            }
+        }
+
+        sortSelect.addEventListener('change', (e) => {
+            currentSortBy = e.target.value;
+            fetchInventory();
+        });
+
+        sortDirectionToggle.addEventListener('click', () => {
+            currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+            updateSortIcons();
+            fetchInventory();
+        });
+
+        document.getElementById('helpButton').addEventListener('click', openHelpModal);
+        document.getElementById('openEntryModalBtn').addEventListener('click', openManualEntryModal);
+
         document.addEventListener('DOMContentLoaded', () => {
             updateSortIcons();
+            setupCostTierSelectors();
+            setupTasteRatingSelector();
             const savedTheme = localStorage.getItem('theme');
             if (savedTheme === 'dark') {
                 enableDarkMode();
