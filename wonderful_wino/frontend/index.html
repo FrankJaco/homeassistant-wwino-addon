@@ -375,27 +375,47 @@
             </form>
         </div>
     </div>
-    <div id="tasteModal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <h3 class="text-xl font-semibold mb-2">Consume Wine</h3>
-            <p id="tasteModalWineName" class="mb-4 text-gray-700"></p>
-            <form id="tasteForm">
-                <input type="hidden" id="tasteVivinoUrl">
-                <label class="block text-sm font-medium mb-2">How did it taste? (Optional)</label>
-                <div id="tasteRatingSelector" class="flex text-4xl text-gray-400 cursor-pointer">
-                    <span data-value="1">☆</span>
-                    <span data-value="2">☆</span>
-                    <span data-value="3">☆</span>
-                    <span data-value="4">☆</span>
-                    <span data-value="5">☆</span>
-                </div>
-                <p id="tasteRatingFeedback" class="text-sm text-center h-6 mb-4"></p> <div class="mt-6 flex justify-end gap-4">
-                     <button type="button" onclick="closeTasteModal()" class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Cancel</button>
-                    <button type="submit" class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Consume</button>
-                </div>
-            </form>
-        </div>
-    </div>
+    	<div id="tasteModal" class="modal-overlay hidden">
+		<div class="modal-content">
+			<h3 class="text-xl font-semibold mb-2">Consume Wine</h3>
+
+			<p id="tasteModalWineName" class="mb-4 text-gray-700"></p>
+
+			<form id="tasteForm">
+				<input type="hidden" id="tasteVivinoUrl" name="tasteVivinoUrl">
+
+				<label class="block text-sm font-medium mb-2">How did it taste? (Optional)</label>
+
+				<div id="tasteRatingSelector" class="flex text-4xl text-gray-400 cursor-pointer">
+					<span data-value="1">☆</span>
+					<span data-value="2">☆</span>
+					<span data-value="3">☆</span>
+					<span data-value="4">☆</span>
+					<span data-value="5">☆</span>
+				</div>
+
+				<p id="tasteRatingFeedback" class="text-sm text-center h-6 mb-4"></p>
+
+				<div class="mt-6 flex justify-end gap-4">
+					<button 
+						type="button" 
+						onclick="closeTasteModal()" 
+						class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300"
+					>
+						Cancel
+					</button>
+
+					<button 
+						type="submit" 
+						class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700"
+					>
+						Consume
+					</button>
+				</div>
+			</form>
+		</div>
+	</div>
+
     <script>
         let BASE_URL = '';
         if (typeof window !== 'undefined' && typeof window.__ingress_url !== 'undefined' && window.__ingress_url !== '') {
