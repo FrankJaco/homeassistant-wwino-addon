@@ -113,32 +113,31 @@
             width: 100%;
         }
 
-
         /* Custom styles to ensure Inter font is applied universally and for basic body reset */
         body {
             font-family: 'Inter', sans-serif;
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            background-color: var(--bg-color); /* Use CSS variable */
-            color: var(--text-color); /* Use CSS variable */
-            transition: background-color 0.3s ease, color 0.3s ease; /* Smooth transition */
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
         /* Style for wine details in the table */
         .wine-details-cell h4 {
-            font-weight: 600; /* Semi-bold for wine name */
+            font-weight: 600;
             margin-bottom: 0.25rem;
-            color: var(--header-color); /* Use CSS variable */
+            color: var(--header-color);
         }
         .wine-details-cell p {
             margin-top: 0.25rem;
             margin-bottom: 0.25rem;
             line-height: 1.3;
-            color: var(--text-color); /* Use CSS variable */
+            color: var(--text-color);
         }
         .wine-details-cell strong {
-            font-weight: 700; /* Bold for important text */
-            color: var(--accent-color); /* Use CSS variable */
+            font-weight: 700;
+            color: var(--accent-color);
         }
 
         /* Apply theme variables to other elements */
@@ -417,7 +416,6 @@
         </div>
     </div>
 
-
     <script>
         let BASE_URL = '';
         if (typeof window !== 'undefined' && typeof window.__ingress_url !== 'undefined' && window.__ingress_url !== '') {
@@ -625,7 +623,7 @@
             }
         });
 
-        async function consumeWine(vivinoUrl) {
+        function consumeWine(vivinoUrl) {
             const wine = currentInventory.find(w => w.vivino_url === vivinoUrl);
             if (wine) {
                 openTasteModal(wine);
@@ -698,6 +696,7 @@
             this.reset();
         });
 
+        // --- Modal Functionality ---
         const helpModal = document.getElementById('helpModal');
         const entryModal = document.getElementById('entryModal');
         
@@ -716,7 +715,8 @@
             document.getElementById('entryModalTitle').textContent = 'Add Wine Manually';
             document.getElementById('entrySubmitBtn').textContent = 'Add Wine';
             updateCostTierSelector(null);
-            updateEditTasteStars(null); // Also reset edit taste stars
+            updateStarVisuals(document.getElementById('editTasteRatingSelector'), 0, 'rated');
+            updateFeedbackText(document.getElementById('editTasteRatingFeedback'), 0);
             entryModal.classList.remove('hidden');
         }
         function openEditModal(wine) {
@@ -729,7 +729,12 @@
             document.getElementById('manualCountryInput').value = wine.country !== 'Unknown Country' ? wine.country : '';
             document.getElementById('manualQuantityInput').value = wine.quantity;
             updateCostTierSelector(wine.cost_tier);
-            updateEditTasteStars(wine.personal_rating); // Populate taste stars
+            
+            const rating = wine.personal_rating || 0;
+            document.getElementById('manualTasteRatingInput').value = rating;
+            updateStarVisuals(document.getElementById('editTasteRatingSelector'), rating, 'rated');
+            updateFeedbackText(document.getElementById('editTasteRatingFeedback'), rating);
+
             document.getElementById('entryModalTitle').textContent = 'Edit Wine';
             document.getElementById('entrySubmitBtn').textContent = 'Save Changes';
             entryModal.classList.remove('hidden');
@@ -744,55 +749,32 @@
             document.getElementById('manualVintageInput').value = '';
             document.getElementById('manualQuantityInput').value = 1;
             updateCostTierSelector(wine.cost_tier);
-            updateEditTasteStars(null); // Do not carry over taste rating for a new vintage
+            updateStarVisuals(document.getElementById('editTasteRatingSelector'), 0, 'rated');
+            updateFeedbackText(document.getElementById('editTasteRatingFeedback'), 0);
             document.getElementById('entryModalTitle').textContent = 'Duplicate Wine';
             document.getElementById('entrySubmitBtn').textContent = 'Add Wine';
             entryModal.classList.remove('hidden');
             document.getElementById('manualVintageInput').focus();
         }
-
+        
         // --- Taste Modal JS ---
-        const tasteModal = document.getElementById('tasteModal');
-        const tasteForm = document.getElementById('tasteForm');
-        const tasteRatingSelector = document.getElementById('tasteRatingSelector');
-        const tasteRatingInput = document.getElementById('tasteRatingInput');
-        const tasteVivinoUrlInput = document.getElementById('tasteVivinoUrl');
-        const tasteModalWineName = document.getElementById('tasteModalWineName');
-        const tasteRatingFeedback = document.getElementById('tasteRatingFeedback');
-
         function openTasteModal(wine) {
+            const tasteModal = document.getElementById('tasteModal');
+            const tasteVivinoUrlInput = document.getElementById('tasteVivinoUrl');
+            const tasteModalWineName = document.getElementById('tasteModalWineName');
+            const tasteRatingSelector = document.getElementById('tasteRatingSelector');
+            const tasteRatingInput = document.getElementById('tasteRatingInput');
+            const tasteRatingFeedback = document.getElementById('tasteRatingFeedback');
+            
             tasteVivinoUrlInput.value = wine.vivino_url;
             tasteModalWineName.textContent = `${wine.name} (${wine.vintage || 'NV'})`;
             resetTasteStars(tasteRatingSelector, tasteRatingInput, tasteRatingFeedback);
             tasteModal.classList.remove('hidden');
         }
-
         function closeTasteModal() {
-            tasteModal.classList.add('hidden');
-            tasteForm.reset();
+            document.getElementById('tasteModal').classList.add('hidden');
+            document.getElementById('tasteForm').reset();
         }
-        
-        tasteForm.addEventListener('submit', async function(event) {
-            event.preventDefault();
-            const vivinoUrl = tasteVivinoUrlInput.value;
-            const rating = tasteRatingInput.value ? parseFloat(tasteRatingInput.value) : null;
-            try {
-                const response = await fetch(`${BASE_URL}inventory/wine/consume`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ vivino_url: vivinoUrl, personal_rating: rating })
-                });
-                const result = await response.json();
-                if (!response.ok) throw new Error(result.error || 'Failed to consume wine');
-                
-                showMessage('inventoryMessage', 'Wine consumed successfully!');
-                closeTasteModal();
-                fetchInventory();
-
-            } catch (error) {
-                showMessage('inventoryMessage', `Error: ${error.message}`, 'error');
-            }
-        });
         
         // --- Shared Star Rating Logic ---
         function setupStarRating(selectorEl, inputEl, feedbackEl) {
@@ -820,10 +802,13 @@
                 const isHalf = (e.clientX - starRect.left) < (starRect.width / 2);
                 const rating = parseInt(star.dataset.value, 10) - (isHalf ? 0.5 : 0);
                 
-                inputEl.value = rating;
-                updateStarVisuals(selectorEl, rating, 'rated');
-                updateFeedbackText(feedbackEl, rating);
+                const currentValue = parseFloat(inputEl.value) || 0;
+                // Toggle off if clicking the same rating again
+                inputEl.value = (currentValue === rating) ? '' : rating;
+                const newRating = parseFloat(inputEl.value) || 0;
                 
+                updateStarVisuals(selectorEl, newRating, 'rated');
+                updateFeedbackText(feedbackEl, newRating);
             });
         }
         
@@ -840,9 +825,9 @@
         }
         
         function updateFeedbackText(feedbackEl, rating) {
-            if (rating > 0) {
-                feedbackEl.textContent = `${rating} star${rating > 1 ? 's' : ''}`;
-            } else {
+            if (feedbackEl && rating > 0) {
+                feedbackEl.textContent = `${rating} star${rating !== 1 ? 's' : ''}`;
+            } else if (feedbackEl) {
                 feedbackEl.textContent = '';
             }
         }
@@ -856,48 +841,140 @@
         // --- Cost Tier Logic ---
         const costTierSelector = document.getElementById('costTierSelector');
         const manualCostTierInput = document.getElementById('manualCostTierInput');
-        costTierSelector.addEventListener('click', (e) => { /* ... existing code ... */ });
-        function updateCostTierSelector(selectedValue) { /* ... existing code ... */ }
+        costTierSelector.addEventListener('click', (e) => {
+            if (e.target.matches('span')) {
+                const value = e.target.dataset.value;
+                const currentValue = manualCostTierInput.value;
+                const newValue = (currentValue === value) ? '' : value;
+                updateCostTierSelector(newValue);
+            }
+        });
+        function updateCostTierSelector(selectedValue) {
+            manualCostTierInput.value = selectedValue || '';
+            costTierSelector.querySelectorAll('span').forEach(span => {
+                span.classList.toggle('selected', span.dataset.value == selectedValue);
+            });
+        }
+
         const mainCostTierSelector = document.getElementById('mainCostTierSelector');
         const mainCostTierInput = document.getElementById('mainCostTierInput');
-        mainCostTierSelector.addEventListener('click', (e) => { /* ... existing code ... */ });
-        function updateMainCostTierSelector(selectedValue) { /* ... existing code ... */ }
+        mainCostTierSelector.addEventListener('click', (e) => {
+            if (e.target.matches('span')) {
+                const value = e.target.dataset.value;
+                const currentValue = mainCostTierInput.value;
+                mainCostTierInput.value = (currentValue === value) ? '' : value;
+                updateMainCostTierSelector(mainCostTierInput.value);
+            }
+        });
+        function updateMainCostTierSelector(selectedValue) {
+            mainCostTierInput.value = selectedValue || '';
+            mainCostTierSelector.querySelectorAll('span').forEach(span => {
+                span.classList.toggle('selected', span.dataset.value == selectedValue);
+            });
+        }
 
         // --- Sort Controls ---
         const sortSelect = document.getElementById('sortSelect');
         const sortDirectionToggle = document.getElementById('sortDirectionToggle');
         const sortAscIcon = document.getElementById('sortAscIcon');
         const sortDescIcon = document.getElementById('sortDescIcon');
-        function updateSortIcons() { /* ... existing code ... */ }
-        sortSelect.addEventListener('change', (event) => { /* ... existing code ... */ });
-        sortDirectionToggle.addEventListener('click', () => { /* ... existing code ... */ });
+        function updateSortIcons() {
+            sortAscIcon.classList.toggle('hidden', currentSortDirection === 'desc');
+            sortDescIcon.classList.toggle('hidden', currentSortDirection === 'asc');
+        }
+        sortSelect.addEventListener('change', (event) => {
+            currentSortBy = event.target.value;
+            applySortAndDisplayInventory();
+        });
+        sortDirectionToggle.addEventListener('click', () => {
+            currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+            updateSortIcons();
+            applySortAndDisplayInventory();
+        });
 
         // --- Theme Toggling Logic ---
         const themeToggle = document.getElementById('themeToggle');
         const themeIcon = document.getElementById('themeIcon');
         const themeText = document.getElementById('themeText');
-        function enableDarkMode() { /* ... existing code ... */ }
-        function enableLightMode() { /* ... existing code ... */ }
-        themeToggle.addEventListener('click', () => { /* ... existing code ... */ });
+        function enableDarkMode() {
+            document.body.classList.add('dark-theme');
+            localStorage.setItem('theme', 'dark');
+            themeIcon.textContent = '🌙';
+            themeText.textContent = 'Dark';
+        }
+        function enableLightMode() {
+            document.body.classList.remove('dark-theme');
+            localStorage.setItem('theme', 'light');
+            themeIcon.textContent = '☀️';
+            themeText.textContent = 'Light';
+        }
+        themeToggle.addEventListener('click', () => {
+             if (document.body.classList.contains('dark-theme')) {
+                enableLightMode();
+            } else {
+                enableDarkMode();
+            }
+        });
         
         // --- Filter Logic ---
         const filterContainer = document.getElementById('inventory-filters');
         const inventoryHeading = document.getElementById('inventory-heading');
-        filterContainer.addEventListener('click', (e) => { /* ... existing code ... */ });
+        filterContainer.addEventListener('click', (e) => {
+            if (e.target.matches('.filter-button')) {
+                currentFilter = e.target.dataset.filter;
+                filterContainer.querySelectorAll('.filter-button').forEach(btn => btn.classList.remove('active'));
+                e.target.classList.add('active');
+                const headingText = `Wine ${currentFilter.replace('_', ' ')}`;
+                inventoryHeading.textContent = headingText.charAt(0).toUpperCase() + headingText.slice(1);
+                fetchInventory();
+            }
+        });
 
         // --- Page Load ---
         document.addEventListener('DOMContentLoaded', () => {
-            updateSortIcons();
-            const savedTheme = localStorage.getItem('theme');
-            if (savedTheme === 'dark') { enableDarkMode(); } else { enableLightMode(); }
-
-            // Setup star rating systems
+            // Moved all element lookups inside here to prevent crash
+            const tasteForm = document.getElementById('tasteForm');
+            const tasteRatingSelector = document.getElementById('tasteRatingSelector');
+            const tasteRatingInput = document.getElementById('tasteRatingInput');
+            const tasteRatingFeedback = document.getElementById('tasteRatingFeedback');
             const editTasteRatingSelector = document.getElementById('editTasteRatingSelector');
             const manualTasteRatingInput = document.getElementById('manualTasteRatingInput');
             const editTasteRatingFeedback = document.getElementById('editTasteRatingFeedback');
+
+            updateSortIcons();
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') {
+                enableDarkMode();
+            } else {
+                enableLightMode();
+            }
             
+            // Setup star rating systems
             setupStarRating(tasteRatingSelector, tasteRatingInput, tasteRatingFeedback);
             setupStarRating(editTasteRatingSelector, manualTasteRatingInput, editTasteRatingFeedback);
+            
+            // Setup Taste Modal form submission
+            tasteForm.addEventListener('submit', async function(event) {
+                event.preventDefault();
+                const vivinoUrl = document.getElementById('tasteVivinoUrl').value;
+                const rating = tasteRatingInput.value ? parseFloat(tasteRatingInput.value) : null;
+                try {
+                    const response = await fetch(`${BASE_URL}inventory/wine/consume`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ vivino_url: vivinoUrl, personal_rating: rating })
+                    });
+                    const result = await response.json();
+                    if (!response.ok) throw new Error(result.error || 'Failed to consume wine');
+                    
+                    showMessage('inventoryMessage', 'Wine consumed successfully!');
+                    closeTasteModal();
+                    fetchInventory();
+
+                } catch (error) {
+                    showMessage('inventoryMessage', `Error: ${error.message}`, 'error');
+                }
+            });
 
             fetchInventory();
         });

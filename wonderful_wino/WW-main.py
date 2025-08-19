@@ -1090,14 +1090,14 @@ def edit_wine():
             # Temporarily sync with 0 quantity to ensure the old item is removed from HA
             sync_to_ha_todo(old_wine_dict, 0)
         else:
-            # If for some reason the wine isn't found, we can't proceed
             logger.error(f"Could not find wine with URL {vivino_url} to edit.")
             return jsonify({"status": "error", "message": "Wine to edit not found."}), 404
 
         # Now, update the database with the new details
         cursor.execute('''
             UPDATE wines 
-            SET name = ?, vintage = ?, varietal = ?, region = ?, country = ?, quantity = ?, cost_tier = ?
+            SET name = ?, vintage = ?, varietal = ?, region = ?, country = ?, 
+                quantity = ?, cost_tier = ?, personal_rating = ?
             WHERE vivino_url = ?
         ''', (
             data['name'],
@@ -1106,10 +1106,13 @@ def edit_wine():
             data.get('region') or "Unknown Region",
             data.get('country') or "Unknown Country",
             data['quantity'],
-            data.get('cost_tier'), # Added cost_tier
+            data.get('cost_tier'),
+            data.get('personal_rating'), # Added personal_rating
             vivino_url
         ))
-        conn.commit()        # Fetch the newly updated record to sync it back to HA
+        conn.commit()
+
+        # Fetch the newly updated record to sync it back to HA
         cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url,))
         updated_wine_row = cursor.fetchone()
         if updated_wine_row:
