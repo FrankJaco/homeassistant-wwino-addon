@@ -80,36 +80,31 @@
 
         /* Styles for the new Taste Rating selector */
         #tasteRatingSelector {
-            --star-color-empty: #d1d5db; 
-            --star-color-filled: #f59e0b; /* amber */
+            --star-color: #d1d5db; /* color of empty star */
+            --star-color-filled: #f59e0b; /* color of filled star (amber) */
         }
         #tasteRatingSelector span {
             position: relative;
-            color: var(--star-color-empty);
+            color: var(--star-color);
             transition: color 0.2s;
         }
-        /* This is the full, colored star that overlays the empty one */
         #tasteRatingSelector span::before {
             position: absolute;
-            content: "⭐"; /* The filled star character */
+            content: "⭐";
             top: 0;
             left: 0;
+            width: 50%;
+            overflow: hidden;
             color: var(--star-color-filled);
-            opacity: 0; /* Hidden by default */
-            transition: opacity 0.2s;
+            opacity: 0;
         }
-        /* This creates the half-star effect by clipping the overlay */
+        #tasteRatingSelector span.hover,
+        #tasteRatingSelector span.rated {
+            color: var(--star-color-filled);
+        }
         #tasteRatingSelector span.hover-half::before,
         #tasteRatingSelector span.rated-half::before {
             opacity: 1;
-            width: 50%;
-            overflow: hidden;
-        }
-        /* This creates the full-star effect by showing the full overlay */
-        #tasteRatingSelector span.hover::before,
-        #tasteRatingSelector span.rated::before {
-            opacity: 1;
-            width: 100%;
         }
 
 
@@ -382,45 +377,26 @@
     </div>
     
     <div id="tasteModal" class="modal-overlay hidden">
-
         <div class="modal-content">
-
             <h3 class="text-xl font-semibold mb-2">Consume Wine</h3>
-
             <p id="tasteModalWineName" class="mb-4 text-gray-700"></p>
-
             <form id="tasteForm">
-
                 <input type="hidden" id="tasteVivinoUrl">
-
                 <label class="block text-sm font-medium mb-2">How did it taste? (Optional)</label>
-
-                <div id="tasteRatingSelector" class="flex text-4xl text-gray-400 cursor-pointer">
-
-                    <span data-value="1">☆</span>
-
-                    <span data-value="2">☆</span>
-
-                    <span data-value="3">☆</span>
-
-                    <span data-value="4">☆</span>
-
-                    <span data-value="5">☆</span>
-
+                <div id="tasteRatingSelector" class="flex text-4xl text-gray-400 cursor-pointer mb-6">
+                    <span data-value="1">⭐</span>
+                    <span data-value="2">⭐</span>
+                    <span data-value="3">⭐</span>
+                    <span data-value="4">⭐</span>
+                    <span data-value="5">⭐</span>
                 </div>
-
-                <p id="tasteRatingFeedback" class="text-sm text-center h-6 mb-4"></p> <div class="mt-6 flex justify-end gap-4">
-
+                <input type="hidden" id="tasteRatingInput">
+                <div class="mt-6 flex justify-end gap-4">
                      <button type="button" onclick="closeTasteModal()" class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Cancel</button>
-
                     <button type="submit" class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Consume</button>
-
                 </div>
-
             </form>
-
         </div>
-
     </div>
 
 
@@ -758,14 +734,12 @@
             document.getElementById('manualVintageInput').focus();
         }
 
-                // --- START: New functions for Taste Rating Modal ---
         const tasteModal = document.getElementById('tasteModal');
         const tasteForm = document.getElementById('tasteForm');
         const tasteRatingSelector = document.getElementById('tasteRatingSelector');
         const tasteRatingInput = document.getElementById('tasteRatingInput');
         const tasteVivinoUrlInput = document.getElementById('tasteVivinoUrl');
         const tasteModalWineName = document.getElementById('tasteModalWineName');
-        const tasteRatingFeedback = document.getElementById('tasteRatingFeedback');
 
         function openTasteModal(wine) {
             tasteVivinoUrlInput.value = wine.vivino_url;
@@ -782,7 +756,7 @@
         function updateTasteStars(rating) {
             tasteRatingSelector.querySelectorAll('span').forEach((star, index) => {
                 const starValue = index + 1;
-                star.className = ''; // Reset classes
+                star.className = '';
                 if (rating >= starValue) {
                     star.classList.add('rated');
                 } else if (rating > index && rating < starValue) {
@@ -790,31 +764,19 @@
                 }
             });
         }
-        
-        function updateFeedbackText(rating) {
-            if (rating > 0) {
-                tasteRatingFeedback.textContent = `${rating} star${rating > 1 ? 's' : ''}`;
-            } else {
-                tasteRatingFeedback.textContent = '';
-            }
-        }
 
         function resetTasteStars() {
             tasteRatingInput.value = '';
             updateTasteStars(0);
-            updateFeedbackText(0);
         }
 
         tasteRatingSelector.addEventListener('mousemove', e => {
             if (!e.target.matches('span')) return;
-
             const star = e.target;
             const starRect = star.getBoundingClientRect();
             const isHalf = (e.clientX - starRect.left) < (starRect.width / 2);
             const rating = parseInt(star.dataset.value, 10) - (isHalf ? 0.5 : 0);
             
-            updateFeedbackText(rating); // Update text on hover
-
             tasteRatingSelector.querySelectorAll('span').forEach((s, index) => {
                 const starValue = index + 1;
                 s.className = '';
@@ -829,12 +791,10 @@
         tasteRatingSelector.addEventListener('mouseleave', () => {
             const currentRating = parseFloat(tasteRatingInput.value) || 0;
             updateTasteStars(currentRating);
-            updateFeedbackText(currentRating); // Reset text to saved rating
         });
 
         tasteRatingSelector.addEventListener('click', e => {
             if (!e.target.matches('span')) return;
-
             const star = e.target;
             const starRect = star.getBoundingClientRect();
             const isHalf = (e.clientX - starRect.left) < (starRect.width / 2);
@@ -842,7 +802,6 @@
             
             tasteRatingInput.value = rating;
             updateTasteStars(rating);
-            updateFeedbackText(rating); // Update text on click
         });
 
         tasteForm.addEventListener('submit', async function(event) {
@@ -857,17 +816,6 @@
                     body: JSON.stringify({ vivino_url: vivinoUrl, personal_rating: rating })
                 });
                 const result = await response.json();
-                if (!response.ok) throw new Error(result.error || 'Failed to consume wine');
-                
-                showMessage('inventoryMessage', 'Wine consumed successfully!');
-                closeTasteModal();
-                fetchInventory();
-
-            } catch (error) {
-                showMessage('inventoryMessage', `Error: ${error.message}`, 'error');
-            }
-        });
-        // --- END: New functions for Taste Rating Modal ---const result = await response.json();
                 if (!response.ok) throw new Error(result.error || 'Failed to consume wine');
                 
                 showMessage('inventoryMessage', 'Wine consumed successfully!');
