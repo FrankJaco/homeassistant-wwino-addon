@@ -377,6 +377,38 @@ def sync_to_ha_todo(wine: dict, current_quantity: int) -> None:
     else:
         logger.info(f"Wine quantity is 0. Item not re-added to HA To-Do: {item_text}")
 
+def create_ha_notification(wine: dict):
+    """
+    Creates a persistent notification in Home Assistant to prompt for a wine rating.
+    """
+    logger.info(f"Attempting to create HA notification for {wine.get('name')}")
+    
+    # Create a unique ID for the notification to prevent duplicates
+    notification_id = f"wine_rating_{wine.get('id')}"
+    
+    title = "Rate Your Wine"
+    message = (
+        f"How was the '{wine.get('name')} ({wine.get('vintage', 'NV')})' you just finished?\n\n"
+        f"[Rate It](/lovelace/wine-rating?vivino_url={wine.get('vivino_url')})"
+    )
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+    url = f"{HOME_ASSISTANT_URL}/api/services/persistent_notification/create"
+    payload = {
+        "notification_id": notification_id,
+        "title": title,
+        "message": message
+    }
+
+    try:
+        resp = requests.post(url, json=payload, headers=headers, timeout=5)
+        resp.raise_for_status()
+        logger.info(f"Successfully created HA persistent notification for {wine.get('name')}")
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Failed to create HA persistent notification: {e}")
 
 def clear_ha_todo_list() -> None:
     """
@@ -1580,7 +1612,7 @@ def consume_wine_from_webhook():
     """
     Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
     Parses the wine name and vintage from the item, decrements its quantity in the DB,
-    and updates the To-Do list.
+    and creates a notification if the last bottle was consumed.
     """
     try:
         data = request.get_json()
@@ -1591,7 +1623,6 @@ def consume_wine_from_webhook():
         item_text = data["item"]
         logger.info(f"Webhook received for consumed wine: {item_text}")
 
-        # The item_text from HA will now be "Wine Name (Vintage)" (no 'xN')
         parsed_name = None
         parsed_vintage = None
 
@@ -1610,10 +1641,9 @@ def consume_wine_from_webhook():
         vintage = parsed_vintage
 
         conn = sqlite3.connect(DB_PATH)
-        conn.row_factory = sqlite3.Row # To access columns by name
+        conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         try:
-            # Find the wine record
             if vintage is not None:
                 query = "SELECT * FROM wines WHERE name = ? AND vintage = ?"
                 params = (name, vintage)
@@ -1631,13 +1661,15 @@ def consume_wine_from_webhook():
                 if current_db_quantity > 0:
                     new_quantity = current_db_quantity - 1
 
-                    # PHASE 1 CHANGE: Update quantity to 0 instead of deleting
                     cursor.execute("UPDATE wines SET quantity = ? WHERE id = ?", (new_quantity, wine_data_dict['id']))
                     conn.commit()
                     
                     logger.info(f"Decremented quantity for '{name} ({vintage or 'NV'})' to {new_quantity}")
-                    # Sync with HA, which will remove the item if new_quantity is 0
-                    sync_to_ha_todo(wine_data_dict, new_quantity)
+                    
+                    # If the last bottle was just consumed, create a notification
+                    if new_quantity == 0:
+                        create_ha_notification(wine_data_dict)
+
                     return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
                 else:
                     logger.warning(f"Quantity already 0 for '{name} ({vintage or 'NV'})'. No decrement performed.")
@@ -1654,7 +1686,6 @@ def consume_wine_from_webhook():
     except Exception as e:
         logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
         return jsonify({"status": "error", "message": "An internal error occurred while processing the webhook."}), 500
-
 
 @app.route('/inventory/wine/consume', methods=['POST'])
 def consume_wine():
