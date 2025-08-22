@@ -1843,6 +1843,72 @@ def rate_wine():
         if conn:
             conn.close()
 
+@app.route('/lovelace/wine-rating')
+def serve_rating_card():
+    """Serves the dedicated wine rating HTML file."""
+    return send_from_directory("frontend", "rating.html")
+
+@app.route('/api/wine-details', methods=['GET'])
+def get_wine_details():
+    """Endpoint to get details for a single wine by its Vivino URL."""
+    vivino_url = request.args.get('vivino_url')
+    if not vivino_url:
+        return jsonify({"error": "vivino_url parameter is required"}), 400
+
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT name, vintage FROM wines WHERE vivino_url = ?", (vivino_url,))
+        wine = cursor.fetchone()
+        if wine:
+            return jsonify(dict(wine)), 200
+        else:
+            return jsonify({"error": "Wine not found"}), 404
+    except sqlite3.Error as e:
+        logger.error(f"Database error fetching wine details: {e}")
+        return jsonify({"error": "Database error"}), 500
+    finally:
+        conn.close()
+
+@app.route('/api/dismiss-notification', methods=['POST'])
+def dismiss_ha_notification():
+    """Dismisses the persistent notification in Home Assistant after a rating."""
+    data = request.get_json()
+    vivino_url = data.get('vivino_url')
+    if not vivino_url:
+        return jsonify({"status": "error", "message": "Missing 'vivino_url'"}), 400
+
+    # We need the wine's database ID to construct the notification ID
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM wines WHERE vivino_url = ?", (vivino_url,))
+    wine_row = cursor.fetchone()
+    conn.close()
+
+    if not wine_row:
+        logger.warning(f"Could not find wine ID for {vivino_url} to dismiss notification.")
+        return jsonify({"status": "error", "message": "Wine not found to dismiss notification"}), 404
+
+    wine_id = wine_row[0]
+    notification_id = f"wine_rating_{wine_id}"
+
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+    url = f"{HOME_ASSISTANT_URL}/api/services/persistent_notification/dismiss"
+    payload = {"notification_id": notification_id}
+
+    try:
+        resp = requests.post(url, json=payload, headers=headers, timeout=5)
+        resp.raise_for_status()
+        logger.info(f"Successfully dismissed HA notification: {notification_id}")
+        return jsonify({"status": "success"}), 200
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Failed to dismiss HA persistent notification: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route("/sync-all-wines", methods=["POST"])
 def sync_all_wines_to_ha():
     """
