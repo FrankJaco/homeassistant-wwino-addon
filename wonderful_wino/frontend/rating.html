@@ -62,15 +62,16 @@
 
     <script>
         let BASE_URL = '';
-        if (typeof window !== 'undefined' && typeof window.__ingress_url !== 'undefined' && window.__ingress_url !== '') {
-            BASE_URL = window.__ingress_url;
-        } else {
-            const pathParts = window.location.pathname.split('/');
-            if (pathParts.length > 0 && pathParts[pathParts.length - 1].includes('.')) { pathParts.pop(); }
-            // Go up one level for the rating card to get to the addon's root path
-            pathParts.pop(); 
-            BASE_URL = pathParts.join('/');
-            if (BASE_URL !== '' && !BASE_URL.endsWith('/')) { BASE_URL += '/'; }
+        const pathParts = window.location.pathname.split('/');
+        // Find the index of the addon slug in the URL
+        const slugIndex = pathParts.findIndex(part => part.includes('wonderful-wino'));
+        if (slugIndex !== -1) {
+            // Reconstruct the base URL up to and including the slug
+            BASE_URL = pathParts.slice(0, slugIndex + 1).join('/');
+        }
+        // Ensure it ends with a slash for proper API calls
+        if (BASE_URL !== '' && !BASE_URL.endsWith('/')) {
+            BASE_URL += '/';
         }
         console.log('Calculated BASE_URL for rating card:', BASE_URL);
 
