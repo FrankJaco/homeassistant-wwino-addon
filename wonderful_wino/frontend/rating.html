@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rate Your Wine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #f8f5ed; --text-color: #333; --header-color: #4a0e4e;
+            --accent-color: #6b21a8; --card-bg: white; --border-color: #e5e7eb;
+            --button-primary-bg: #8b5cf6; --button-primary-hover-bg: #7c3aed;
+        }
+        .dark-theme {
+            --bg-color: #2d3748; --text-color: #e2e8f0; --header-color: #b794f4;
+            --accent-color: #9f7aea; --card-bg: #4a5568; --border-color: #6b7280;
+            --button-primary-bg: #9f7aea; --button-primary-hover-bg: #b794f4;
+        }
+        body {
+            font-family: 'Inter', sans-serif; background-color: var(--bg-color); color: var(--text-color);
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        .taste-rating-selector {
+            --star-color-empty: #d1d5db; --star-color-filled: #f59e0b;
+        }
+        .taste-rating-selector span { position: relative; color: var(--star-color-empty); cursor: pointer; transition: color 0.2s; }
+        .taste-rating-selector span::before { position: absolute; content: "⭐"; top: 0; left: 0; color: var(--star-color-filled); opacity: 0; transition: opacity 0.2s; }
+        .taste-rating-selector span.hover-half::before, .taste-rating-selector span.rated-half::before { opacity: 1; width: 50%; overflow: hidden; }
+        .taste-rating-selector span.hover::before, .taste-rating-selector span.rated::before { opacity: 1; width: 100%; }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <main id="ratingCard" class="w-full max-w-md bg-white p-8 rounded-lg shadow-xl" style="background-color: var(--card-bg);">
+        <div id="loadingState" class="text-center">
+            <p class="text-lg animate-pulse">Loading Wine Details...</p>
+        </div>
+
+        <div id="ratingState" class="hidden">
+            <h1 class="text-2xl font-bold text-center mb-2" style="color: var(--header-color);">Rate Your Wine</h1>
+            <p id="wineNameToRate" class="text-center text-lg mb-6"></p>
+            
+            <form id="ratingForm">
+                <label class="block text-center text-sm font-medium mb-2">How did it taste?</label>
+                <div id="ratingSelector" class="flex justify-center text-5xl taste-rating-selector mb-4">
+                    <span data-value="1">☆</span><span data-value="2">☆</span><span data-value="3">☆</span><span data-value="4">☆</span><span data-value="5">☆</span>
+                </div>
+                <p id="ratingFeedback" class="text-sm text-center h-6 mb-6"></p>
+                <input type="hidden" id="ratingInput">
+                
+                <button type="submit" id="submitRatingBtn" class="w-full text-white px-6 py-3 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2" style="background-color: var(--button-primary-bg); --tw-ring-color: var(--accent-color);">Submit Rating</button>
+            </form>
+        </div>
+
+        <div id="messageState" class="hidden text-center">
+             <h2 id="messageTitle" class="text-2xl font-bold mb-4" style="color: var(--header-color);"></h2>
+             <p id="messageText" class="mb-6"></p>
+             <a href="../" class="text-white px-6 py-2 rounded-md" style="background-color: var(--button-primary-bg);">Back to Inventory</a>
+        </div>
+    </main>
+
+    <script>
+        let BASE_URL = '';
+        if (typeof window !== 'undefined' && typeof window.__ingress_url !== 'undefined' && window.__ingress_url !== '') {
+            BASE_URL = window.__ingress_url;
+        } else {
+            const pathParts = window.location.pathname.split('/');
+            if (pathParts.length > 0 && pathParts[pathParts.length - 1].includes('.')) { pathParts.pop(); }
+            // Go up one level for the rating card to get to the addon's root path
+            pathParts.pop(); 
+            BASE_URL = pathParts.join('/');
+            if (BASE_URL !== '' && !BASE_URL.endsWith('/')) { BASE_URL += '/'; }
+        }
+        console.log('Calculated BASE_URL for rating card:', BASE_URL);
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const vivinoUrl = urlParams.get('vivino_url');
+
+            const loadingState = document.getElementById('loadingState');
+            const ratingState = document.getElementById('ratingState');
+            const messageState = document.getElementById('messageState');
+            const wineNameToRate = document.getElementById('wineNameToRate');
+
+            // Apply theme based on Home Assistant settings passed via URL
+            const theme = urlParams.get('theme');
+            if (theme === 'dark') {
+                document.body.classList.add('dark-theme');
+            }
+
+            if (!vivinoUrl) {
+                showFinalMessage('Error', 'No wine URL provided. Please go back and try again.');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${BASE_URL}api/wine-details?vivino_url=${encodeURIComponent(vivinoUrl)}`);
+                if (!response.ok) throw new Error('Wine not found in your inventory.');
+                
+                const wine = await response.json();
+                wineNameToRate.textContent = `${wine.name} (${wine.vintage || 'N/A'})`;
+                
+                loadingState.classList.add('hidden');
+                ratingState.classList.remove('hidden');
+
+                // Setup star rating UI
+                const ratingSelector = document.getElementById('ratingSelector');
+                const ratingInput = document.getElementById('ratingInput');
+                const ratingFeedback = document.getElementById('ratingFeedback');
+                setupStarRating(ratingSelector, ratingInput, ratingFeedback);
+
+            } catch (error) {
+                showFinalMessage('Error', error.message);
+            }
+
+            document.getElementById('ratingForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const rating = parseFloat(document.getElementById('ratingInput').value);
+                if (isNaN(rating) || rating <= 0) {
+                    alert('Please select a rating before submitting.');
+                    return;
+                }
+
+                document.getElementById('submitRatingBtn').disabled = true;
+                document.getElementById('submitRatingBtn').textContent = 'Submitting...';
+
+                try {
+                    const rateResponse = await fetch(`${BASE_URL}api/rate-wine`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ vivino_url: vivinoUrl, personal_rating: rating })
+                    });
+                    if (!rateResponse.ok) throw new Error('Failed to save rating.');
+                    
+                    showFinalMessage('Thank You!', 'Your rating has been saved successfully.');
+
+                    // Dismiss the HA notification
+                    await fetch(`${BASE_URL}api/dismiss-notification`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ vivino_url: vivinoUrl })
+                    });
+
+                } catch (error) {
+                    showFinalMessage('Error', 'Could not save your rating. Please try again later.');
+                }
+            });
+        });
+
+        function showFinalMessage(title, text) {
+            document.getElementById('loadingState').classList.add('hidden');
+            document.getElementById('ratingState').classList.add('hidden');
+            document.getElementById('messageState').classList.remove('hidden');
+            document.getElementById('messageTitle').textContent = title;
+            document.getElementById('messageText').textContent = text;
+        }
+
+        // --- Star Rating Logic (copied from main app) ---
+        function setupStarRating(selectorEl, inputEl, feedbackEl) {
+            selectorEl.addEventListener('mousemove', e => {
+                if (!e.target.matches('span')) return;
+                const star = e.target;
+                const starRect = star.getBoundingClientRect();
+                const isHalf = (e.clientX - starRect.left) < (starRect.width / 2);
+                const rating = parseInt(star.dataset.value, 10) - (isHalf ? 0.5 : 0);
+                updateFeedbackText(feedbackEl, rating);
+                updateStarVisuals(selectorEl, rating, 'hover');
+            });
+            selectorEl.addEventListener('mouseleave', () => {
+                const currentRating = parseFloat(inputEl.value) || 0;
+                updateStarVisuals(selectorEl, currentRating, 'rated');
+                updateFeedbackText(feedbackEl, currentRating);
+            });
+            selectorEl.addEventListener('click', e => {
+                if (!e.target.matches('span')) return;
+                const star = e.target;
+                const starRect = star.getBoundingClientRect();
+                const isHalf = (e.clientX - starRect.left) < (starRect.width / 2);
+                const rating = parseInt(star.dataset.value, 10) - (isHalf ? 0.5 : 0);
+                const currentValue = parseFloat(inputEl.value) || 0;
+                inputEl.value = (currentValue === rating) ? '' : rating;
+                const newRating = parseFloat(inputEl.value) || 0;
+                updateStarVisuals(selectorEl, newRating, 'rated');
+                updateFeedbackText(feedbackEl, newRating);
+            });
+        }
+        function updateStarVisuals(selectorEl, rating, stateClass) {
+             selectorEl.querySelectorAll('span').forEach((star, index) => {
+                const starValue = index + 1;
+                star.className = '';
+                if (rating >= starValue) star.classList.add(`${stateClass}`);
+                else if (rating > index && rating < starValue) star.classList.add(`${stateClass}-half`);
+            });
+        }
+        function updateFeedbackText(feedbackEl, rating) {
+            if (feedbackEl && rating > 0) feedbackEl.textContent = `${rating} star${rating !== 1 ? 's' : ''}`;
+            else if (feedbackEl) feedbackEl.textContent = '';
+        }
+    </script>
+</body>
+</html>
