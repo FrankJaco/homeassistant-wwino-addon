@@ -1513,20 +1513,6 @@ def rate_wine():
         if conn:
             conn.close()
 
-# --- Rating HTML Routes ---
-
-@app.route('/rating')
-def serve_rating_card():
-    """Serves the dedicated wine rating HTML file."""
-    return app.send_static_file("rating.html")
-
-
-@app.route('/test-rating')
-def test_rating_card():
-    """Simple debug route to confirm ingress routing works."""
-    return "<h1>Rating Test Route Works!</h1>"
-
-
 @app.route('/api/wine-details', methods=['GET'])
 def get_wine_details():
     """Endpoint to get details for a single wine by its Vivino URL."""
