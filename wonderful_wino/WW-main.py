@@ -1516,7 +1516,7 @@ def rate_wine():
 @app.route('/lovelace/wine-rating')
 def serve_rating_card():
     """Serves the dedicated wine rating HTML file."""
-    return send_from_directory("frontend", "rating.html")
+    return app.send_static_file("rating.html")
 
 @app.route('/api/wine-details', methods=['GET'])
 def get_wine_details():
