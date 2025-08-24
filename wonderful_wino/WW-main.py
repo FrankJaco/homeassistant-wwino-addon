@@ -7,6 +7,8 @@ from bs4 import BeautifulSoup
 import re # For regular expressions to clean strings
 import json # For parsing JSON-LD data from Vivino
 from flask_cors import CORS # Re-enabled CORS
+from flask import Response
+import queue
 from urllib.parse import urlparse, parse_qs
 import time # For generating unique IDs for manual entries
 
@@ -958,6 +960,21 @@ def insert_wine_data(wine_data, quantity=1, cost_tier=None):
     finally:
         conn.close()
 
+# --- SSE Setup ---
+subscribers = []
+
+def push_event(data: str, event: str = None):
+    """Push an SSE event to all connected subscribers."""
+    msg = ""
+    if event:
+        msg += f"event: {event}\n"
+    msg += f"data: {data}\n\n"
+    for q in subscribers[:]:
+        try:
+            q.put_nowait(msg)
+        except queue.Full:
+            subscribers.remove(q)
+
 
 # --- Flask Routes ---
 
@@ -1283,6 +1300,7 @@ def consume_wine_from_webhook():
     Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
     Parses the wine name and vintage from the item, decrements its quantity in the DB,
     and creates a notification if the last bottle was consumed.
+    Also pushes SSE events so the GUI refreshes and shows the rating modal.
     """
     try:
         data = request.get_json()
@@ -1340,7 +1358,23 @@ def consume_wine_from_webhook():
                     if new_quantity == 0:
                         create_ha_notification(wine_data_dict)
 
-                    return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
+                    # --- NEW: Push SSE events to frontend ---
+                    import json
+                    # Always tell GUI to refresh
+                    push_event(json.dumps({"type": "refresh_inventory"}))
+
+                    # Also trigger rating modal (optional)
+                    push_event(json.dumps({
+                        "type": "open_rating",
+                        "wine_id": wine_data_dict['id'],
+                        "wine_name": wine_data_dict['name']
+                    }))
+                    # ---------------------------------------
+
+                    return jsonify({
+                        "status": "success",
+                        "message": f"Quantity updated. New quantity: {new_quantity}."
+                    }), 200
                 else:
                     logger.warning(f"Quantity already 0 for '{name} ({vintage or 'NV'})'. No decrement performed.")
                     return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
@@ -1356,6 +1390,7 @@ def consume_wine_from_webhook():
     except Exception as e:
         logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
         return jsonify({"status": "error", "message": "An internal error occurred while processing the webhook."}), 500
+
 
 @app.route('/inventory/wine/consume', methods=['POST'])
 def consume_wine():
@@ -1588,6 +1623,20 @@ def sync_all_wines_to_ha():
     except Exception as e:
         logger.error(f"Error during full synchronization to Home Assistant: {e}")
         return jsonify({"status": "error", "message": "An internal error occurred during synchronization."}), 500
+
+@app.route('/events')
+def sse_events():
+    """SSE stream endpoint."""
+    def gen():
+        q = queue.Queue(maxsize=10)
+        subscribers.append(q)
+        try:
+            while True:
+                msg = q.get()
+                yield msg
+        except GeneratorExit:
+            subscribers.remove(q)
+    return Response(gen(), mimetype="text/event-stream")
 
 @app.route("/reinitialize-database-action", methods=["POST"])
 def reinitialize_db_endpoint():
