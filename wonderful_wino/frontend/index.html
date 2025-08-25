@@ -399,6 +399,7 @@
             <p id="tasteModalWineName" class="mb-4 text-gray-700"></p>
             <form id="tasteForm">
                 <input type="hidden" id="tasteVivinoUrl">
+                <input type="hidden" id="tasteMode" value="consume">
                 <label class="block text-sm font-medium mb-2">How did it taste? (Optional)</label>
                 <div id="tasteRatingSelector" class="flex text-4xl taste-rating-selector">
                     <span data-value="1">☆</span>
@@ -758,19 +759,28 @@
         }
         
         // --- Taste Modal JS ---
-        function openTasteModal(wine) {
-            const tasteModal = document.getElementById('tasteModal');
-            const tasteVivinoUrlInput = document.getElementById('tasteVivinoUrl');
-            const tasteModalWineName = document.getElementById('tasteModalWineName');
-            const tasteRatingSelector = document.getElementById('tasteRatingSelector');
-            const tasteRatingInput = document.getElementById('tasteRatingInput');
-            const tasteRatingFeedback = document.getElementById('tasteRatingFeedback');
-            
-            tasteVivinoUrlInput.value = wine.vivino_url;
-            tasteModalWineName.textContent = `${wine.name} (${wine.vintage || 'NV'})`;
-            resetTasteStars(tasteRatingSelector, tasteRatingInput, tasteRatingFeedback);
-            tasteModal.classList.remove('hidden');
-        }
+        function openTasteModal(wine, mode = 'consume') {
+                const tasteModal = document.getElementById('tasteModal');
+                const tasteVivinoUrlInput = document.getElementById('tasteVivinoUrl');
+                const tasteModalWineName = document.getElementById('tasteModalWineName');
+                const tasteRatingSelector = document.getElementById('tasteRatingSelector');
+                const tasteRatingInput = document.getElementById('tasteRatingInput');
+                const tasteRatingFeedback = document.getElementById('tasteRatingFeedback');
+                const tasteModeInput = document.getElementById('tasteMode');
+                const tasteTitle = document.getElementById('tasteModalTitle');
+
+                tasteVivinoUrlInput.value = wine.vivino_url;
+                tasteModalWineName.textContent = `${wine.name} (${wine.vintage || 'NV'})`;
+
+                // Set mode and title based on why we opened the modal
+                tasteModeInput.value = mode; // 'consume' or 'rate'
+                if (tasteTitle) tasteTitle.textContent = (mode === 'rate') ? 'Rate Wine' : 'Consume Wine';
+
+                resetTasteStars(tasteRatingSelector, tasteRatingInput, tasteRatingFeedback);
+                tasteModal.classList.remove('hidden');
+            }
+
+        
         function closeTasteModal() {
             document.getElementById('tasteModal').classList.add('hidden');
             document.getElementById('tasteForm').reset();
@@ -977,39 +987,62 @@
             });
 
             fetchInventory();
+            // --- SSE ---
+            function setupSSE() {
+                const sseUrl = `${BASE_URL}events`;
+                let es;
+                let retry = 0;
+
+                function connect() {
+                    console.log('Connecting SSE to', sseUrl);
+                    es = new EventSource(sseUrl);
+
+                    es.onmessage = async (evt) => {
+                        try {
+                            const data = JSON.parse(evt.data || '{}');
+                            if (data.type === 'refresh_inventory') {
+                                fetchInventory();
+                            } else if (data.type === 'open_rating') {
+                                const { vivino_url, name, vintage } = data;
+                                // Ensure inventory loaded
+                                if (!currentInventory || currentInventory.length === 0) {
+                                    await fetchInventory();
+                                }
+                                let wine = null;
+                                if (vivino_url) {
+                                    wine = currentInventory.find(w => w.vivino_url === vivino_url);
+                                }
+                                if (!wine && name) {
+                                    const vin = (typeof vintage === 'number') ? vintage : null;
+                                    wine = currentInventory.find(w => {
+                                        const sameName = (w.name || '').trim().toLowerCase() === name.trim().toLowerCase();
+                                        const sameVintage = (vin === null) ? (w.vintage == null) : (w.vintage === vin);
+                                        return sameName && sameVintage;
+                                    });
+                                }
+                                if (wine) {
+                                    openTasteModal(wine, 'rate');
+                                } else {
+                                    openTasteModal({ vivino_url: vivino_url || '', name: name || 'Selected Wine', vintage: vintage || null }, 'rate');
+                                }
+                            }
+                        } catch (err) {
+                            console.warn('SSE message parse error:', err);
+                        }
+                    };
+
+                    es.onerror = () => {
+                        console.warn('SSE connection error; will retry.');
+                        es.close();
+                        retry = Math.min(retry + 1, 6);
+                        setTimeout(connect, Math.pow(2, retry) * 1000); // exponential backoff
+                    };
+                }
+
+                connect();
+            }
+
+            setupSSE();
         });
     </script>
-    <script>
-        document.addEventListener("DOMContentLoaded", function () {
-                // Always build relative to current path
-                let base = window.location.pathname;
-                if (!base.endsWith("/")) base += "/";
-                const sseUrl = base + "events";
-
-                console.log("Connecting SSE to", sseUrl);
-
-                const evtSource = new EventSource(sseUrl);
-
-                evtSource.onmessage = function (event) {
-                    try {
-                        const msg = JSON.parse(event.data);
-                        if (msg.type === "refresh_inventory" && typeof refreshWineList === "function") {
-                            console.log("SSE: refreshing inventory");
-                            refreshWineList();
-                        }
-                        if (msg.type === "open_rating" && typeof openRatingModal === "function") {
-                            console.log("SSE: opening rating modal", msg);
-                            openRatingModal(msg.wine_id, msg.wine_name);
-                        }
-                    } catch (e) {
-                        console.error("SSE parse error:", e, event.data);
-                    }
-                };
-
-                evtSource.onerror = function (err) {
-                    console.error("SSE connection error:", err);
-                };
-            });
-    </script>
-
 </html>
