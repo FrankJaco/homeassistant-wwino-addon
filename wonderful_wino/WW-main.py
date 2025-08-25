@@ -379,50 +379,6 @@ def sync_to_ha_todo(wine: dict, current_quantity: int) -> None:
     else:
         logger.info(f"Wine quantity is 0. Item not re-added to HA To-Do: {item_text}")
 
-def create_ha_notification(wine: dict):
-    """
-    Creates a persistent notification in Home Assistant to prompt for a wine rating.
-    """
-    logger.info(f"Attempting to create HA notification for {wine.get('name')}")
-    
-    headers = {
-        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
-        "Content-Type": "application/json",
-    }
-
-    # Get the current theme from Home Assistant to pass to the rating card
-    theme = "light" # Default theme
-    try:
-        theme_resp = requests.get(f"{HOME_ASSISTANT_URL}/api/states/frontend.theme", headers=headers, timeout=3)
-        if theme_resp.status_code == 200:
-            theme_state = theme_resp.json().get("state")
-            if theme_state == "dark":
-                theme = "dark"
-        logger.debug(f"Detected HA theme: {theme}")
-    except requests.exceptions.RequestException as e:
-        logger.warning(f"Could not fetch HA theme state, defaulting to light: {e}")
-
-    notification_id = f"wine_rating_{wine.get('id')}"
-    title = "Rate Your Wine"
-    message = (
-        f"How was the '{wine.get('name')} ({wine.get('vintage', 'NV')})' you just finished?\n\n"
-        f"[Rate It](/lovelace/wine-rating?vivino_url={wine.get('vivino_url')}&theme={theme})"
-    )
-    
-    url = f"{HOME_ASSISTANT_URL}/api/services/persistent_notification/create"
-    payload = {
-        "notification_id": notification_id,
-        "title": title,
-        "message": message
-    }
-
-    try:
-        resp = requests.post(url, json=payload, headers=headers, timeout=5)
-        resp.raise_for_status()
-        logger.info(f"Successfully created HA persistent notification for {wine.get('name')}")
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Failed to create HA persistent notification: {e}")
-
 def clear_ha_todo_list() -> None:
     """
     Attempts to clear all items from the configured Home Assistant To-Do list.
@@ -1354,11 +1310,7 @@ def consume_wine_from_webhook():
                     
                     logger.info(f"Decremented quantity for '{name} ({vintage or 'NV'})' to {new_quantity}")
                     
-                    # If the last bottle was just consumed, create a notification
-                    if new_quantity == 0:
-                        create_ha_notification(wine_data_dict)
-
-                    # ✅ Always sync HA ToDo with new quantity
+                   # ✅ Always sync HA ToDo with new quantity
                     sync_to_ha_todo(wine_data_dict, new_quantity)
 
                     # ✅ Push SSE events (always trigger rating modal + refresh)
