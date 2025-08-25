@@ -981,36 +981,32 @@
     </script>
     <script>
         document.addEventListener("DOMContentLoaded", function () {
-            // Build an ingress-safe SSE URL: "<...>/ingress/events"
-            function ingressBase() {
-                const p = window.location.pathname;           // e.g. "/376cd7f4_wonderful_wino/ingress"
-                const i = p.indexOf("/ingress");
-                return (i === -1) ? p.replace(/\/$/, "")      // fallback
-                    : p.slice(0, i + "/ingress".length);
-            }
-            const sseUrl = ingressBase() + "/events";
-            console.log("Connecting SSE:", sseUrl);
+                // Use current location as base, append "events"
+                let base = window.location.pathname;
+                if (!base.endsWith("/")) base += "/";
+                const sseUrl = base + "events";
 
-            const evtSource = new EventSource(sseUrl);
+                console.log("Connecting SSE to", sseUrl);
+                const evtSource = new EventSource(sseUrl);
 
-            evtSource.onmessage = function (event) {
-                try {
-                    const msg = JSON.parse(event.data);
-                    if (msg.type === "refresh_inventory" && typeof refreshWineList === "function") {
-                        refreshWineList();
+                evtSource.onmessage = function (event) {
+                    try {
+                        const msg = JSON.parse(event.data);
+                        if (msg.type === "refresh_inventory" && typeof refreshWineList === "function") {
+                            refreshWineList();
+                        }
+                        if (msg.type === "open_rating" && typeof openRatingModal === "function") {
+                            openRatingModal(msg.wine_id, msg.wine_name);
+                        }
+                    } catch (e) {
+                        console.error("SSE parse error:", e, event.data);
                     }
-                    if (msg.type === "open_rating" && typeof openRatingModal === "function") {
-                        openRatingModal(msg.wine_id, msg.wine_name);
-                    }
-                } catch (e) {
-                    console.error("SSE parse error:", e, event.data);
-                }
-            };
+                };
 
-            evtSource.onerror = function (err) {
-                console.error("SSE connection error:", err);
-            };
-        });
+                evtSource.onerror = function (err) {
+                    console.error("SSE connection error:", err);
+                };
+            }); 
     </script>
 
 </html>
