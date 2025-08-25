@@ -981,21 +981,24 @@
     </script>
     <script>
         document.addEventListener("DOMContentLoaded", function () {
-                // Use current location as base, append "events"
+                // Always build relative to current path
                 let base = window.location.pathname;
                 if (!base.endsWith("/")) base += "/";
                 const sseUrl = base + "events";
 
                 console.log("Connecting SSE to", sseUrl);
+
                 const evtSource = new EventSource(sseUrl);
 
                 evtSource.onmessage = function (event) {
                     try {
                         const msg = JSON.parse(event.data);
                         if (msg.type === "refresh_inventory" && typeof refreshWineList === "function") {
+                            console.log("SSE: refreshing inventory");
                             refreshWineList();
                         }
                         if (msg.type === "open_rating" && typeof openRatingModal === "function") {
+                            console.log("SSE: opening rating modal", msg);
                             openRatingModal(msg.wine_id, msg.wine_name);
                         }
                     } catch (e) {
@@ -1006,7 +1009,7 @@
                 evtSource.onerror = function (err) {
                     console.error("SSE connection error:", err);
                 };
-            }); 
+            });
     </script>
 
 </html>
