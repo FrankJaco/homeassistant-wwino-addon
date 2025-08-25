@@ -1299,8 +1299,8 @@ def consume_wine_from_webhook():
     """
     Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
     Parses the wine name and vintage from the item, decrements its quantity in the DB,
-    and creates a notification if the last bottle was consumed.
-    Also pushes SSE events so the GUI refreshes and shows the rating modal.
+    creates a notification if the last bottle was consumed,
+    syncs with HA ToDo, and pushes SSE events so the GUI refreshes and shows the rating modal.
     """
     try:
         data = request.get_json()
@@ -1358,18 +1358,17 @@ def consume_wine_from_webhook():
                     if new_quantity == 0:
                         create_ha_notification(wine_data_dict)
 
-                    # --- NEW: Push SSE events to frontend ---
-                    import json
-                    # Always tell GUI to refresh
-                    push_event(json.dumps({"type": "refresh_inventory"}))
+                    # ✅ Always sync HA ToDo with new quantity
+                    sync_to_ha_todo(wine_data_dict, new_quantity)
 
-                    # Also trigger rating modal (optional)
+                    # ✅ Push SSE events (always trigger rating modal + refresh)
+                    import json
+                    push_event(json.dumps({"type": "refresh_inventory"}))
                     push_event(json.dumps({
                         "type": "open_rating",
                         "wine_id": wine_data_dict['id'],
                         "wine_name": wine_data_dict['name']
                     }))
-                    # ---------------------------------------
 
                     return jsonify({
                         "status": "success",
