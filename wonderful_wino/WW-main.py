@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 import re # For regular expressions to clean strings
 import json # For parsing JSON-LD data from Vivino
 from flask_cors import CORS # Re-enabled CORS
-from flask import Response
+from flask import Response, stream_with_context
 import queue
 from urllib.parse import urlparse, parse_qs
 import time # For generating unique IDs for manual entries
@@ -973,8 +973,8 @@ def push_event(data: str, event: str = None):
         try:
             q.put_nowait(msg)
         except queue.Full:
+            # Drop slow/broken subscribers
             subscribers.remove(q)
-
 
 # --- Flask Routes ---
 
@@ -1623,21 +1623,8 @@ def sync_all_wines_to_ha():
         logger.error(f"Error during full synchronization to Home Assistant: {e}")
         return jsonify({"status": "error", "message": "An internal error occurred during synchronization."}), 500
 
-@app.route('/events')
-def sse_events():
-    """SSE stream endpoint."""
-    def gen():
-        q = queue.Queue(maxsize=10)
-        subscribers.append(q)
-        try:
-            while True:
-                msg = q.get()
-                yield msg
-        except GeneratorExit:
-            subscribers.remove(q)
-    return Response(gen(), mimetype="text/event-stream")
 
-@app.route("/reinitialize-database-action", methods=["POST"])
+app.route("/reinitialize-database-action", methods=["POST"])
 def reinitialize_db_endpoint():
     """
     Endpoint to reinitialize the database from the web UI.
