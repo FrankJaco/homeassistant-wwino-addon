@@ -979,6 +979,41 @@
             fetchInventory();
         });
     </script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            // Connect to backend SSE
+            const evtSource = new EventSource("/events");
+
+            evtSource.onmessage = function (event) {
+                try {
+                    const msg = JSON.parse(event.data);
+
+                    if (msg.type === "refresh_inventory") {
+                        console.log("SSE: Refreshing inventory");
+                        if (typeof refreshWineList === "function") {
+                            refreshWineList(); // Your existing function
+                        }
+                    }
+
+                    if (msg.type === "open_rating") {
+                        console.log("SSE: Opening rating modal for", msg.wine_name);
+                        if (typeof openRatingModal === "function") {
+                            // Assuming you already have a modal open function like this
+                            openRatingModal(msg.wine_id, msg.wine_name);
+                        } else {
+                            console.warn("openRatingModal not found. Implement it to show modal.");
+                        }
+                    }
+                } catch (e) {
+                    console.error("Error handling SSE event", e, event.data);
+                }
+            };
+
+            evtSource.onerror = function (err) {
+                console.error("SSE connection error:", err);
+            };
+        });
+    </script>
 
 </body>
 </html>
