@@ -998,8 +998,12 @@
                     es = new EventSource(sseUrl);
 
                     es.onmessage = async (evt) => {
+                        console.log("🔔 SSE raw event received:", evt.data);
+                        
                         try {
                             const data = JSON.parse(evt.data || '{}');
+                            console.log("✅ SSE parsed:", data);
+
                             if (data.type === 'refresh_inventory') {
                                 fetchInventory();
                             } else if (data.type === 'open_rating') {

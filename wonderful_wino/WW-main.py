@@ -936,25 +936,29 @@ def push_event(data: str, event: str = None):
 
 @app.route('/events')
 def sse_events():
-    """SSE endpoint for frontend to subscribe to."""
-    q = queue.Queue()
-    subscribers.append(q)
-    logger.info("SSE client connected.")
-
     def stream():
+        q = queue.Queue()
+        subscribers.append(q)
+        app.logger.info("SSE client connected.")
         try:
             while True:
-                # The `get()` method will block until an item is available.
                 msg = q.get()
-                yield msg
+                app.logger.info(f"[SSE] Sending: {msg}")
+                yield f"data: {msg}\n\n"
         except GeneratorExit:
-            # This block is executed when the client disconnects.
-            logger.info("SSE client disconnected.")
             if q in subscribers:
                 subscribers.remove(q)
+                app.logger.info("SSE client disconnected.")
 
-    # Use stream_with_context to ensure the request context is available
-    return Response(stream_with_context(stream()), mimetype='text/event-stream')
+    return Response(
+        stream(),
+        mimetype='text/event-stream',
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",   # 🔑 disables nginx buffering
+            "Connection": "keep-alive"
+        }
+    )
 
 
 # --- Flask Routes ---
