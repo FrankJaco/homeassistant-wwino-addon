@@ -82,7 +82,6 @@ COUNTRY_ABBREVIATIONS = {
     "Uruguay": "UY",
 }
 
-
 def format_wine_for_todo(wine: dict) -> str:
     """
     Formats the wine name and vintage for display in the Home Assistant To-Do list item summary.
@@ -932,6 +931,30 @@ def push_event(data: str, event: str = None):
             # Drop slow/broken subscribers
             subscribers.remove(q)
 
+## SSE CHANGE: Added the /events route for the frontend to connect to.
+@app.route('/events')
+def sse_events():
+    """SSE endpoint for frontend to subscribe to."""
+    q = queue.Queue()
+    subscribers.append(q)
+    logger.info("SSE client connected.")
+
+    def stream():
+        try:
+            while True:
+                # The `get()` method will block until an item is available.
+                msg = q.get()
+                yield msg
+        except GeneratorExit:
+            # This block is executed when the client disconnects.
+            logger.info("SSE client disconnected.")
+            if q in subscribers:
+                subscribers.remove(q)
+
+    # Use stream_with_context to ensure the request context is available
+    return Response(stream_with_context(stream()), mimetype='text/event-stream')
+
+
 # --- Flask Routes ---
 
 @app.route('/scan-wine', methods=['POST'])
@@ -1314,12 +1337,14 @@ def consume_wine_from_webhook():
                     sync_to_ha_todo(wine_data_dict, new_quantity)
 
                     # ✅ Push SSE events (always trigger rating modal + refresh)
-                    import json
+                    ## SSE CHANGE: Pushing event to refresh the inventory on the frontend.
                     push_event(json.dumps({"type": "refresh_inventory"}))
+                    ## SSE CHANGE: Pushing event to open rating modal. Payload changed to match frontend expectations.
                     push_event(json.dumps({
                         "type": "open_rating",
-                        "wine_id": wine_data_dict['id'],
-                        "wine_name": wine_data_dict['name']
+                        "vivino_url": wine_data_dict.get("vivino_url"),
+                        "name": wine_data_dict.get("name"),
+                        "vintage": wine_data_dict.get("vintage")
                     }))
 
                     return jsonify({
@@ -1341,7 +1366,6 @@ def consume_wine_from_webhook():
     except Exception as e:
         logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
         return jsonify({"status": "error", "message": "An internal error occurred while processing the webhook."}), 500
-
 
 @app.route('/inventory/wine/consume', methods=['POST'])
 def consume_wine():
@@ -1389,6 +1413,8 @@ def consume_wine():
             logger.warning(f"Attempted to consume wine {vivino_url} with quantity 0. No change made.")
             
         conn.commit()
+        ## SSE CHANGE: Pushing event to refresh the inventory on the frontend after consumption from UI.
+        push_event(json.dumps({"type": "refresh_inventory"}))
         return jsonify({'status': 'success', 'new_quantity': new_quantity})
     except sqlite3.Error as e:
         logger.error(f"Database error during consumption: {e}")
@@ -1397,7 +1423,6 @@ def consume_wine():
     finally:
         if conn:
             conn.close()
-
 
 @app.route('/inventory/wine', methods=['DELETE'])
 def delete_wine():
@@ -1488,6 +1513,9 @@ def rate_wine():
             # Re-sync to HA to show the new averaged quality score
             if updated_wine_dict['quantity'] > 0:
                 sync_to_ha_todo(updated_wine_dict, updated_wine_dict['quantity'])
+        
+        ## SSE CHANGE: Pushing event to refresh the inventory so the new average rating is displayed.
+        push_event(json.dumps({"type": "refresh_inventory"}))
 
         return jsonify({"status": "success", "message": "Personal rating saved successfully."}), 200
 
@@ -1575,7 +1603,6 @@ def sync_all_wines_to_ha():
         logger.error(f"Error during full synchronization to Home Assistant: {e}")
         return jsonify({"status": "error", "message": "An internal error occurred during synchronization."}), 500
 
-
 app.route("/reinitialize-database-action", methods=["POST"])
 def reinitialize_db_endpoint():
     """
@@ -1600,7 +1627,6 @@ def serve_static(path):
     """Serves static files (CSS, JS, images) from the 'frontend' directory."""
     return send_from_directory("frontend", path)
 
-
 # Application Entry Point and Initialization
 if __name__ == '__main__':
     # --- Database Initialization / Reinitialization ---
@@ -1616,7 +1642,6 @@ if __name__ == '__main__':
         # --- Database Initialization ---
         logger.info("Ensuring database tables exist.")
         init_db() # Call your existing init_db function
-
 
     logger.info("Flask app starting on port 5000...")
     app.run(host='0.0.0.0', port=5000)
