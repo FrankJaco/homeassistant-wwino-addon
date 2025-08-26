@@ -925,40 +925,44 @@ def push_event(data: str, event: str = None):
     if event:
         msg += f"event: {event}\n"
     msg += f"data: {data}\n\n"
-    app.logger.info(f"[SSE] Pushing event: {msg.strip()} to {len(subscribers)} subscribers")
+    logger.info(f"[SSE] Pushing event: {msg.strip()} to {len(subscribers)} subscribers")
     for q in subscribers[:]:
         try:
             q.put_nowait(msg)
         except queue.Full:
-            app.logger.warning("[SSE] Dropping slow subscriber")
+            logger.warning("[SSE] Dropping slow subscriber")
             # Drop slow/broken subscribers
             subscribers.remove(q)
 
+## SSE FIX: This route is updated to disable proxy buffering and correct the message format.
 @app.route('/events')
 def sse_events():
     def stream():
         q = queue.Queue()
         subscribers.append(q)
-        app.logger.info("SSE client connected.")
+        logger.info(f"[SSE] Client connected. Total subscribers: {len(subscribers)}")
         try:
             while True:
+                # The push_event function already formats the message correctly with "data: ...\n\n"
+                # We just need to yield the message directly from the queue.
                 msg = q.get()
-                app.logger.info(f"[SSE] Sending: {msg}")
-                yield f"data: {msg}\n\n"
+                logger.debug(f"[SSE] Yielding to client: {msg.strip()}")
+                yield msg
         except GeneratorExit:
+            # This block runs when the client disconnects.
             if q in subscribers:
                 subscribers.remove(q)
-                app.logger.info("SSE client disconnected.")
+            logger.info(f"[SSE] Client disconnected. Total subscribers: {len(subscribers)}")
 
-    return Response(
-        stream(),
-        mimetype='text/event-stream',
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",   # 🔑 disables nginx buffering
-            "Connection": "keep-alive"
-        }
-    )
+    # The headers are crucial for making this work behind the HA Ingress proxy.
+    # 'X-Accel-Buffering': 'no' tells the NGINX proxy not to buffer the response.
+    headers = {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "X-Accel-Buffering": "no",
+        "Connection": "keep-alive",
+    }
+    return Response(stream_with_context(stream()), headers=headers)
 
 
 # --- Flask Routes ---
