@@ -82,6 +82,7 @@ COUNTRY_ABBREVIATIONS = {
     "Uruguay": "UY",
 }
 
+
 def format_wine_for_todo(wine: dict) -> str:
     """
     Formats the wine name and vintage for display in the Home Assistant To-Do list item summary.
@@ -931,7 +932,6 @@ def push_event(data: str, event: str = None):
             # Drop slow/broken subscribers
             subscribers.remove(q)
 
-## SSE CHANGE: Added the /events route for the frontend to connect to.
 @app.route('/events')
 def sse_events():
     """SSE endpoint for frontend to subscribe to."""
@@ -1288,36 +1288,40 @@ def consume_wine_from_webhook():
             return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
 
         item_text = data["item"]
-        logger.info(f"Webhook received for consumed wine: {item_text}")
+        logger.info(f"Webhook received for consumed wine. Raw item_text: '{item_text}'")
 
         parsed_name = None
         parsed_vintage = None
 
+        # Parsing logic for "Wine Name (YYYY)" format
         if item_text.endswith(')') and item_text[-6:-5] == '(' and item_text[-5:-1].isdigit() and len(item_text) > 6:
             try:
                 parsed_vintage = int(item_text[-5:-1])
                 parsed_name = item_text[:-6].rstrip()
             except (ValueError, IndexError):
+                # Fallback if parsing fails for some reason
                 parsed_name = item_text.strip()
                 parsed_vintage = None
         else:
+            # Handle wines with no vintage in the name
             parsed_name = item_text.strip()
             parsed_vintage = None
-
-        name = parsed_name
-        vintage = parsed_vintage
+        
+        logger.info(f"Parsed name: '{parsed_name}', Parsed vintage: {parsed_vintage}")
 
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         try:
-            if vintage is not None:
-                query = "SELECT * FROM wines WHERE name = ? AND vintage = ?"
-                params = (name, vintage)
+            # Use a case-insensitive lookup for the name to prevent matching errors
+            if parsed_vintage is not None:
+                query = "SELECT * FROM wines WHERE LOWER(name) = LOWER(?) AND vintage = ?"
+                params = (parsed_name, parsed_vintage)
             else:
-                query = "SELECT * FROM wines WHERE name = ? AND vintage IS NULL"
-                params = (name,)
-
+                query = "SELECT * FROM wines WHERE LOWER(name) = LOWER(?) AND vintage IS NULL"
+                params = (parsed_name,)
+            
+            logger.debug(f"Executing wine lookup with query: '{query}' and params: {params}")
             cursor.execute(query, params)
             wine_record = cursor.fetchone()
 
@@ -1331,15 +1335,13 @@ def consume_wine_from_webhook():
                     cursor.execute("UPDATE wines SET quantity = ? WHERE id = ?", (new_quantity, wine_data_dict['id']))
                     conn.commit()
                     
-                    logger.info(f"Decremented quantity for '{name} ({vintage or 'NV'})' to {new_quantity}")
+                    logger.info(f"Decremented quantity for '{parsed_name} ({parsed_vintage or 'NV'})' to {new_quantity}")
                     
                    # ✅ Always sync HA ToDo with new quantity
                     sync_to_ha_todo(wine_data_dict, new_quantity)
 
                     # ✅ Push SSE events (always trigger rating modal + refresh)
-                    ## SSE CHANGE: Pushing event to refresh the inventory on the frontend.
                     push_event(json.dumps({"type": "refresh_inventory"}))
-                    ## SSE CHANGE: Pushing event to open rating modal. Payload changed to match frontend expectations.
                     push_event(json.dumps({
                         "type": "open_rating",
                         "vivino_url": wine_data_dict.get("vivino_url"),
@@ -1352,10 +1354,10 @@ def consume_wine_from_webhook():
                         "message": f"Quantity updated. New quantity: {new_quantity}."
                     }), 200
                 else:
-                    logger.warning(f"Quantity already 0 for '{name} ({vintage or 'NV'})'. No decrement performed.")
+                    logger.warning(f"Quantity already 0 for '{parsed_name} ({parsed_vintage or 'NV'})'. No decrement performed.")
                     return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
 
-            logger.warning(f"No matching wine found in DB for '{name} ({vintage or 'NV'})'.")
+            logger.warning(f"No matching wine found in DB for '{parsed_name} ({parsed_vintage or 'NV'})'.")
             return jsonify({"status": "warning", "message": "No matching wine found in inventory."}), 404
         except sqlite3.Error as e:
             logger.error(f"Database error consuming wine: {e}")
@@ -1366,6 +1368,7 @@ def consume_wine_from_webhook():
     except Exception as e:
         logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
         return jsonify({"status": "error", "message": "An internal error occurred while processing the webhook."}), 500
+
 
 @app.route('/inventory/wine/consume', methods=['POST'])
 def consume_wine():
@@ -1413,7 +1416,6 @@ def consume_wine():
             logger.warning(f"Attempted to consume wine {vivino_url} with quantity 0. No change made.")
             
         conn.commit()
-        ## SSE CHANGE: Pushing event to refresh the inventory on the frontend after consumption from UI.
         push_event(json.dumps({"type": "refresh_inventory"}))
         return jsonify({'status': 'success', 'new_quantity': new_quantity})
     except sqlite3.Error as e:
@@ -1423,6 +1425,7 @@ def consume_wine():
     finally:
         if conn:
             conn.close()
+
 
 @app.route('/inventory/wine', methods=['DELETE'])
 def delete_wine():
@@ -1514,7 +1517,6 @@ def rate_wine():
             if updated_wine_dict['quantity'] > 0:
                 sync_to_ha_todo(updated_wine_dict, updated_wine_dict['quantity'])
         
-        ## SSE CHANGE: Pushing event to refresh the inventory so the new average rating is displayed.
         push_event(json.dumps({"type": "refresh_inventory"}))
 
         return jsonify({"status": "success", "message": "Personal rating saved successfully."}), 200
@@ -1603,6 +1605,7 @@ def sync_all_wines_to_ha():
         logger.error(f"Error during full synchronization to Home Assistant: {e}")
         return jsonify({"status": "error", "message": "An internal error occurred during synchronization."}), 500
 
+
 app.route("/reinitialize-database-action", methods=["POST"])
 def reinitialize_db_endpoint():
     """
@@ -1627,6 +1630,7 @@ def serve_static(path):
     """Serves static files (CSS, JS, images) from the 'frontend' directory."""
     return send_from_directory("frontend", path)
 
+
 # Application Entry Point and Initialization
 if __name__ == '__main__':
     # --- Database Initialization / Reinitialization ---
@@ -1642,6 +1646,7 @@ if __name__ == '__main__':
         # --- Database Initialization ---
         logger.info("Ensuring database tables exist.")
         init_db() # Call your existing init_db function
+
 
     logger.info("Flask app starting on port 5000...")
     app.run(host='0.0.0.0', port=5000)
