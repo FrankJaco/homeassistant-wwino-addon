@@ -925,10 +925,12 @@ def push_event(data: str, event: str = None):
     if event:
         msg += f"event: {event}\n"
     msg += f"data: {data}\n\n"
+    app.logger.info(f"[SSE] Pushing event: {msg.strip()} to {len(subscribers)} subscribers")
     for q in subscribers[:]:
         try:
             q.put_nowait(msg)
         except queue.Full:
+            app.logger.warning("[SSE] Dropping slow subscriber")
             # Drop slow/broken subscribers
             subscribers.remove(q)
 
