@@ -757,9 +757,8 @@
             entryModal.classList.remove('hidden');
             document.getElementById('manualVintageInput').focus();
         }
-        
         // --- Taste Modal JS ---
-        function openTasteModal(wine, mode = 'consume') {
+            function openTasteModal(wine, mode = 'consume') {
                 const tasteModal = document.getElementById('tasteModal');
                 const tasteVivinoUrlInput = document.getElementById('tasteVivinoUrl');
                 const tasteModalWineName = document.getElementById('tasteModalWineName');
@@ -769,17 +768,27 @@
                 const tasteModeInput = document.getElementById('tasteMode');
                 const tasteTitle = document.getElementById('tasteModalTitle');
 
+                // ## CHANGE: Added a reference to the submit button
+                const tasteSubmitBtn = document.getElementById('tasteSubmitBtn');
+
                 tasteVivinoUrlInput.value = wine.vivino_url;
                 tasteModalWineName.textContent = `${wine.name} (${wine.vintage || 'NV'})`;
 
                 // Set mode and title based on why we opened the modal
                 tasteModeInput.value = mode; // 'consume' or 'rate'
-                if (tasteTitle) tasteTitle.textContent = (mode === 'rate') ? 'Rate Wine' : 'Consume Wine';
+
+                // ## CHANGE: Updated logic to also change the button text
+                if (mode === 'rate') {
+                    if (tasteTitle) tasteTitle.textContent = 'Rate This Wine';
+                    if (tasteSubmitBtn) tasteSubmitBtn.textContent = 'Save Rating';
+                } else { // Default to 'consume' mode
+                    if (tasteTitle) tasteTitle.textContent = 'Consume Wine';
+                    if (tasteSubmitBtn) tasteSubmitBtn.textContent = 'Consume';
+                }
 
                 resetTasteStars(tasteRatingSelector, tasteRatingInput, tasteRatingFeedback);
                 tasteModal.classList.remove('hidden');
             }
-
         
         function closeTasteModal() {
             document.getElementById('tasteModal').classList.add('hidden');
@@ -964,20 +973,46 @@
             setupStarRating(editTasteRatingSelector, manualTasteRatingInput, editTasteRatingFeedback);
             
             // Setup Taste Modal form submission
-            tasteForm.addEventListener('submit', async function(event) {
+            tasteForm.addEventListener('submit', async function (event) {
                 event.preventDefault();
                 const vivinoUrl = document.getElementById('tasteVivinoUrl').value;
-                const rating = tasteRatingInput.value ? parseFloat(tasteRatingInput.value) : null;
+                const rating = document.getElementById('tasteRatingInput').value ? parseFloat(document.getElementById('tasteRatingInput').value) : null;
+
+                // ## CHANGE: Get the current mode ('consume' or 'rate') from the hidden input
+                const mode = document.getElementById('tasteMode').value;
+
+                let endpoint;
+                let payload;
+                let successMessage;
+
+                // ## CHANGE: Determine which endpoint to call and what message to show based on the mode
+                if (mode === 'rate') {
+                    // If the modal is for rating only and no rating is given, just close it.
+                    if (rating === null) {
+                        closeTasteModal();
+                        return;
+                    }
+                    endpoint = `${BASE_URL}api/rate-wine`;
+                    payload = { vivino_url: vivinoUrl, personal_rating: rating };
+                    successMessage = 'Rating saved!';
+                } else { // Default to 'consume' mode
+                    endpoint = `${BASE_URL}inventory/wine/consume`;
+                    payload = { vivino_url: vivinoUrl, personal_rating: rating };
+                    successMessage = 'Wine consumed successfully!';
+                }
+
                 try {
-                    const response = await fetch(`${BASE_URL}inventory/wine/consume`, {
+                    // ## CHANGE: Use the dynamic endpoint and payload variables determined above
+                    const response = await fetch(endpoint, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ vivino_url: vivinoUrl, personal_rating: rating })
+                        body: JSON.stringify(payload)
                     });
                     const result = await response.json();
-                    if (!response.ok) throw new Error(result.error || 'Failed to consume wine');
-                    
-                    showMessage('inventoryMessage', 'Wine consumed successfully!');
+                    if (!response.ok) throw new Error(result.error || result.message || 'An unknown error occurred');
+
+                    // ## CHANGE: Use the dynamic success message
+                    showMessage('inventoryMessage', successMessage);
                     closeTasteModal();
                     fetchInventory();
 

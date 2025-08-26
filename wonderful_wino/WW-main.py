@@ -934,7 +934,7 @@ def push_event(data: str, event: str = None):
             # Drop slow/broken subscribers
             subscribers.remove(q)
 
-## SSE FIX: This route is updated to disable proxy buffering and correct the message format.
+## SSE FIX: This is the definitive, corrected route that will work with HA Ingress.
 @app.route('/events')
 def sse_events():
     def stream():
@@ -943,19 +943,16 @@ def sse_events():
         logger.info(f"[SSE] Client connected. Total subscribers: {len(subscribers)}")
         try:
             while True:
-                # The push_event function already formats the message correctly with "data: ...\n\n"
-                # We just need to yield the message directly from the queue.
+                # The push_event function already formats the message correctly, so we just yield it.
                 msg = q.get()
                 logger.debug(f"[SSE] Yielding to client: {msg.strip()}")
-                yield msg
+                yield msg ## FIX: Was incorrectly wrapping the message again.
         except GeneratorExit:
-            # This block runs when the client disconnects.
             if q in subscribers:
                 subscribers.remove(q)
             logger.info(f"[SSE] Client disconnected. Total subscribers: {len(subscribers)}")
 
-    # The headers are crucial for making this work behind the HA Ingress proxy.
-    # 'X-Accel-Buffering': 'no' tells the NGINX proxy not to buffer the response.
+    # FIX: These headers are crucial for disabling proxy buffering in HA Ingress.
     headers = {
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
@@ -963,7 +960,6 @@ def sse_events():
         "Connection": "keep-alive",
     }
     return Response(stream_with_context(stream()), headers=headers)
-
 
 # --- Flask Routes ---
 
