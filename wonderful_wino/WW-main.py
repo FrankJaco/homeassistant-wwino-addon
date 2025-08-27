@@ -7,8 +7,6 @@ from bs4 import BeautifulSoup
 import re # For regular expressions to clean strings
 import json # For parsing JSON-LD data from Vivino
 from flask_cors import CORS # Re-enabled CORS
-from flask import Response, stream_with_context
-import queue
 from urllib.parse import urlparse, parse_qs
 import time # For generating unique IDs for manual entries
 
@@ -466,7 +464,6 @@ def scrape_vivino_data(vivino_url):
         'User-Agent': user_agents[0] # Use a desktop user agent by default
     }
 
-    # PHASE 1 CHANGE: Removed vivino_num_ratings
     wine_data = {
         'vivino_url': vivino_url,
         'name': 'Unknown Wine',
@@ -478,7 +475,6 @@ def scrape_vivino_data(vivino_url):
         'image_url': None,
     }
 
-    # Master list to collect all grape names found from any source (JSON-LD or HTML)
     all_grape_names_collected = []
 
     try:
@@ -487,14 +483,12 @@ def scrape_vivino_data(vivino_url):
 
         soup = BeautifulSoup(response.text, 'lxml')
 
-        # --- Attempt to extract data from JSON-LD first (most reliable) ---
         script_tags = soup.find_all('script', type='application/ld+json')
         for script in script_tags:
             try:
                 json_ld = json.loads(script.string)
 
                 if isinstance(json_ld, dict):
-                    # Product Schema (most common for wine pages)
                     if json_ld.get('@type') == 'Product':
                         if wine_data['name'] == 'Unknown Wine' and 'name' in json_ld:
                             wine_data['name'] = json_ld['name'].strip()
@@ -512,7 +506,6 @@ def scrape_vivino_data(vivino_url):
                                 if rating_value is not None:
                                     try: wine_data['vivino_rating'] = float(str(rating_value).replace(',', '.'));
                                     except ValueError: pass
-                            # PHASE 1 CHANGE: Removed vivino_num_ratings scraping
                             
                         contains_wine = json_ld.get('containsWine')
                         if contains_wine and isinstance(contains_wine, dict) and contains_wine.get('@type') == 'Wine':
@@ -521,7 +514,7 @@ def scrape_vivino_data(vivino_url):
                                 except ValueError: pass
 
                             grapes = contains_wine.get('grape')
-                            if grapes: # Check for existence
+                            if grapes:
                                 if isinstance(grapes, list):
                                     grape_names = [g.get('name') for g in grapes if isinstance(g, dict) and g.get('name')]
                                     if grape_names:
@@ -561,7 +554,7 @@ def scrape_vivino_data(vivino_url):
                             except ValueError: pass
                         if 'grape' in json_ld:
                             grapes = json_ld['grape']
-                            if grapes: # Check for existence
+                            if grapes:
                                 if isinstance(grapes, list) and grapes:
                                     grape_names = [g.get('name') for g in grapes if isinstance(g, dict) and g.get('name')]
                                     if grape_names:
@@ -585,34 +578,25 @@ def scrape_vivino_data(vivino_url):
             except (json.JSONDecodeError, KeyError, TypeError) as json_err:
                 logger.debug(f"Vivino JSON-LD parsing error (may be benign if other schemas exist): {json_err}")
                 pass
-
-        # --- HTML Fallback Logic ---
         
-        # Get image URL - NEW, TARGETED METHOD FIRST
         if wine_data['image_url'] is None:
-            # Find all <link rel="preload" as="image"> tags
             preload_links = soup.find_all('link', rel='preload', attrs={'as': 'image'})
             
             best_image_url = None
             if preload_links:
                 for link in preload_links:
-                    # Prefer the imagesrcset for higher resolution image
                     if link.has_attr('imagesrcset'):
-                        # Split the srcset and grab the last URL (usually the highest resolution)
                         srcset_parts = [url.strip().split(' ')[0] for url in link['imagesrcset'].split(',')]
                         if srcset_parts:
                             best_image_url = srcset_parts[-1]
-                            break # Found a good source, stop looking
-                    # Fallback to href if srcset is not available
+                            break
                     elif link.has_attr('href'):
                         best_image_url = link['href']
-                        # Don't break here, in case a later link has a better srcset
                 
                 if best_image_url:
                     wine_data['image_url'] = best_image_url
                     logger.debug(f"HTML Image URL (preload link) found: {wine_data['image_url']}")
 
-        # Fallback to the old image search method if the preload link method fails
         if wine_data['image_url'] is None:
             image_tag = soup.find('img', class_=re.compile(r'wine-page-image__image|vivinoImage_image|image-preview__image|image-container__image|wine-page__image'))
             if image_tag:
@@ -622,29 +606,25 @@ def scrape_vivino_data(vivino_url):
                     wine_data['image_url'] = image_tag['data-src']
                 logger.debug(f"HTML Image URL (fallback img tag) found: {wine_data['image_url']}")
         
-        # Clean up the URL if it starts with //
         if wine_data['image_url'] and wine_data['image_url'].startswith('//'):
             wine_data['image_url'] = 'https:' + wine_data['image_url']
             
         if wine_data['name'] == 'Unknown Wine':
-            # MODIFICATION: Made name selector more flexible
             name_tag = soup.find('h1', class_=re.compile(r'wine-page-header__name|VintageTitle_wine'))
             if not name_tag:
-                # Broader fallback if specific classes fail
                 name_tag = soup.find('h1')
 
             if name_tag:
                 wine_data['name'] = " ".join(name_tag.text.strip().split())
                 logger.debug(f"HTML Name found: '{wine_data['name']}'")
 
-        # Get vintage (from name, or specific elements)
         if wine_data['vintage'] is None and wine_data['name'] and 'Unknown Wine' not in wine_data['name']:
             name_vintage_match = re.search(r'\b(19\d{2}|20\d{2})\b', wine_data['name'])
             if name_vintage_match:
                 try:
                     year = int(name_vintage_match.group(0))
-                    current_year = 2025 # Assuming current year for vintage validation
-                    if 1900 <= year <= current_year + 5: # Allow a few years into the future for new releases
+                    current_year = 2025 
+                    if 1900 <= year <= current_year + 5:
                         wine_data['vintage'] = year
                         cleaned_name = wine_data['name'].replace(name_vintage_match.group(0), '').strip()
                         wine_data['name'] = " ".join(cleaned_name.split())
@@ -662,11 +642,7 @@ def scrape_vivino_data(vivino_url):
                         logger.debug(f"HTML Vintage (span.vintage) found: {wine_data['vintage']}")
                     except ValueError: pass
 
-        logger.debug(f"Vintage scraping complete. Current data: {wine_data['vintage']}")
-
-        # --- NEW & IMPROVED: Get Varietal, Region, and Country from direct links ---
         all_relevant_links = soup.find_all('a', href=re.compile(r'/(wine-countries|wine-regions|grapes)/'))
-        logger.debug(f"Attempting to find country/region/varietal from all relevant links. Found {len(all_relevant_links)} links.")
 
         for link in all_relevant_links:
             href = link.get('href', '')
@@ -674,21 +650,15 @@ def scrape_vivino_data(vivino_url):
 
             if '/wine-countries/' in href and wine_data['country'] == 'Unknown Country':
                 wine_data['country'] = text
-                logger.debug(f"HTML Country (direct link) found: {wine_data['country']} from href: {href}")
             elif '/wine-regions/' in href and wine_data['region'] == 'Unknown Region':
                 wine_data['region'] = text
-                logger.debug(f"HTML Region (direct link) found: {wine_data['region']} from href: {href}")
-            elif '/grapes/' in href: # Always try to collect grape names from links
+            elif '/grapes/' in href:
                 if text and 'blend' not in text.lower() and 'wine' not in text.lower():
                     all_grape_names_collected.append(text)
-                elif text: # Still append if it's a generic 'blend' or 'wine' for later filtering
+                elif text:
                     all_grape_names_collected.append(text)
 
-
-        # Fallback to definition lists if still not found in direct links or JSON-LD for varietal/region/country
         dl_tags = soup.find_all('dl', class_=re.compile(r'wine-facts|product-details'))
-        if dl_tags:
-            logger.debug(f"Attempting to find country/region/varietal from DL elements. Found {len(dl_tags)} definition lists.")
         for dl in dl_tags:
             dt_dd_pairs = list(zip(dl.find_all('dt'), dl.find_all('dd')))
             for dt, dd in dt_dd_pairs:
@@ -697,29 +667,22 @@ def scrape_vivino_data(vivino_url):
 
                 if 'Country' in label and wine_data['country'] == 'Unknown Country' and value.strip():
                     wine_data['country'] = value
-                    logger.debug(f"HTML Country (DL) found: {wine_data['country']}")
                 elif 'Region' in label and wine_data['region'] == 'Unknown Region' and value.strip():
                     wine_data['region'] = value
-                    logger.debug(f"HTML Region (DL) found: {wine_data['region']}")
                 elif ('Grape' in label or 'Varietal' in label):
                     if value.strip():
                         all_grape_names_collected.append(value.strip())
 
-
-        # --- FINAL Varietal Assignment (Post-processing all collected grapes) ---
         if all_grape_names_collected:
-            # Filter out generic terms, keeping only actual varietal names
             filtered_grapes = [
                 g for g in all_grape_names_collected
                 if g.lower() not in ['red wine', 'white wine', 'sparkling wine', 'rosé wine', 'dessert wine', 'fortified wine', 'blend']
             ]
 
-            # If after filtering we have specific grapes, use them. Maintain order as much as possible.
             if filtered_grapes:
-                # Use a list to maintain order, convert to set for uniqueness, then back to list to preserve (first seen) order.
                 seen_grapes = set()
                 ordered_unique_grapes = []
-                for grape in all_grape_names_collected:  # Iterate through ALL collected, not just filtered
+                for grape in all_grape_names_collected:
                     cleaned_grape = grape.strip()
                     if cleaned_grape.lower() not in [
                         'red wine', 'white wine', 'sparkling wine', 'rosé wine', 'dessert wine', 'fortified wine', 'blend'
@@ -727,85 +690,37 @@ def scrape_vivino_data(vivino_url):
                         ordered_unique_grapes.append(cleaned_grape)
                         seen_grapes.add(cleaned_grape)
 
-                # --- Apply Bordeaux Region Heuristics for ordering ---
                 if 'region' in wine_data and isinstance(wine_data['region'], str):
                     region_str = wine_data['region'].lower()
-
                     if 'saint-émilion' in region_str or 'pomerol' in region_str or 'fronsac' in region_str or 'canon-fronsac' in region_str:
-                        # Right Bank: Prioritize Merlot, then Cabernet Franc, then Cabernet Sauvignon
                         preferred_order = ['Merlot', 'Cabernet Franc', 'Cabernet Sauvignon']
-
-                        reordered_grapes = []
-                        for preferred_grape in preferred_order:
-                            for g in ordered_unique_grapes:
-                                if preferred_grape.lower() == g.lower() and g not in reordered_grapes:
-                                    reordered_grapes.append(g)
-                        # Add any other grapes that were not in the preferred list
-                        for g in ordered_unique_grapes:
-                            if g not in reordered_grapes:
-                                reordered_grapes.append(g)
+                        reordered_grapes = [grape for pref in preferred_order for grape in ordered_unique_grapes if pref.lower() == grape.lower()]
+                        reordered_grapes.extend([g for g in ordered_unique_grapes if g not in reordered_grapes])
                         ordered_unique_grapes = reordered_grapes
-                        logger.debug(f"Bordeaux Right Bank heuristic applied. Ordered grapes: {ordered_unique_grapes}")
-
                     elif any(lb_region in region_str for lb_region in ['médoc', 'pauillac', 'margaux', 'haut-médoc', 'saint-estèphe', 'saint-julien', 'listrac', 'moulis', 'graves']):
-                        # Left Bank: Prioritize Cabernet Sauvignon, then Merlot, then Cabernet Franc
                         preferred_order = ['Cabernet Sauvignon', 'Merlot', 'Cabernet Franc']
-
-                        reordered_grapes = []
-                        for preferred_grape in preferred_order:
-                            for g in ordered_unique_grapes:
-                                if preferred_grape.lower() == g.lower() and g not in reordered_grapes:
-                                    reordered_grapes.append(g)
-                        # Add any other grapes that were not in the preferred list
-                        for g in ordered_unique_grapes:
-                            if g not in reordered_grapes:
-                                reordered_grapes.append(g)
+                        reordered_grapes = [grape for pref in preferred_order for grape in ordered_unique_grapes if pref.lower() == grape.lower()]
+                        reordered_grapes.extend([g for g in ordered_unique_grapes if g not in reordered_grapes])
                         ordered_unique_grapes = reordered_grapes
-                        logger.debug(f"Bordeaux Left Bank heuristic applied. Ordered grapes: {ordered_unique_grapes}")
 
-                # --- Apply Syrah/Shiraz Renaming Logic ---
                 country_for_shiraz_syrah = wine_data.get('country', '').strip().lower()
                 is_australia_sa = (country_for_shiraz_syrah == 'australia' or country_for_shiraz_syrah == 'south africa')
-
                 transformed_grapes = []
                 for grape in ordered_unique_grapes:
-                    if 'syrah' in grape.lower():
-                        if is_australia_sa:
-                            transformed_grapes.append('Shiraz')
-                        else:
-                            transformed_grapes.append('Syrah')
-                    elif 'shiraz' in grape.lower(): # Also catch if it was already Shiraz but needs to be Syrah
-                        if not is_australia_sa:
-                            transformed_grapes.append('Syrah')
-                        else:
-                            transformed_grapes.append('Shiraz')
-                    else:
-                        transformed_grapes.append(grape)
-
+                    if 'syrah' in grape.lower(): transformed_grapes.append('Shiraz' if is_australia_sa else 'Syrah')
+                    elif 'shiraz' in grape.lower(): transformed_grapes.append('Syrah' if not is_australia_sa else 'Shiraz')
+                    else: transformed_grapes.append(grape)
                 wine_data['varietal'] = ", ".join(transformed_grapes)
-                logger.debug(f"Final Varietal set from ordered unique collected sources (Syrah/Shiraz logic applied): {wine_data['varietal']}")
-
             elif 'blend' in [g.lower() for g in all_grape_names_collected]:
                 wine_data['varietal'] = 'Blend'
-                logger.debug(f"Varietal set to 'Blend' as only generic terms found.")
             else:
                 wine_data['varietal'] = 'Unknown Varietal'
-                logger.debug(f"All collected varietals were generic. Varietal set to: {wine_data['varietal']}")
-        else: # No grape names collected at all
+        else:
             wine_data['varietal'] = 'Unknown Varietal'
-            logger.debug(f"No grape names were collected from any source. Varietal set to: {wine_data['varietal']}")
 
-
-        logger.debug(f"Region/Country scraping finished HTML attempts. Current data: Region='{wine_data['region']}', Country='{wine_data['country']}'")
-
-        # --- Specific US Country Fallback (truly a last resort now) ---
         if wine_data['country'] == 'Unknown Country' and "/US/en/" in vivino_url:
             wine_data['country'] = "United States"
-            logger.debug(f"Country defaulted to 'United States' due to URL pattern (final fallback).")
 
-        # PHASE 1 CHANGE: Removed all logic for scraping vivino_num_ratings
-
-        # Get Vivino rating
         if wine_data['vivino_rating'] is None:
             rating_tags = soup.find_all('div', class_=re.compile(r'vivinoRating_averageValue|average-value|community-score__score|rating-value'))
             for rating_tag in rating_tags:
@@ -813,26 +728,16 @@ def scrape_vivino_data(vivino_url):
                     rating_text = rating_tag.text.strip().replace(',', '.')
                     if rating_text:
                         wine_data['vivino_rating'] = float(rating_text)
-                        logger.debug(f"HTML Vivino Rating found: {wine_data['vivino_rating']}")
                         break
                 except ValueError: pass
-        logger.debug(f"Vivino Rating scraping complete. Current data: {wine_data['vivino_rating']}")
-
-        # --- Final Fallback Layer: Parse the URL itself ---
-        # This runs only if the above methods failed to find the data.
-        # 1. Fallback for Vintage from URL query parameter
         if wine_data['vintage'] is None:
             try:
-                # Use urllib.parse to get query parameters from vivino_url
                 parsed_url = urlparse(vivino_url)
                 query_params = parse_qs(parsed_url.query)
                 if 'year' in query_params:
-                    year_str = query_params['year'][0]
-                    wine_data['vintage'] = int(year_str)
-                    logger.debug(f"Vintage (URL Fallback) found: {wine_data['vintage']}")
+                    wine_data['vintage'] = int(query_params['year'][0])
             except (ValueError, IndexError):
-                logger.debug("Could not parse vintage from URL query parameter.")
-                pass # Ignore errors if 'year' param is not present or invalid
+                pass
 
     except requests.exceptions.RequestException as e:
         logger.error(f"HTTP/Network error during Vivino scrape for {vivino_url}: {e}")
@@ -852,58 +757,30 @@ def insert_wine_data(wine_data, quantity=1, cost_tier=None):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     try:
-        # Check if the wine already exists
         cursor.execute("SELECT id, quantity FROM wines WHERE vivino_url = ?", (wine_data['vivino_url'],))
         existing_wine = cursor.fetchone()
 
         if existing_wine:
             wine_id, current_quantity = existing_wine
             new_quantity = current_quantity + quantity
-            # STEP 2.4 CHANGE: Added cost_tier to the UPDATE statement
             cursor.execute('''
-                UPDATE wines
-                SET quantity = ?,
-                    name = ?,
-                    vintage = ?,
-                    varietal = ?,
-                    region = ?,
-                    country = ?,
-                    vivino_rating = ?,
-                    image_url = ?,
-                    cost_tier = ?,
-                    added_at = CURRENT_TIMESTAMP
+                UPDATE wines SET quantity = ?, name = ?, vintage = ?, varietal = ?, region = ?,
+                country = ?, vivino_rating = ?, image_url = ?, cost_tier = ?, added_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             ''', (
-                new_quantity,
-                wine_data['name'],
-                wine_data['vintage'],
-                wine_data['varietal'],
-                wine_data['region'],
-                wine_data['country'],
-                wine_data['vivino_rating'],
-                wine_data['image_url'],
-                cost_tier, # Added cost_tier
-                wine_id
+                new_quantity, wine_data['name'], wine_data['vintage'], wine_data['varietal'],
+                wine_data['region'], wine_data['country'], wine_data['vivino_rating'],
+                wine_data['image_url'], cost_tier, wine_id
             ))
             logger.info(f"Updated quantity for '{wine_data['name']}' to {new_quantity}.")
         else:
-            # Insert new wine with specified quantity
-            # STEP 2.4 CHANGE: Added cost_tier to the INSERT statement
             cursor.execute('''
                 INSERT INTO wines (vivino_url, name, vintage, varietal, region, country, vivino_rating, image_url, quantity, cost_tier, personal_rating)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
-                wine_data['vivino_url'],
-                wine_data['name'],
-                wine_data['vintage'],
-                wine_data['varietal'],
-                wine_data['region'],
-                wine_data['country'],
-                wine_data['vivino_rating'],
-                wine_data['image_url'],
-                quantity,
-                cost_tier, # Added cost_tier
-                None
+                wine_data['vivino_url'], wine_data['name'], wine_data['vintage'], wine_data['varietal'],
+                wine_data['region'], wine_data['country'], wine_data['vivino_rating'],
+                wine_data['image_url'], quantity, cost_tier, None
             ))
             logger.info(f"New wine '{wine_data['name']}' inserted with quantity {quantity}.")
 
@@ -916,110 +793,43 @@ def insert_wine_data(wine_data, quantity=1, cost_tier=None):
     finally:
         conn.close()
 
-# --- SSE Setup ---
-subscribers = []
-
-def push_event(data: str, event: str = None):
-    """Push an SSE event to all connected subscribers."""
-    msg = ""
-    if event:
-        msg += f"event: {event}\n"
-    msg += f"data: {data}\n\n"
-    logger.info(f"[SSE] Pushing event: {msg.strip()} to {len(subscribers)} subscribers")
-    for q in subscribers[:]:
-        try:
-            q.put_nowait(msg)
-        except queue.Full:
-            logger.warning("[SSE] Dropping slow subscriber")
-            # Drop slow/broken subscribers
-            subscribers.remove(q)
-
-## SSE FIX: This is the definitive, corrected route that will work with HA Ingress.
-@app.route('/events')
-def sse_events():
-    def stream():
-        q = queue.Queue()
-        subscribers.append(q)
-        logger.info(f"[SSE] Client connected. Total subscribers: {len(subscribers)}")
-        try:
-            while True:
-                # The push_event function already formats the message correctly, so we just yield it.
-                msg = q.get()
-                logger.debug(f"[SSE] Yielding to client: {msg.strip()}")
-                yield msg ## FIX: Was incorrectly wrapping the message again.
-        except GeneratorExit:
-            if q in subscribers:
-                subscribers.remove(q)
-            logger.info(f"[SSE] Client disconnected. Total subscribers: {len(subscribers)}")
-
-    # FIX: These headers are crucial for disabling proxy buffering in HA Ingress.
-    headers = {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        "X-Accel-Buffering": "no",
-        "Connection": "keep-alive",
-    }
-    return Response(stream_with_context(stream()), headers=headers)
-
 # --- Flask Routes ---
 
 @app.route('/scan-wine', methods=['POST'])
 def scan_wine():
-    """
-    Endpoint to receive a Vivino URL, scrape wine data, and store/update it in the database.
-    This now includes logic to match on name and vintage to prevent duplicates from different URLs.
-    """
     data = request.get_json()
     if not data or 'vivino_url' not in data:
-        logger.warning("Received invalid data for /scan-wine endpoint: %s", data)
         return jsonify({"status": "error", "message": "Missing 'vivino_url' in request body"}), 400
 
     vivino_url = data['vivino_url']
     quantity = data.get('quantity', 1)
-    cost_tier = data.get('cost_tier') # Get optional cost_tier from payload
+    cost_tier = data.get('cost_tier')
 
     if not isinstance(quantity, int) or quantity < 1:
-        logger.warning(f"Invalid quantity provided: {quantity}. Defaulting to 1.")
         quantity = 1
 
-    logger.info(f"Received request to process Vivino URL: {vivino_url} with quantity: {quantity}")
-
-    # Step 1: Scrape data from the provided URL
     wine_data = scrape_vivino_data(vivino_url)
     if not wine_data:
         return jsonify({"status": "error", "message": "Failed to scrape data from Vivino URL."}), 500
 
-    # Step 2: Canonicalization - Check if a wine with the same name and vintage already exists
     conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row # To access columns by name
+    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
-    # Use 'IS' operator to handle NULL vintages correctly in the query
     cursor.execute("SELECT * FROM wines WHERE name = ? AND vintage IS ?", (wine_data['name'], wine_data['vintage']))
     existing_wine_row = cursor.fetchone()
     
-    # Default to the newly submitted URL. This will be overwritten if a match is found.
     canonical_url_for_update = wine_data['vivino_url']
 
     if existing_wine_row:
-        # Match found! We will update the existing record.
         existing_wine_dict = dict(existing_wine_row)
-        logger.info(f"Found existing wine '{wine_data['name']}' ({wine_data['vintage']}) with URL {existing_wine_dict['vivino_url']}. Consolidating under this canonical URL.")
-        
-        # Use the URL of the *existing* record as the canonical one
         canonical_url_for_update = existing_wine_dict['vivino_url']
-        
-        # Overwrite the newly scraped URL with the canonical one before passing to insert/update
         wine_data['vivino_url'] = canonical_url_for_update
 
-    conn.close() # Close the connection used for the pre-check
+    conn.close()
 
-    # Step 3: Insert or Update the database
-    # Pass the cost_tier to the database function
     if insert_wine_data(wine_data, quantity, cost_tier):
-        # Get the current total quantity from the DB after the insert/update
         conn_post_insert = sqlite3.connect(DB_PATH)
-        # FIX: Add the row_factory to the new connection
         conn_post_insert.row_factory = sqlite3.Row 
         cursor_post_insert = conn_post_insert.cursor()
         cursor_post_insert.execute("SELECT * FROM wines WHERE vivino_url = ?", (canonical_url_for_update,))
@@ -1029,146 +839,96 @@ def scan_wine():
         if updated_wine_row:
             updated_wine_dict = dict(updated_wine_row)
             current_total_quantity = updated_wine_dict.get('quantity', 0)
-            
-            # Sync with HA To-Do List based on current total quantity
             sync_to_ha_todo(updated_wine_dict, current_total_quantity)
-
             return jsonify({
-                "status": "success",
-                "message": "Wine data scraped and stored/updated.",
-                "wine_name": updated_wine_dict['name'],
-                "vintage": updated_wine_dict['vintage'],
-                "vivino_url": canonical_url_for_update,
-                "quantity_added": quantity,
+                "status": "success", "message": "Wine data scraped and stored/updated.",
+                "wine_name": updated_wine_dict['name'], "vintage": updated_wine_dict['vintage'],
+                "vivino_url": canonical_url_for_update, "quantity_added": quantity,
                 "current_total_quantity": current_total_quantity
             }), 200
         else:
-            # Fallback if the wine somehow can't be retrieved after insert
             return jsonify({"status": "error", "message": "Failed to retrieve wine after update."}), 500
     else:
         return jsonify({"status": "error", "message": "Failed to store/update wine data in database."}), 500
 
 @app.route('/add-manual-wine', methods=['POST'])
 def add_manual_wine():
-    """
-    Endpoint to add a wine manually from user input, without scraping.
-    """
     data = request.get_json()
     required_fields = ['name', 'vintage', 'quantity']
     if not data or not all(field in data for field in required_fields):
-        logger.warning("Received invalid data for /add-manual-wine: %s", data)
         return jsonify({"status": "error", "message": "Missing required fields (name, vintage, quantity)"}), 400
 
     quantity = data.get('quantity', 1)
     if not isinstance(quantity, int) or quantity < 1:
-        logger.warning(f"Invalid quantity for manual add: {quantity}. Defaulting to 1.")
         quantity = 1
     cost_tier = data.get('cost_tier')
-    # Create a synthetic, unique "URL" for this manual entry to serve as its primary key.
-    # This allows it to be found and updated by the existing `insert_wine_data` function.
     safe_name = re.sub(r'[^a-zA-Z0-9_]', '', data['name'].replace(' ', '_')).lower()
     synthetic_url = f"manual:{safe_name}:{data['vintage']}"
 
-    logger.info(f"Received request to manually add wine: {data['name']} ({data['vintage']}) with quantity {quantity}")
-
-    # PHASE 1 CHANGE: Updated wine_data dictionary for new schema
     wine_data = {
-        'vivino_url': synthetic_url,
-        'name': data['name'],
-        'vintage': data['vintage'],
+        'vivino_url': synthetic_url, 'name': data['name'], 'vintage': data['vintage'],
         'varietal': data.get('varietal') or "Unknown Varietal",
         'region': data.get('region') or "Unknown Region",
         'country': data.get('country') or "Unknown Country",
-        'vivino_rating': None,
-        'image_url': None,
-        'cost_tier': None,
-        'personal_rating': None,
+        'vivino_rating': None, 'image_url': None, 'cost_tier': None, 'personal_rating': None,
     }
 
     if insert_wine_data(wine_data, quantity, cost_tier):
-        # Get the current total quantity from the DB after the insert/update
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         cursor.execute("SELECT quantity FROM wines WHERE vivino_url = ?", (synthetic_url,))
         current_total_quantity_row = cursor.fetchone()
         conn.close()
-
         current_total_quantity = current_total_quantity_row[0] if current_total_quantity_row else quantity
-
-        # Sync with HA To-Do List
         sync_to_ha_todo(wine_data, current_total_quantity)
-
         return jsonify({
-            "status": "success",
-            "message": "Wine manually added/updated successfully.",
-            "wine_name": wine_data['name'],
-            "vintage": wine_data['vintage'],
-            "vivino_url": wine_data['vivino_url'],
-            "current_total_quantity": current_total_quantity
+            "status": "success", "message": "Wine manually added/updated successfully.",
+            "wine_name": wine_data['name'], "vintage": wine_data['vintage'],
+            "vivino_url": wine_data['vivino_url'], "current_total_quantity": current_total_quantity
         }), 200
     else:
         return jsonify({"status": "error", "message": "Failed to store manual wine data in database."}), 500
 
 @app.route('/edit-wine', methods=['POST'])
 def edit_wine():
-    """
-    Endpoint to edit an existing wine's details.
-    """
     data = request.get_json()
     required_fields = ['vivino_url', 'name', 'vintage', 'quantity']
     if not data or not all(field in data for field in required_fields):
-        logger.warning("Received invalid data for /edit-wine: %s", data)
         return jsonify({"status": "error", "message": "Missing required fields for editing."}), 400
 
     vivino_url = data['vivino_url']
-    
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
     try:
-        # First, fetch the *old* record to remove it from the HA ToDo list if the name/vintage changes
         cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url,))
         old_wine_row = cursor.fetchone()
         if old_wine_row:
             old_wine_dict = dict(old_wine_row)
-            # Temporarily sync with 0 quantity to ensure the old item is removed from HA
             sync_to_ha_todo(old_wine_dict, 0)
         else:
-            logger.error(f"Could not find wine with URL {vivino_url} to edit.")
             return jsonify({"status": "error", "message": "Wine to edit not found."}), 404
 
-        # Now, update the database with the new details
         cursor.execute('''
-            UPDATE wines 
-            SET name = ?, vintage = ?, varietal = ?, region = ?, country = ?, 
-                quantity = ?, cost_tier = ?, personal_rating = ?
-            WHERE vivino_url = ?
+            UPDATE wines SET name = ?, vintage = ?, varietal = ?, region = ?, country = ?, 
+            quantity = ?, cost_tier = ?, personal_rating = ? WHERE vivino_url = ?
         ''', (
-            data['name'],
-            data['vintage'],
-            data.get('varietal') or "Unknown Varietal",
-            data.get('region') or "Unknown Region",
-            data.get('country') or "Unknown Country",
-            data['quantity'],
-            data.get('cost_tier'),
-            data.get('personal_rating'), # Added personal_rating
-            vivino_url
+            data['name'], data['vintage'], data.get('varietal') or "Unknown Varietal",
+            data.get('region') or "Unknown Region", data.get('country') or "Unknown Country",
+            data['quantity'], data.get('cost_tier'), data.get('personal_rating'), vivino_url
         ))
         conn.commit()
 
-        # Fetch the newly updated record to sync it back to HA
         cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url,))
         updated_wine_row = cursor.fetchone()
         if updated_wine_row:
             updated_wine_dict = dict(updated_wine_row)
             sync_to_ha_todo(updated_wine_dict, updated_wine_dict['quantity'])
 
-        logger.info(f"Successfully edited wine: {vivino_url}")
         return jsonify({"status": "success", "message": "Wine updated successfully."}), 200
 
     except sqlite3.Error as e:
-        logger.error(f"Database error editing wine {vivino_url}: {e}")
         conn.rollback()
         return jsonify({"status": "error", "message": "Database error while editing wine."}), 500
     finally:
@@ -1177,141 +937,65 @@ def edit_wine():
 
 @app.route('/inventory', methods=['GET'])
 def get_inventory():
-    """
-    Endpoint to retrieve the current wine inventory from the database.
-    Supports filtering by name, vintage, and inventory status (on_hand, history, all).
-    """
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
-
-    # Get filter parameters from the request URL
-    name_filter = request.args.get('name')
-    vintage_filter = request.args.get('vintage')
-    status_filter = request.args.get('filter', 'on_hand') # Default to 'on_hand'
-
+    status_filter = request.args.get('filter', 'on_hand')
     query = "SELECT * FROM wines"
-    params = []
     conditions = []
-
-    # Handle status filter (on_hand, history, all)
-    if status_filter == 'on_hand':
-        conditions.append("quantity > 0")
-    elif status_filter == 'history':
-        conditions.append("quantity = 0")
-    # No condition is added for 'all'
-
-    # Handle existing name and vintage filters
-    if name_filter:
-        conditions.append("name LIKE ?")
-        params.append(f"%{name_filter}%")
-    if vintage_filter:
-        conditions.append("vintage = ?")
-        params.append(vintage_filter)
-
-    if conditions:
-        query += " WHERE " + " AND ".join(conditions)
-
+    if status_filter == 'on_hand': conditions.append("quantity > 0")
+    elif status_filter == 'history': conditions.append("quantity = 0")
+    if conditions: query += " WHERE " + " AND ".join(conditions)
     query += " ORDER BY added_at DESC"
-
     try:
-        cursor.execute(query, params)
+        cursor.execute(query)
         wines = cursor.fetchall()
-        wine_list = [dict(wine_row) for wine_row in wines]
-
-        logger.info(f"Returning {len(wine_list)} wines from inventory with filter: {status_filter}")
-        return jsonify(wine_list), 200
-    except sqlite3.Error as e:
-        logger.error(f"Database error retrieving inventory: {e}")
-        return jsonify({"status": "error", "message": "Database error retrieving inventory."}), 500
+        return jsonify([dict(wine_row) for wine_row in wines]), 200
     finally:
-        if conn:
-            conn.close()
+        if conn: conn.close()
 
 @app.route('/inventory/wine/set_quantity', methods=['POST'])
 def set_wine_quantity():
-    """
-    Endpoint to set the quantity of a specific wine in the inventory.
-    If quantity is set to 0, the wine is NOT deleted, but its quantity is updated.
-    Triggers synchronization with Home Assistant To-Do list.
-    """
     data = request.get_json()
     if not data or 'vivino_url' not in data or 'quantity' not in data:
-        logger.warning("Received invalid data for /inventory/wine/set_quantity endpoint: %s", data)
-        return jsonify({"status": "error", "message": "Missing 'vivino_url' or 'quantity' in request body"}), 400
-
+        return jsonify({"status": "error", "message": "Missing 'vivino_url' or 'quantity'"}), 400
     vivino_url = data['vivino_url']
     new_quantity = data['quantity']
-
     if not isinstance(new_quantity, int) or new_quantity < 0:
         return jsonify({"status": "error", "message": "Quantity must be a non-negative integer."}), 400
-
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     try:
-        # Fetch existing wine data before update for syncing with HA
         cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url,))
         wine_data_row = cursor.fetchone()
-
         if wine_data_row:
             columns = [description[0] for description in cursor.description]
             wine_data_dict = dict(zip(columns, wine_data_row))
-
-            # PHASE 1 CHANGE: Always update, never delete from here.
             cursor.execute("UPDATE wines SET quantity = ? WHERE vivino_url = ?", (new_quantity, vivino_url))
             conn.commit()
             if cursor.rowcount > 0:
-                logger.info(f"Successfully set quantity for wine {vivino_url} to {new_quantity}.")
-                sync_to_ha_todo(wine_data_dict, new_quantity) # Sync with HA
-                return jsonify({"status": "success", "message": f"Quantity for wine set to {new_quantity}."}), 200
-            else:
-                # This case should ideally not be hit if the initial SELECT succeeded
-                logger.warning(f"No wine found to set quantity for URL: {vivino_url}")
-                return jsonify({"status": "error", "message": "Wine not found for quantity update."}), 404
-        else:
-            logger.warning(f"No wine found for quantity update for URL: {vivino_url}")
-            return jsonify({"status": "error", "message": "Wine not found for quantity update."}), 404
-
-    except sqlite3.Error as e:
-        logger.error(f"Database error setting wine quantity: {e}")
-        conn.rollback()
-        return jsonify({"status": "error", "message": "Database error setting wine quantity."}), 500
+                sync_to_ha_todo(wine_data_dict, new_quantity)
+                return jsonify({"status": "success", "message": f"Quantity set to {new_quantity}."}), 200
+        return jsonify({"status": "error", "message": "Wine not found."}), 404
     finally:
-        conn.close()
+        if conn: conn.close()
 
 @app.route('/api/consume-wine', methods=['POST'])
 def consume_wine_from_webhook():
-    """
-    Webhook endpoint called by Home Assistant automation when a To-Do item is completed.
-    Parses the wine name and vintage from the item, decrements its quantity in the DB,
-    creates a notification if the last bottle was consumed,
-    syncs with HA ToDo, and pushes SSE events so the GUI refreshes and shows the rating modal.
-    """
     try:
         data = request.get_json()
-        if not data or "item" not in data:
-            logger.warning("Malformed webhook: missing 'item' field. Received: %s", data)
-            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
-
         item_text = data["item"]
         logger.info(f"Webhook received for consumed wine. Raw item_text: '{item_text}'")
 
-        parsed_name = None
-        parsed_vintage = None
-
-        # Parsing logic for "Wine Name (YYYY)" format
+        parsed_name, parsed_vintage = None, None
         if item_text.endswith(')') and item_text[-6:-5] == '(' and item_text[-5:-1].isdigit() and len(item_text) > 6:
             try:
                 parsed_vintage = int(item_text[-5:-1])
                 parsed_name = item_text[:-6].rstrip()
             except (ValueError, IndexError):
-                # Fallback if parsing fails for some reason
                 parsed_name = item_text.strip()
-                parsed_vintage = None
         else:
-            # Handle wines with no vintage in the name
             parsed_name = item_text.strip()
-            parsed_vintage = None
         
         logger.info(f"Parsed name: '{parsed_name}', Parsed vintage: {parsed_vintage}")
 
@@ -1319,7 +1003,6 @@ def consume_wine_from_webhook():
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         try:
-            # Use a case-insensitive lookup for the name to prevent matching errors
             if parsed_vintage is not None:
                 query = "SELECT * FROM wines WHERE LOWER(name) = LOWER(?) AND vintage = ?"
                 params = (parsed_name, parsed_vintage)
@@ -1327,332 +1010,141 @@ def consume_wine_from_webhook():
                 query = "SELECT * FROM wines WHERE LOWER(name) = LOWER(?) AND vintage IS NULL"
                 params = (parsed_name,)
             
-            logger.debug(f"Executing wine lookup with query: '{query}' and params: {params}")
             cursor.execute(query, params)
             wine_record = cursor.fetchone()
 
             if wine_record:
                 wine_data_dict = dict(wine_record)
                 current_db_quantity = wine_data_dict.get('quantity', 0)
-
                 if current_db_quantity > 0:
                     new_quantity = current_db_quantity - 1
-
                     cursor.execute("UPDATE wines SET quantity = ? WHERE id = ?", (new_quantity, wine_data_dict['id']))
                     conn.commit()
-                    
                     logger.info(f"Decremented quantity for '{parsed_name} ({parsed_vintage or 'NV'})' to {new_quantity}")
-                    
-                   # ✅ Always sync HA ToDo with new quantity
                     sync_to_ha_todo(wine_data_dict, new_quantity)
-
-                    # ✅ Push SSE events (always trigger rating modal + refresh)
-                    push_event(json.dumps({"type": "refresh_inventory"}))
-                    push_event(json.dumps({
-                        "type": "open_rating",
-                        "vivino_url": wine_data_dict.get("vivino_url"),
-                        "name": wine_data_dict.get("name"),
-                        "vintage": wine_data_dict.get("vintage")
-                    }))
-
-                    return jsonify({
-                        "status": "success",
-                        "message": f"Quantity updated. New quantity: {new_quantity}."
-                    }), 200
+                    return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
                 else:
-                    logger.warning(f"Quantity already 0 for '{parsed_name} ({parsed_vintage or 'NV'})'. No decrement performed.")
-                    return jsonify({"status": "warning", "message": "Quantity already zero. No action taken."}), 404
-
-            logger.warning(f"No matching wine found in DB for '{parsed_name} ({parsed_vintage or 'NV'})'.")
-            return jsonify({"status": "warning", "message": "No matching wine found in inventory."}), 404
-        except sqlite3.Error as e:
-            logger.error(f"Database error consuming wine: {e}")
-            conn.rollback()
-            return jsonify({"status": "error", "message": "Database error consuming wine."}), 500
+                    return jsonify({"status": "warning", "message": "Quantity already zero."}), 404
+            return jsonify({"status": "warning", "message": "No matching wine found."}), 404
         finally:
             conn.close()
     except Exception as e:
-        logger.error(f"Error processing webhook for consumed wine: {e}", exc_info=True)
-        return jsonify({"status": "error", "message": "An internal error occurred while processing the webhook."}), 500
-
+        logger.error(f"Error processing webhook: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": "An internal error occurred."}), 500
 
 @app.route('/inventory/wine/consume', methods=['POST'])
 def consume_wine():
-    """
-    Endpoint for the frontend to consume (decrement quantity) a wine by its Vivino URL.
-    Now optionally accepts a personal_rating.
-    """
     data = request.get_json()
     vivino_url = data.get('vivino_url')
-    personal_rating = data.get('personal_rating') # Get optional rating
-
+    personal_rating = data.get('personal_rating')
     if not vivino_url:
         return jsonify({'error': 'vivino_url is required'}), 400
-
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     try:
         cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url,))
         wine_data_row = cursor.fetchone()
-
         if not wine_data_row:
-            logger.warning(f"Wine not found for consumption: {vivino_url}")
-            return jsonify({'error': 'Wine not found in inventory'}), 404
-
+            return jsonify({'error': 'Wine not found'}), 404
         wine_data_dict = dict(wine_data_row)
         current_quantity = wine_data_dict['quantity']
         wine_id = wine_data_dict['id']
-
+        new_quantity = current_quantity
         if current_quantity > 0:
             new_quantity = current_quantity - 1
-            
-            # If a rating was passed, update it along with the quantity
             if personal_rating is not None:
                 cursor.execute("UPDATE wines SET quantity = ?, personal_rating = ? WHERE id = ?", (new_quantity, personal_rating, wine_id))
-                logger.info(f"Decremented quantity and saved rating {personal_rating} for wine {vivino_url}.")
-                wine_data_dict['personal_rating'] = personal_rating # Ensure sync uses new rating
             else:
                 cursor.execute("UPDATE wines SET quantity = ? WHERE id = ?", (new_quantity, wine_id))
-                logger.info(f"Decremented quantity for wine {vivino_url} to {new_quantity}.")
-
             sync_to_ha_todo(wine_data_dict, new_quantity)
-        else:
-            new_quantity = 0
-            logger.warning(f"Attempted to consume wine {vivino_url} with quantity 0. No change made.")
-            
         conn.commit()
-        push_event(json.dumps({"type": "refresh_inventory"}))
         return jsonify({'status': 'success', 'new_quantity': new_quantity})
-    except sqlite3.Error as e:
-        logger.error(f"Database error during consumption: {e}")
-        conn.rollback()
-        return jsonify({'error': 'Database error'}), 500
     finally:
-        if conn:
-            conn.close()
-
+        if conn: conn.close()
 
 @app.route('/inventory/wine', methods=['DELETE'])
 def delete_wine():
-    """
-    Endpoint to delete a wine from the inventory by its Vivino URL.
-    This is for PERMANENT deletion, not consumption.
-    Triggers synchronization with Home Assistant To-Do list to remove the item.
-    """
-    data = request.get_json()
-    if not data or 'vivino_url' not in data:
-        logger.warning("Received invalid data for /inventory/wine DELETE endpoint: %s", data)
-        return jsonify({"status": "error", "message": "Missing 'vivino_url' in request body"}), 400
-
-    vivino_url = data['vivino_url']
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    try:
-        # Before deleting, get wine data to remove from HA To-Do
-        cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url,))
-        wine_to_delete = cursor.fetchone()
-
-        wine_columns_description = None
-        if wine_to_delete:
-            wine_columns_description = cursor.description
-
-        cursor.execute("DELETE FROM wines WHERE vivino_url = ?", (vivino_url,))
-        conn.commit()
-        if cursor.rowcount > 0:
-            logger.info(f"Successfully deleted wine with URL: {vivino_url}")
-
-            if wine_to_delete and wine_columns_description:
-                columns = [description[0] for description in wine_columns_description]
-                wine_data_dict = dict(zip(columns, wine_to_delete))
-                sync_to_ha_todo(wine_data_dict, 0) # Call with quantity 0 to ensure removal from HA
-
-            return jsonify({"status": "success", "message": "Wine deleted successfully."}), 200
-        else:
-            logger.warning(f"No wine found to delete for URL: {vivino_url}")
-            return jsonify({"status": "error", "message": "Wine not found for deletion."}), 404
-    except sqlite3.Error as e:
-        logger.error(f"Database error deleting wine: {e}")
-        conn.rollback()
-        return jsonify({"status": "error", "message": "Database error deleting wine."}), 500
-    finally:
-        conn.close()
-
-@app.route('/api/rate-wine', methods=['POST'])
-def rate_wine():
-    """
-    Endpoint to receive a personal rating for a wine and save it to the database.
-    """
-    data = request.get_json()
-    vivino_url = data.get('vivino_url')
-    personal_rating = data.get('personal_rating')
-
-    # Basic validation
-    if not vivino_url or personal_rating is None:
-        return jsonify({"status": "error", "message": "Missing vivino_url or personal_rating"}), 400
-    
-    try:
-        # Ensure rating is a number (float or int) between 0 and 5
-        rating_val = float(personal_rating)
-        if not (0 <= rating_val <= 5):
-            raise ValueError("Rating out of bounds")
-    except (ValueError, TypeError):
-        return jsonify({"status": "error", "message": "Invalid personal_rating. Must be a number between 0 and 5."}), 400
-
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-
-    try:
-        # Update the personal_rating for the specified wine
-        cursor.execute("UPDATE wines SET personal_rating = ? WHERE vivino_url = ?", (rating_val, vivino_url))
-        if cursor.rowcount == 0:
-            logger.warning(f"No wine found with URL to rate: {vivino_url}")
-            return jsonify({"status": "error", "message": "Wine not found"}), 404
-        
-        conn.commit()
-        logger.info(f"Successfully saved personal rating of {rating_val} for wine: {vivino_url}")
-
-        # Fetch the fully updated wine record to sync to HA
-        cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url,))
-        updated_wine_row = cursor.fetchone()
-        
-        if updated_wine_row:
-            updated_wine_dict = dict(updated_wine_row)
-            # Re-sync to HA to show the new averaged quality score
-            if updated_wine_dict['quantity'] > 0:
-                sync_to_ha_todo(updated_wine_dict, updated_wine_dict['quantity'])
-        
-        push_event(json.dumps({"type": "refresh_inventory"}))
-
-        return jsonify({"status": "success", "message": "Personal rating saved successfully."}), 200
-
-    except sqlite3.Error as e:
-        logger.error(f"Database error while saving personal rating for {vivino_url}: {e}")
-        conn.rollback()
-        return jsonify({"status": "error", "message": "Database error while saving rating."}), 500
-    finally:
-        if conn:
-            conn.close()
-
-@app.route('/api/wine-details', methods=['GET'])
-def get_wine_details():
-    """Endpoint to get details for a single wine by its Vivino URL."""
-    vivino_url = request.args.get('vivino_url')
-    if not vivino_url:
-        return jsonify({"error": "vivino_url parameter is required"}), 400
-
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    try:
-        cursor.execute("SELECT name, vintage FROM wines WHERE vivino_url = ?", (vivino_url,))
-        wine = cursor.fetchone()
-        if wine:
-            return jsonify(dict(wine)), 200
-        else:
-            return jsonify({"error": "Wine not found"}), 404
-    except sqlite3.Error as e:
-        logger.error(f"Database error fetching wine details: {e}")
-        return jsonify({"error": "Database error"}), 500
-    finally:
-        conn.close()
-
-@app.route('/api/dismiss-notification', methods=['POST'])
-def dismiss_ha_notification():
-    """Dismisses the persistent notification in Home Assistant after a rating."""
     data = request.get_json()
     vivino_url = data.get('vivino_url')
     if not vivino_url:
         return jsonify({"status": "error", "message": "Missing 'vivino_url'"}), 400
-
-    # We need the wine's database ID to construct the notification ID
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    cursor.execute("SELECT id FROM wines WHERE vivino_url = ?", (vivino_url,))
-    wine_row = cursor.fetchone()
-    conn.close()
-
-    if not wine_row:
-        logger.warning(f"Could not find wine ID for {vivino_url} to dismiss notification.")
-        return jsonify({"status": "error", "message": "Wine not found to dismiss notification"}), 404
-
-    wine_id = wine_row[0]
-    notification_id = f"wine_rating_{wine_id}"
-
-    headers = {
-        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
-        "Content-Type": "application/json",
-    }
-    url = f"{HOME_ASSISTANT_URL}/api/services/persistent_notification/dismiss"
-    payload = {"notification_id": notification_id}
-
     try:
-        resp = requests.post(url, json=payload, headers=headers, timeout=5)
-        resp.raise_for_status()
-        logger.info(f"Successfully dismissed HA notification: {notification_id}")
+        cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url,))
+        wine_to_delete = cursor.fetchone()
+        if wine_to_delete:
+            wine_columns_description = cursor.description
+        cursor.execute("DELETE FROM wines WHERE vivino_url = ?", (vivino_url,))
+        conn.commit()
+        if cursor.rowcount > 0:
+            if wine_to_delete and wine_columns_description:
+                columns = [d[0] for d in wine_columns_description]
+                wine_data_dict = dict(zip(columns, wine_to_delete))
+                sync_to_ha_todo(wine_data_dict, 0)
+            return jsonify({"status": "success"}), 200
+        else:
+            return jsonify({"status": "error", "message": "Wine not found."}), 404
+    finally:
+        if conn: conn.close()
+
+@app.route('/api/rate-wine', methods=['POST'])
+def rate_wine():
+    data = request.get_json()
+    vivino_url = data.get('vivino_url')
+    personal_rating = data.get('personal_rating')
+    if not vivino_url or personal_rating is None:
+        return jsonify({"status": "error", "message": "Missing required fields"}), 400
+    try:
+        rating_val = float(personal_rating)
+        if not (0 <= rating_val <= 5): raise ValueError("Rating out of bounds")
+    except (ValueError, TypeError):
+        return jsonify({"status": "error", "message": "Invalid rating."}), 400
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    try:
+        cursor.execute("UPDATE wines SET personal_rating = ? WHERE vivino_url = ?", (rating_val, vivino_url))
+        if cursor.rowcount == 0:
+            return jsonify({"status": "error", "message": "Wine not found"}), 404
+        conn.commit()
+        cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url,))
+        updated_wine_row = cursor.fetchone()
+        if updated_wine_row:
+            updated_wine_dict = dict(updated_wine_row)
+            if updated_wine_dict['quantity'] > 0:
+                sync_to_ha_todo(updated_wine_dict, updated_wine_dict['quantity'])
         return jsonify({"status": "success"}), 200
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Failed to dismiss HA persistent notification: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        if conn: conn.close()
 
 @app.route("/sync-all-wines", methods=["POST"])
 def sync_all_wines_to_ha():
-    """
-    Endpoint to trigger a full synchronization of all wines from the database
-    to the Home Assistant To-Do list.
-    """
-    logger.info("Received request to sync all wines to Home Assistant.")
     try:
-        # clear_ha_todo_list() # Commented out due to persistent 400 Bad Request and API limitations
-        sync_db_to_ha_todo() # Then re-add/update all wines from DB
-        return jsonify({"status": "success", "message": "All wines synchronized to Home Assistant."}), 200
+        sync_db_to_ha_todo()
+        return jsonify({"status": "success", "message": "All wines synchronized."}), 200
     except Exception as e:
-        logger.error(f"Error during full synchronization to Home Assistant: {e}")
-        return jsonify({"status": "error", "message": "An internal error occurred during synchronization."}), 500
-
+        logger.error(f"Error during full sync: {e}")
+        return jsonify({"status": "error", "message": "Internal error during sync."}), 500
 
 app.route("/reinitialize-database-action", methods=["POST"])
 def reinitialize_db_endpoint():
-    """
-    Endpoint to reinitialize the database from the web UI.
-    This will delete all existing wine data.
-    """
-    logger.warning("Received request to reinitialize database from web UI.")
     try:
         reinitialize_database()
-        return jsonify({"status": "success", "message": "Database reinitialized successfully. Please restart add-on from Home Assistant if needed."}), 200
+        return jsonify({"status": "success", "message": "Database reinitialized."}), 200
     except Exception as e:
-        logger.error(f"Error reinitializing database from web UI: {e}")
-        return jsonify({"status": "error", "message": "An internal error occurred while reinitializing the database."}), 500
+        logger.error(f"Error reinitializing database: {e}")
+        return jsonify({"status": "error", "message": "Internal error during reinitialization."}), 500
 
 @app.route("/")
 def serve_frontend():
-    """Serves the main frontend HTML file."""
     return send_from_directory("frontend", "index.html")
 
 @app.route("/<path:path>")
 def serve_static(path):
-    """Serves static files (CSS, JS, images) from the 'frontend' directory."""
     return send_from_directory("frontend", path)
 
-
-# Application Entry Point and Initialization
 if __name__ == '__main__':
-    # --- Database Initialization / Reinitialization ---
-    # Check if REINITIALIZE_DATABASE environment variable is set to trigger a fresh start
-    reinitialize_flag = os.environ.get("REINITIALIZE_DATABASE", "false").lower()
-
-    logger.debug(f"DEBUG: REINITIALIZE_DATABASE as read by app: '{reinitialize_flag}' (Type: {type(reinitialize_flag)})")
-
-    # Log the HOME_ASSISTANT_URL being used by the Flask app
-    logger.info(f"Flask app using HOME_ASSISTANT_URL: '{HOME_ASSISTANT_URL}'")
-
-    if __name__ == '__main__':
-        # --- Database Initialization ---
-        logger.info("Ensuring database tables exist.")
-        init_db() # Call your existing init_db function
-
-
-    logger.info("Flask app starting on port 5000...")
+    init_db()
     app.run(host='0.0.0.0', port=5000)

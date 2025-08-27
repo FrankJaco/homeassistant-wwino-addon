@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,25 +16,34 @@
             --accent-color: #6b21a8;
             --card-bg: white;
             --border-color: #e5e7eb;
-            --button-primary-bg: #8b5cf6; /* A purple tone for primary buttons */
+            --button-primary-bg: #8b5cf6;
+            /* A purple tone for primary buttons */
             --button-primary-hover-bg: #7c3aed;
             --button-secondary-bg: #e5e7eb;
             --button-secondary-text: #4b5563;
             --button-secondary-hover-bg: #d1d5db;
             --table-header-bg: #f9fafb;
             --table-border-color: #e5e7eb;
-            --input-bg: var(--card-bg); /* Input background defaults to card background */
-            --input-text: var(--text-color); /* Input text defaults to main text color */
-            --input-border: var(--border-color); /* Input border defaults to main border color */
+            --input-bg: var(--card-bg);
+            /* Input background defaults to card background */
+            --input-text: var(--text-color);
+            /* Input text defaults to main text color */
+            --input-border: var(--border-color);
+            /* Input border defaults to main border color */
         }
 
         /* Dark Theme Variables */
         .dark-theme {
-            --bg-color: #2d3748; /* Dark background */
-            --text-color: #e2e8f0; /* Light text */
-            --header-color: #b794f4; /* Lighter purple for headers */
-            --accent-color: #9f7aea; /* Another lighter purple for accents */
-            --card-bg: #4a5568; /* Darker card background */
+            --bg-color: #2d3748;
+            /* Dark background */
+            --text-color: #e2e8f0;
+            /* Light text */
+            --header-color: #b794f4;
+            /* Lighter purple for headers */
+            --accent-color: #9f7aea;
+            /* Another lighter purple for accents */
+            --card-bg: #4a5568;
+            /* Darker card background */
             --border-color: #6b7280;
             --button-primary-bg: #9f7aea;
             --button-primary-hover-bg: #b794f4;
@@ -41,10 +51,14 @@
             --button-secondary-text: #e2e8f0;
             --button-secondary-hover-bg: #718096;
             --table-header-bg: #4a5568;
-            --table-border-color: #6b7280; /* Adjusted for better visibility in dark mode */
-            --input-bg: #2d3748; /* Darker input background for contrast */
-            --input-text: #e2e8f0; /* Light text for inputs */
-            --input-border: #6b7280; /* Consistent border for inputs */
+            --table-border-color: #6b7280;
+            /* Adjusted for better visibility in dark mode */
+            --input-bg: #2d3748;
+            /* Darker input background for contrast */
+            --input-text: #e2e8f0;
+            /* Light text for inputs */
+            --input-border: #6b7280;
+            /* Consistent border for inputs */
         }
 
         /* Styles for filter buttons */
@@ -58,12 +72,13 @@
             transition: background-color 0.2s, color 0.2s, border-color 0.2s;
             cursor: pointer;
         }
+
         .filter-button.active {
             background-color: var(--accent-color);
             color: white;
             border-color: var(--accent-color);
         }
-        
+
         /* Styles for new cost tier selector */
         .cost-tier-selector span {
             cursor: pointer;
@@ -72,6 +87,7 @@
             border: 1px solid var(--border-color);
             transition: background-color 0.2s, color 0.2s, border-color 0.2s;
         }
+
         .cost-tier-selector span.selected {
             background-color: var(--accent-color);
             color: white;
@@ -80,25 +96,31 @@
 
         /* Styles for the new Taste Rating selector */
         .taste-rating-selector {
-            --star-color-empty: #d1d5db; 
-            --star-color-filled: #f59e0b; /* amber */
+            --star-color-empty: #d1d5db;
+            --star-color-filled: #f59e0b;
+            /* amber */
         }
+
         .taste-rating-selector span {
             position: relative;
             color: var(--star-color-empty);
             transition: color 0.2s;
             cursor: pointer;
         }
+
         /* This is the full, colored star that overlays the empty one */
         .taste-rating-selector span::before {
             position: absolute;
-            content: "⭐"; /* The filled star character */
+            content: "⭐";
+            /* The filled star character */
             top: 0;
             left: 0;
             color: var(--star-color-filled);
-            opacity: 0; /* Hidden by default */
+            opacity: 0;
+            /* Hidden by default */
             transition: opacity 0.2s;
         }
+
         /* This creates the half-star effect by clipping the overlay */
         .taste-rating-selector span.hover-half::before,
         .taste-rating-selector span.rated-half::before {
@@ -106,6 +128,7 @@
             width: 50%;
             overflow: hidden;
         }
+
         /* This creates the full-star effect by showing the full overlay */
         .taste-rating-selector span.hover::before,
         .taste-rating-selector span.rated::before {
@@ -123,93 +146,238 @@
             color: var(--text-color);
             transition: background-color 0.3s ease, color 0.3s ease;
         }
+
         /* Style for wine details in the table */
         .wine-details-cell h4 {
             font-weight: 600;
             margin-bottom: 0.25rem;
             color: var(--header-color);
         }
+
         .wine-details-cell p {
             margin-top: 0.25rem;
             margin-bottom: 0.25rem;
             line-height: 1.3;
             color: var(--text-color);
         }
+
         .wine-details-cell strong {
             font-weight: 700;
             color: var(--accent-color);
         }
 
         /* Apply theme variables to other elements */
-        .bg-white { background-color: var(--card-bg) !important; transition: background-color 0.3s ease; }
-        .text-purple-800 { color: var(--header-color) !important; }
-        .text-gray-800 { color: var(--text-color) !important; }
-        .text-gray-700 { color: var(--text-color) !important; }
-        .border-gray-300 { border-color: var(--border-color) !important; }
-        .focus\:ring-purple-500:focus { --tw-ring-color: var(--accent-color) !important; }
-        .bg-purple-600 { background-color: var(--button-primary-bg) !important; }
-        .hover\:bg-purple-700:hover { background-color: var(--button-primary-hover-bg) !important; }
-        .bg-gray-200 { background-color: var(--button-secondary-bg) !important; }
-        .hover\:bg-gray-300:hover { background-color: var(--button-secondary-hover-bg) !important; }
-        .text-gray-600 { color: var(--button-secondary-text) !important; }
-        .bg-gray-50 { background-color: var(--table-header-bg) !important; }
-        .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: var(--table-border-color) !important; }
-        .border-gray-200 { border-color: var(--table-border-color) !important; }
-        .text-gray-500 { color: var(--text-color) !important; }
+        .bg-white {
+            background-color: var(--card-bg) !important;
+            transition: background-color 0.3s ease;
+        }
+
+        .text-purple-800 {
+            color: var(--header-color) !important;
+        }
+
+        .text-gray-800 {
+            color: var(--text-color) !important;
+        }
+
+        .text-gray-700 {
+            color: var(--text-color) !important;
+        }
+
+        .border-gray-300 {
+            border-color: var(--border-color) !important;
+        }
+
+        .focus\:ring-purple-500:focus {
+            --tw-ring-color: var(--accent-color) !important;
+        }
+
+        .bg-purple-600 {
+            background-color: var(--button-primary-bg) !important;
+        }
+
+        .hover\:bg-purple-700:hover {
+            background-color: var(--button-primary-hover-bg) !important;
+        }
+
+        .bg-gray-200 {
+            background-color: var(--button-secondary-bg) !important;
+        }
+
+        .hover\:bg-gray-300:hover {
+            background-color: var(--button-secondary-hover-bg) !important;
+        }
+
+        .text-gray-600 {
+            color: var(--button-secondary-text) !important;
+        }
+
+        .bg-gray-50 {
+            background-color: var(--table-header-bg) !important;
+        }
+
+        .divide-gray-200> :not([hidden])~ :not([hidden]) {
+            border-color: var(--table-border-color) !important;
+        }
+
+        .border-gray-200 {
+            border-color: var(--table-border-color) !important;
+        }
+
+        .text-gray-500 {
+            color: var(--text-color) !important;
+        }
+
         .modal-content {
-            background-color: var(--card-bg); color: var(--text-color);
+            background-color: var(--card-bg);
+            color: var(--text-color);
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            max-width: 500px; width: 90%; position: relative; max-height: 90vh;
-            overflow-y: auto; transition: background-color 0.3s ease, color 0.3s ease;
-            padding: 1.5rem; border-radius: 0.5rem;
+            max-width: 500px;
+            width: 90%;
+            position: relative;
+            max-height: 90vh;
+            overflow-y: auto;
+            transition: background-color 0.3s ease, color 0.3s ease;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
         }
 
         /* Modal specific styles */
         .modal-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: rgba(0, 0, 0, 0.6); display: flex;
-            justify-content: center; align-items: center; z-index: 1000;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
         }
+
         .modal-close-button {
-            position: absolute; top: 0.75rem; right: 0.75rem; background: none;
-            border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-color);
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-color);
         }
-        .modal-close-button:hover { color: var(--accent-color); }
-        .sort-icon { display: inline-block; vertical-align: middle; fill: currentColor; }
-        .bg-red-600 { background-color: #dc2626 !important; }
-        .hover\:bg-red-700:hover { background-color: #b91c1c !important; }
-        .bg-green-600 { background-color: #16a34a !important; }
-        .hover\:bg-green-700:hover { background-color: #15803d !important; }
-        .text-green-600 { color: #16a34a !important; }
-        .hover\:text-green-900:hover { color: #14532d !important; }
-        .text-red-600 { color: #dc2626 !important; }
-        .hover\:text-red-900:hover { color: #7f1d1d !important; }
-        .bg-blue-600 { background-color: #2563eb !important; }
-        .hover\:bg-blue-700:hover { background-color: #1d4ed8 !important; }
-        .text-blue-600 { color: #2563eb !important; }
-        .text-yellow-600 { color: #ca8a04 !important; }
-        .hover\:text-yellow-900:hover { color: #713f12 !important; }
-		.text-cyan-600 { color: #0891b2 !important; }
-        .hover\:text-cyan-900:hover { color: #164e63 !important; }
+
+        .modal-close-button:hover {
+            color: var(--accent-color);
+        }
+
+        .sort-icon {
+            display: inline-block;
+            vertical-align: middle;
+            fill: currentColor;
+        }
+
+        .bg-red-600 {
+            background-color: #dc2626 !important;
+        }
+
+        .hover\:bg-red-700:hover {
+            background-color: #b91c1c !important;
+        }
+
+        .bg-green-600 {
+            background-color: #16a34a !important;
+        }
+
+        .hover\:bg-green-700:hover {
+            background-color: #15803d !important;
+        }
+
+        .text-green-600 {
+            color: #16a34a !important;
+        }
+
+        .hover\:text-green-900:hover {
+            color: #14532d !important;
+        }
+
+        .text-red-600 {
+            color: #dc2626 !important;
+        }
+
+        .hover\:text-red-900:hover {
+            color: #7f1d1d !important;
+        }
+
+        .bg-blue-600 {
+            background-color: #2563eb !important;
+        }
+
+        .hover\:bg-blue-700:hover {
+            background-color: #1d4ed8 !important;
+        }
+
+        .text-blue-600 {
+            color: #2563eb !important;
+        }
+
+        .text-yellow-600 {
+            color: #ca8a04 !important;
+        }
+
+        .hover\:text-yellow-900:hover {
+            color: #713f12 !important;
+        }
+
+        .text-cyan-600 {
+            color: #0891b2 !important;
+        }
+
+        .hover\:text-cyan-900:hover {
+            color: #164e63 !important;
+        }
 
         #themeToggle {
-            background-color: var(--button-secondary-bg); color: var(--button-secondary-text);
-            border: 1px solid var(--border-color); padding: 0.5rem 1rem; border-radius: 9999px;
-            cursor: pointer; font-size: 0.875rem; font-weight: 500; display: flex;
-            align-items: center; gap: 0.5rem; transition: all 0.3s ease;
+            background-color: var(--button-secondary-bg);
+            color: var(--button-secondary-text);
+            border: 1px solid var(--border-color);
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
         }
-        #themeToggle:hover { background-color: var(--button-secondary-hover-bg); }
-        input[type="text"], input[type="number"], select {
-            background-color: var(--input-bg) !important; color: var(--input-text) !important;
-            border-color: var(--input-border) !important; transition: all 0.3s ease;
+
+        #themeToggle:hover {
+            background-color: var(--button-secondary-hover-bg);
         }
+
+        input[type="text"],
+        input[type="number"],
+        select {
+            background-color: var(--input-bg) !important;
+            color: var(--input-text) !important;
+            border-color: var(--input-border) !important;
+            transition: all 0.3s ease;
+        }
+
         #sortDirectionToggle {
-            background-color: var(--button-secondary-bg) !important; color: var(--button-secondary-text) !important;
-            border-color: var(--border-color) !important; transition: all 0.3s ease;
+            background-color: var(--button-secondary-bg) !important;
+            color: var(--button-secondary-text) !important;
+            border-color: var(--border-color) !important;
+            transition: all 0.3s ease;
         }
-        #sortDirectionToggle:hover { background-color: var(--button-secondary-hover-bg) !important; }
+
+        #sortDirectionToggle:hover {
+            background-color: var(--button-secondary-hover-bg) !important;
+        }
     </style>
 </head>
+
 <body class="min-h-screen flex flex-col items-center py-8">
 
     <header class="text-center mb-8 px-4 w-full max-w-4xl flex justify-between items-center">
@@ -226,17 +394,24 @@
 
             <div class="mb-6">
                 <p class="text-gray-700 mb-2 font-medium">Add via Vivino URL:</p>
-                <p class="text-gray-700 mb-2 text-sm">1. Search Vivino to find your wine's page. Remember to include the vintage!</p>
+                <p class="text-gray-700 mb-2 text-sm">1. Search Vivino to find your wine's page. Remember to include the
+                    vintage!</p>
                 <form id="vivinoSearchForm" class="flex flex-col sm:flex-row gap-4 mb-4">
-                    <input type="text" id="vivinoSearchInput" placeholder="e.g., 'Chateau Lafite 2010'" class="flex-grow px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
-                    <button type="submit" class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500">Search Vivino</button>
+                    <input type="text" id="vivinoSearchInput" placeholder="e.g., 'Chateau Lafite 2010'"
+                        class="flex-grow px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    <button type="submit"
+                        class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500">Search
+                        Vivino</button>
                 </form>
 
                 <p class="text-gray-700 mb-2 text-sm">2. Once you find the wine, paste its URL below:</p>
                 <form id="scanWineForm" class="flex flex-col gap-4">
-                    <input type="text" id="vivinoUrlInput" placeholder="Paste Vivino URL here" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500" required>
-                    
-                    <p class="text-gray-700 -mb-2 text-sm">3. Optionally indicate cost tier, set quantity, then click Add From URL.</p>
+                    <input type="text" id="vivinoUrlInput" placeholder="Paste Vivino URL here"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        required>
+
+                    <p class="text-gray-700 -mb-2 text-sm">3. Optionally indicate cost tier, set quantity, then click
+                        Add From URL.</p>
                     <div class="flex flex-wrap gap-4 items-center">
                         <div class="flex items-center gap-2">
                             <div id="mainCostTierSelector" class="flex items-center gap-2 cost-tier-selector">
@@ -248,18 +423,24 @@
                             </div>
                             <input type="hidden" id="mainCostTierInput">
                         </div>
-                        <div class="flex-grow"></div> <div class="flex items-center gap-2">
+                        <div class="flex-grow"></div>
+                        <div class="flex items-center gap-2">
                             <label for="quantityInput" class="text-gray-700 font-medium whitespace-nowrap">Qty:</label>
-                            <input type="number" id="quantityInput" placeholder="1" min="1" value="1" class="w-20 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                            <input type="number" id="quantityInput" placeholder="1" min="1" value="1"
+                                class="w-20 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
                         </div>
-                        <button type="submit" class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500">Add from URL</button>
+                        <button type="submit"
+                            class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500">Add
+                            from URL</button>
                     </div>
                 </form>
                 <div id="scanMessage" class="mt-4 text-center hidden"></div>
             </div>
 
             <div class="mt-6 pt-6 border-t border-gray-200 text-center">
-                <button id="openEntryModalBtn" class="bg-gray-200 text-gray-600 font-semibold px-6 py-2 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400">Manual Entry</button>
+                <button id="openEntryModalBtn"
+                    class="bg-gray-200 text-gray-600 font-semibold px-6 py-2 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400">Manual
+                    Entry</button>
             </div>
         </section>
 
@@ -273,7 +454,8 @@
                         <button class="filter-button" data-filter="all">All</button>
                     </div>
                     <div class="flex items-center gap-2">
-                        <select id="sortSelect" class="px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm w-32">
+                        <select id="sortSelect"
+                            class="px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm w-32">
                             <option value="name">Name</option>
                             <option value="varietal">Varietal</option>
                             <option value="country">Country</option>
@@ -282,9 +464,19 @@
                             <option value="vivino_rating">Rating</option>
                             <option value="quantity">Quantity</option>
                         </select>
-                        <button id="sortDirectionToggle" class="p-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300" aria-label="Toggle sort direction">
-                            <svg id="sortAscIcon" class="w-5 h-5 sort-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"></path></svg>
-                            <svg id="sortDescIcon" class="w-5 h-5 sort-icon hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 20h13M3 16h9m-9-4h6m4 0l4 4m0 0l4-4m-4 4V4"></path></svg>
+                        <button id="sortDirectionToggle"
+                            class="p-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+                            aria-label="Toggle sort direction">
+                            <svg id="sortAscIcon" class="w-5 h-5 sort-icon" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"></path>
+                            </svg>
+                            <svg id="sortDescIcon" class="w-5 h-5 sort-icon hidden" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M3 20h13M3 16h9m-9-4h6m4 0l4 4m0 0l4-4m-4 4V4"></path>
+                            </svg>
                         </button>
                     </div>
                 </div>
@@ -294,9 +486,15 @@
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Image</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Wine Details</th>
-                            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Actions</th>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
+                                Image</th>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
+                                Wine Details</th>
+                            <th scope="col"
+                                class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
+                                Actions</th>
                         </tr>
                     </thead>
                     <tbody id="inventoryTableBody" class="bg-white divide-y divide-gray-200"></tbody>
@@ -308,9 +506,14 @@
         <section class="mt-12 w-full max-w-xl p-6 bg-white rounded-lg shadow-md mx-auto">
             <h2 class="text-2xl font-bold text-gray-800 mb-4">Maintenance</h2>
             <div class="flex flex-col sm:flex-row gap-4 mb-4 items-center">
-                <button id="syncAllWinesButton" class="w-full sm:flex-grow bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700">Sync ToDo from DB</button>
-                <button id="reinitializeDbButton" class="w-full sm:flex-grow bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg">Reset DB</button>
-                <button id="helpButton" class="w-12 h-12 flex items-center justify-center bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg flex-shrink-0">?</button>
+                <button id="syncAllWinesButton"
+                    class="w-full sm:flex-grow bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700">Sync ToDo
+                    from DB</button>
+                <button id="reinitializeDbButton"
+                    class="w-full sm:flex-grow bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg">Reset
+                    DB</button>
+                <button id="helpButton"
+                    class="w-12 h-12 flex items-center justify-center bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg flex-shrink-0">?</button>
             </div>
             <div id="reinitializeDbMessage" class="mt-3 text-center font-medium"></div>
             <div id="syncMessage" class="mt-3 text-center font-medium"></div>
@@ -318,7 +521,7 @@
 
         <div id="root" class="w-full max-w-4xl px-4"></div>
     </main>
-    
+
     <footer class="mt-8 text-center text-gray-500 text-sm px-4">
         <p>&copy; 2025 Wonderful-Wino. All rights reserved.</p>
     </footer>
@@ -328,21 +531,29 @@
             <button class="modal-close-button" onclick="closeHelpModal()">&times;</button>
             <h3 class="text-xl font-semibold mb-4">Maintenance Help</h3>
             <p class="text-sm">
-                This section provides tools to manage your wine inventory database and its synchronization with the Home Assistant ToDo list.
+                This section provides tools to manage your wine inventory database and its synchronization with the Home
+                Assistant ToDo list.
             </p>
             <ul class="list-disc pl-5 mt-3 text-sm space-y-2">
                 <li>
-                    <strong>Sync ToDo from DB:</strong> This button will synchronize your entire wine inventory from the Wonderful-Wino database to your ToDo list. It attempts to update or re-add every wine from your inventory into the list.
+                    <strong>Sync ToDo from DB:</strong> This button will synchronize your entire wine inventory from the
+                    Wonderful-Wino database to your ToDo list. It attempts to update or re-add every wine from your
+                    inventory into the list.
                     <p class="text-sm mt-3">
-                        <span class="font-bold">Important Note:</span> If your ToDo list contains items that are no longer in your inventory, the "Sync" operation will not remove them. You can clear these manually by “completing” them via the ToDo list in the same manner as when consuming a wine.
+                        <span class="font-bold">Important Note:</span> If your ToDo list contains items that are no
+                        longer in your inventory, the "Sync" operation will not remove them. You can clear these
+                        manually by “completing” them via the ToDo list in the same manner as when consuming a wine.
                     </p>
                 </li>
                 <li>
-                    <strong>Reset DB:</strong> <span class="font-bold text-red-600">WARNING:</span> This action will permanently delete ALL your wine data from the Wonderful-Wino database. This cannot be undone. Use this only if you want to start your wine inventory from scratch.
+                    <strong>Reset DB:</strong> <span class="font-bold text-red-600">WARNING:</span> This action will
+                    permanently delete ALL your wine data from the Wonderful-Wino database. This cannot be undone. Use
+                    this only if you want to start your wine inventory from scratch.
                 </li>
             </ul>
             <div class="mt-6 text-right">
-                <button onclick="closeHelpModal()" class="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">Close</button>
+                <button onclick="closeHelpModal()"
+                    class="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">Close</button>
             </div>
         </div>
     </div>
@@ -354,12 +565,20 @@
             <form id="entryForm">
                 <input type="hidden" id="entryVivinoUrl">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div class="sm:col-span-2"><label class="block text-sm font-medium">Wine Name *</label><input type="text" id="manualNameInput" class="mt-1 block w-full border rounded-md p-2" required></div>
-                    <div><label class="block text-sm font-medium">Vintage *</label><input type="number" id="manualVintageInput" class="mt-1 block w-full border rounded-md p-2" required></div>
-                    <div><label class="block text-sm font-medium">Varietal</label><input type="text" id="manualVarietalInput" class="mt-1 block w-full border rounded-md p-2"></div>
-                    <div><label class="block text-sm font-medium">Region</label><input type="text" id="manualRegionInput" class="mt-1 block w-full border rounded-md p-2"></div>
-                    <div><label class="block text-sm font-medium">Country</label><input type="text" id="manualCountryInput" class="mt-1 block w-full border rounded-md p-2"></div>
-                    <div class="sm:col-span-2"><label class="block text-sm font-medium">Quantity *</label><input type="number" id="manualQuantityInput" min="0" value="1" class="mt-1 block w-full border rounded-md p-2" required></div>
+                    <div class="sm:col-span-2"><label class="block text-sm font-medium">Wine Name *</label><input
+                            type="text" id="manualNameInput" class="mt-1 block w-full border rounded-md p-2" required>
+                    </div>
+                    <div><label class="block text-sm font-medium">Vintage *</label><input type="number"
+                            id="manualVintageInput" class="mt-1 block w-full border rounded-md p-2" required></div>
+                    <div><label class="block text-sm font-medium">Varietal</label><input type="text"
+                            id="manualVarietalInput" class="mt-1 block w-full border rounded-md p-2"></div>
+                    <div><label class="block text-sm font-medium">Region</label><input type="text"
+                            id="manualRegionInput" class="mt-1 block w-full border rounded-md p-2"></div>
+                    <div><label class="block text-sm font-medium">Country</label><input type="text"
+                            id="manualCountryInput" class="mt-1 block w-full border rounded-md p-2"></div>
+                    <div class="sm:col-span-2"><label class="block text-sm font-medium">Quantity *</label><input
+                            type="number" id="manualQuantityInput" min="0" value="1"
+                            class="mt-1 block w-full border rounded-md p-2" required></div>
                     <div class="sm:col-span-2">
                         <label class="block text-sm font-medium">Cost Tier</label>
                         <div id="costTierSelector" class="flex items-center gap-2 mt-1 cost-tier-selector">
@@ -373,7 +592,8 @@
                     </div>
                     <div class="sm:col-span-2">
                         <label class="block text-sm font-medium">Taste Rating</label>
-                        <div id="editTasteRatingSelector" class="flex items-center gap-2 mt-1 text-2xl taste-rating-selector">
+                        <div id="editTasteRatingSelector"
+                            class="flex items-center gap-2 mt-1 text-2xl taste-rating-selector">
                             <span data-value="1">☆</span>
                             <span data-value="2">☆</span>
                             <span data-value="3">☆</span>
@@ -386,8 +606,10 @@
                 </div>
                 <div id="entryMessage" class="mt-4 text-center hidden"></div>
                 <div class="mt-6 flex justify-end gap-4">
-                    <button type="button" onclick="closeEntryModal()" class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Cancel</button>
-                    <button type="submit" id="entrySubmitBtn" class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Add Wine</button>
+                    <button type="button" onclick="closeEntryModal()"
+                        class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Cancel</button>
+                    <button type="submit" id="entrySubmitBtn"
+                        class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Add Wine</button>
                 </div>
             </form>
         </div>
@@ -395,7 +617,7 @@
 
     <div id="tasteModal" class="modal-overlay hidden">
         <div class="modal-content">
-            <h3 class="text-xl font-semibold mb-2">Consume Wine</h3>
+            <h3 id="tasteModalTitle" class="text-xl font-semibold mb-2">Consume Wine</h3>
             <p id="tasteModalWineName" class="mb-4 text-gray-700"></p>
             <form id="tasteForm">
                 <input type="hidden" id="tasteVivinoUrl">
@@ -408,10 +630,13 @@
                     <span data-value="4">☆</span>
                     <span data-value="5">☆</span>
                 </div>
-                <p id="tasteRatingFeedback" class="text-sm text-center h-6 mb-4"></p> <input type="hidden" id="tasteRatingInput">
+                <p id="tasteRatingFeedback" class="text-sm text-center h-6 mb-4"></p> <input type="hidden"
+                    id="tasteRatingInput">
                 <div class="mt-6 flex justify-end gap-4">
-                     <button type="button" onclick="closeTasteModal()" class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Cancel</button>
-                    <button type="submit" class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Consume</button>
+                    <button type="button" onclick="closeTasteModal()"
+                        class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Cancel</button>
+                    <button type="submit" id="tasteSubmitBtn"
+                        class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Consume</button>
                 </div>
             </form>
         </div>
@@ -521,7 +746,7 @@
                 if (item.region && item.region !== "Unknown Region") location.push(item.region);
                 if (item.country && item.country !== "Unknown Country") location.push(item.country);
                 if (location.length > 0) { detailsHtml += `<p><strong>Origin:</strong> ${location.join(', ')}</p>`; }
-                
+
                 let display_rating = item.vivino_rating;
                 if (item.personal_rating !== null && item.vivino_rating !== null) {
                     display_rating = (item.personal_rating + item.vivino_rating) / 2;
@@ -568,7 +793,7 @@
             });
         }
 
-        document.getElementById('scanWineForm').addEventListener('submit', async function(event) {
+        document.getElementById('scanWineForm').addEventListener('submit', async function (event) {
             event.preventDefault();
             const payload = {
                 vivino_url: document.getElementById('vivinoUrlInput').value,
@@ -589,8 +814,8 @@
                 showMessage('scanMessage', `Error: ${error.message}`, 'error');
             }
         });
-        
-        document.getElementById('entryForm').addEventListener('submit', async function(event) {
+
+        document.getElementById('entryForm').addEventListener('submit', async function (event) {
             event.preventDefault();
             const vivinoUrl = document.getElementById('entryVivinoUrl').value;
             const isEditMode = !!vivinoUrl;
@@ -690,7 +915,7 @@
                 showMessage('syncMessage', `Error: ${error.message}`, 'error');
             }
         });
-        document.getElementById('vivinoSearchForm').addEventListener('submit', function(event) {
+        document.getElementById('vivinoSearchForm').addEventListener('submit', function (event) {
             event.preventDefault();
             const query = document.getElementById('vivinoSearchInput').value;
             window.open(`https://www.vivino.com/search/wines?q=${encodeURIComponent(query)}`, '_blank');
@@ -700,7 +925,7 @@
         // --- Modal Functionality ---
         const helpModal = document.getElementById('helpModal');
         const entryModal = document.getElementById('entryModal');
-        
+
         document.getElementById('helpButton').addEventListener('click', () => { helpModal.classList.remove('hidden'); });
         document.getElementById('openEntryModalBtn').addEventListener('click', () => openAddModal());
 
@@ -730,7 +955,7 @@
             document.getElementById('manualCountryInput').value = wine.country !== 'Unknown Country' ? wine.country : '';
             document.getElementById('manualQuantityInput').value = wine.quantity;
             updateCostTierSelector(wine.cost_tier);
-            
+
             const rating = wine.personal_rating || 0;
             document.getElementById('manualTasteRatingInput').value = rating;
             updateStarVisuals(document.getElementById('editTasteRatingSelector'), rating, 'rated');
@@ -742,7 +967,7 @@
         }
         function openDuplicateModal(wine) {
             document.getElementById('entryForm').reset();
-            document.getElementById('entryVivinoUrl').value = ''; 
+            document.getElementById('entryVivinoUrl').value = '';
             document.getElementById('manualNameInput').value = wine.name;
             document.getElementById('manualVarietalInput').value = wine.varietal !== 'Unknown Varietal' ? wine.varietal : '';
             document.getElementById('manualRegionInput').value = wine.region !== 'Unknown Region' ? wine.region : '';
@@ -758,43 +983,40 @@
             document.getElementById('manualVintageInput').focus();
         }
         // --- Taste Modal JS ---
-            function openTasteModal(wine, mode = 'consume') {
-                const tasteModal = document.getElementById('tasteModal');
-                const tasteVivinoUrlInput = document.getElementById('tasteVivinoUrl');
-                const tasteModalWineName = document.getElementById('tasteModalWineName');
-                const tasteRatingSelector = document.getElementById('tasteRatingSelector');
-                const tasteRatingInput = document.getElementById('tasteRatingInput');
-                const tasteRatingFeedback = document.getElementById('tasteRatingFeedback');
-                const tasteModeInput = document.getElementById('tasteMode');
-                const tasteTitle = document.getElementById('tasteModalTitle');
+        function openTasteModal(wine, mode = 'consume') {
+            const tasteModal = document.getElementById('tasteModal');
+            const tasteVivinoUrlInput = document.getElementById('tasteVivinoUrl');
+            const tasteModalWineName = document.getElementById('tasteModalWineName');
+            const tasteRatingSelector = document.getElementById('tasteRatingSelector');
+            const tasteRatingInput = document.getElementById('tasteRatingInput');
+            const tasteRatingFeedback = document.getElementById('tasteRatingFeedback');
+            const tasteModeInput = document.getElementById('tasteMode');
+            const tasteTitle = document.getElementById('tasteModalTitle');
 
-                // ## CHANGE: Added a reference to the submit button
-                const tasteSubmitBtn = document.getElementById('tasteSubmitBtn');
+            const tasteSubmitBtn = document.getElementById('tasteSubmitBtn');
 
-                tasteVivinoUrlInput.value = wine.vivino_url;
-                tasteModalWineName.textContent = `${wine.name} (${wine.vintage || 'NV'})`;
+            tasteVivinoUrlInput.value = wine.vivino_url;
+            tasteModalWineName.textContent = `${wine.name} (${wine.vintage || 'NV'})`;
 
-                // Set mode and title based on why we opened the modal
-                tasteModeInput.value = mode; // 'consume' or 'rate'
+            tasteModeInput.value = mode;
 
-                // ## CHANGE: Updated logic to also change the button text
-                if (mode === 'rate') {
-                    if (tasteTitle) tasteTitle.textContent = 'Rate This Wine';
-                    if (tasteSubmitBtn) tasteSubmitBtn.textContent = 'Save Rating';
-                } else { // Default to 'consume' mode
-                    if (tasteTitle) tasteTitle.textContent = 'Consume Wine';
-                    if (tasteSubmitBtn) tasteSubmitBtn.textContent = 'Consume';
-                }
-
-                resetTasteStars(tasteRatingSelector, tasteRatingInput, tasteRatingFeedback);
-                tasteModal.classList.remove('hidden');
+            if (mode === 'rate') {
+                if (tasteTitle) tasteTitle.textContent = 'Rate This Wine';
+                if (tasteSubmitBtn) tasteSubmitBtn.textContent = 'Save Rating';
+            } else { // Default to 'consume' mode
+                if (tasteTitle) tasteTitle.textContent = 'Consume Wine';
+                if (tasteSubmitBtn) tasteSubmitBtn.textContent = 'Consume';
             }
-        
+
+            resetTasteStars(tasteRatingSelector, tasteRatingInput, tasteRatingFeedback);
+            tasteModal.classList.remove('hidden');
+        }
+
         function closeTasteModal() {
             document.getElementById('tasteModal').classList.add('hidden');
             document.getElementById('tasteForm').reset();
         }
-        
+
         // --- Shared Star Rating Logic ---
         function setupStarRating(selectorEl, inputEl, feedbackEl) {
             selectorEl.addEventListener('mousemove', e => {
@@ -803,7 +1025,7 @@
                 const starRect = star.getBoundingClientRect();
                 const isHalf = (e.clientX - starRect.left) < (starRect.width / 2);
                 const rating = parseInt(star.dataset.value, 10) - (isHalf ? 0.5 : 0);
-                
+
                 updateFeedbackText(feedbackEl, rating);
                 updateStarVisuals(selectorEl, rating, 'hover');
             });
@@ -820,19 +1042,19 @@
                 const starRect = star.getBoundingClientRect();
                 const isHalf = (e.clientX - starRect.left) < (starRect.width / 2);
                 const rating = parseInt(star.dataset.value, 10) - (isHalf ? 0.5 : 0);
-                
+
                 const currentValue = parseFloat(inputEl.value) || 0;
                 // Toggle off if clicking the same rating again
                 inputEl.value = (currentValue === rating) ? '' : rating;
                 const newRating = parseFloat(inputEl.value) || 0;
-                
+
                 updateStarVisuals(selectorEl, newRating, 'rated');
                 updateFeedbackText(feedbackEl, newRating);
             });
         }
-        
+
         function updateStarVisuals(selectorEl, rating, stateClass) {
-             selectorEl.querySelectorAll('span').forEach((star, index) => {
+            selectorEl.querySelectorAll('span').forEach((star, index) => {
                 const starValue = index + 1;
                 star.className = '';
                 if (rating >= starValue) {
@@ -842,7 +1064,7 @@
                 }
             });
         }
-        
+
         function updateFeedbackText(feedbackEl, rating) {
             if (feedbackEl && rating > 0) {
                 feedbackEl.textContent = `${rating} star${rating !== 1 ? 's' : ''}`;
@@ -850,7 +1072,7 @@
                 feedbackEl.textContent = '';
             }
         }
-        
+
         function resetTasteStars(selectorEl, inputEl, feedbackEl) {
             inputEl.value = '';
             updateStarVisuals(selectorEl, 0, 'rated');
@@ -928,13 +1150,13 @@
             themeText.textContent = 'Light';
         }
         themeToggle.addEventListener('click', () => {
-             if (document.body.classList.contains('dark-theme')) {
+            if (document.body.classList.contains('dark-theme')) {
                 enableLightMode();
             } else {
                 enableDarkMode();
             }
         });
-        
+
         // --- Filter Logic ---
         const filterContainer = document.getElementById('inventory-filters');
         const inventoryHeading = document.getElementById('inventory-heading');
@@ -967,27 +1189,23 @@
             } else {
                 enableLightMode();
             }
-            
+
             // Setup star rating systems
             setupStarRating(tasteRatingSelector, tasteRatingInput, tasteRatingFeedback);
             setupStarRating(editTasteRatingSelector, manualTasteRatingInput, editTasteRatingFeedback);
-            
+
             // Setup Taste Modal form submission
             tasteForm.addEventListener('submit', async function (event) {
                 event.preventDefault();
                 const vivinoUrl = document.getElementById('tasteVivinoUrl').value;
                 const rating = document.getElementById('tasteRatingInput').value ? parseFloat(document.getElementById('tasteRatingInput').value) : null;
-
-                // ## CHANGE: Get the current mode ('consume' or 'rate') from the hidden input
                 const mode = document.getElementById('tasteMode').value;
 
                 let endpoint;
                 let payload;
                 let successMessage;
 
-                // ## CHANGE: Determine which endpoint to call and what message to show based on the mode
                 if (mode === 'rate') {
-                    // If the modal is for rating only and no rating is given, just close it.
                     if (rating === null) {
                         closeTasteModal();
                         return;
@@ -1002,7 +1220,6 @@
                 }
 
                 try {
-                    // ## CHANGE: Use the dynamic endpoint and payload variables determined above
                     const response = await fetch(endpoint, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -1011,7 +1228,6 @@
                     const result = await response.json();
                     if (!response.ok) throw new Error(result.error || result.message || 'An unknown error occurred');
 
-                    // ## CHANGE: Use the dynamic success message
                     showMessage('inventoryMessage', successMessage);
                     closeTasteModal();
                     fetchInventory();
@@ -1022,66 +1238,7 @@
             });
 
             fetchInventory();
-            // --- SSE ---
-            function setupSSE() {
-                const sseUrl = `${BASE_URL}events`;
-                let es;
-                let retry = 0;
-
-                function connect() {
-                    console.log('Connecting SSE to', sseUrl);
-                    es = new EventSource(sseUrl);
-
-                    es.onmessage = async (evt) => {
-                        console.log("🔔 SSE raw event received:", evt.data);
-                        
-                        try {
-                            const data = JSON.parse(evt.data || '{}');
-                            console.log("✅ SSE parsed:", data);
-
-                            if (data.type === 'refresh_inventory') {
-                                fetchInventory();
-                            } else if (data.type === 'open_rating') {
-                                const { vivino_url, name, vintage } = data;
-                                // Ensure inventory loaded
-                                if (!currentInventory || currentInventory.length === 0) {
-                                    await fetchInventory();
-                                }
-                                let wine = null;
-                                if (vivino_url) {
-                                    wine = currentInventory.find(w => w.vivino_url === vivino_url);
-                                }
-                                if (!wine && name) {
-                                    const vin = (typeof vintage === 'number') ? vintage : null;
-                                    wine = currentInventory.find(w => {
-                                        const sameName = (w.name || '').trim().toLowerCase() === name.trim().toLowerCase();
-                                        const sameVintage = (vin === null) ? (w.vintage == null) : (w.vintage === vin);
-                                        return sameName && sameVintage;
-                                    });
-                                }
-                                if (wine) {
-                                    openTasteModal(wine, 'rate');
-                                } else {
-                                    openTasteModal({ vivino_url: vivino_url || '', name: name || 'Selected Wine', vintage: vintage || null }, 'rate');
-                                }
-                            }
-                        } catch (err) {
-                            console.warn('SSE message parse error:', err);
-                        }
-                    };
-
-                    es.onerror = () => {
-                        console.warn('SSE connection error; will retry.');
-                        es.close();
-                        retry = Math.min(retry + 1, 6);
-                        setTimeout(connect, Math.pow(2, retry) * 1000); // exponential backoff
-                    };
-                }
-
-                connect();
-            }
-
-            setupSSE();
         });
     </script>
+
 </html>
