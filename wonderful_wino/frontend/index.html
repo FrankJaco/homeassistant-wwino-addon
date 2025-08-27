@@ -1143,13 +1143,13 @@
             document.body.classList.add('dark-theme');
             localStorage.setItem('theme', 'dark');
             themeIcon.textContent = '🌙';
-            themeText.textContent = '';
+            
         }
         function enableLightMode() {
             document.body.classList.remove('dark-theme');
             localStorage.setItem('theme', 'light');
             themeIcon.textContent = '☀️';
-            themeText.textContent = '';
+            
         }
         themeToggle.addEventListener('click', () => {
             if (document.body.classList.contains('dark-theme')) {
