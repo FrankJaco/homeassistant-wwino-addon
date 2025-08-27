@@ -1125,11 +1125,13 @@
         }
         sortSelect.addEventListener('change', (event) => {
             currentSortBy = event.target.value;
+            fetchInventory();
             applySortAndDisplayInventory();
         });
         sortDirectionToggle.addEventListener('click', () => {
             currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
             updateSortIcons();
+            fetchInventory();
             applySortAndDisplayInventory();
         });
 
@@ -1141,13 +1143,13 @@
             document.body.classList.add('dark-theme');
             localStorage.setItem('theme', 'dark');
             themeIcon.textContent = '🌙';
-            themeText.textContent = 'Dark';
+            themeText.textContent = '';
         }
         function enableLightMode() {
             document.body.classList.remove('dark-theme');
             localStorage.setItem('theme', 'light');
             themeIcon.textContent = '☀️';
-            themeText.textContent = 'Light';
+            themeText.textContent = '';
         }
         themeToggle.addEventListener('click', () => {
             if (document.body.classList.contains('dark-theme')) {
@@ -1155,6 +1157,7 @@
             } else {
                 enableDarkMode();
             }
+            fetchInventory();
         });
 
         // --- Filter Logic ---
