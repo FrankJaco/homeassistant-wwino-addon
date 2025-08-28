@@ -338,23 +338,15 @@
         }
 
         #themeToggle {
-            background-color: var(--button-secondary-bg);
-            color: var(--button-secondary-text);
-            border: 1px solid var(--border-color);
+            background: none;
+            border: none;
             cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 1.25rem; /* bigger sun/moon */
-            width: 2.5rem;  /* 40px */
-            height: 2.5rem; /* 40px */
-            border-radius: 9999px; /* fully round */
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            transition: transform 0.2s ease;
+            font-size: 1.25rem; /* same size as gear */
         }
         #themeToggle:hover {
-            background-color: var(--button-secondary-hover-bg);
+            transform: scale(1.2); /* subtle hover feedback */
         }
-
         input[type="text"],
         input[type="number"],
         select {
@@ -382,10 +374,10 @@
     <header class="text-center mb-8 px-4 w-full max-w-4xl flex justify-between items-center">
         <h1 class="text-4xl font-extrabold text-purple-800 tracking-tight">Wonderful Wino</h1>
         <div class="flex items-center gap-2">
-            <button id="settingsButton" class="w-10 h-10 flex items-center justify-center rounded-full shadow-sm">
+            <button id="settingsButton" class="flex items-center justify-center">
                 ⚙️
             </button>
-            <button id="themeToggle" class="w-10 h-10 flex items-center justify-center rounded-full shadow-sm">
+            <button id="themeToggle" class="flex items-center justify-center">
                 <span id="themeIcon">☀️</span>
             </button>
         </div>
