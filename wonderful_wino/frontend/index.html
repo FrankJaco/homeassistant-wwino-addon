@@ -341,17 +341,16 @@
             background-color: var(--button-secondary-bg);
             color: var(--button-secondary-text);
             border: 1px solid var(--border-color);
-            padding: 0.5rem 1rem;
-            border-radius: 9999px;
             cursor: pointer;
-            font-size: 0.875rem;
-            font-weight: 500;
+            transition: all 0.3s ease;
+            font-size: 1.25rem; /* bigger sun/moon */
+            width: 2.5rem;  /* 40px */
+            height: 2.5rem; /* 40px */
+            border-radius: 9999px; /* fully round */
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            transition: all 0.3s ease;
+            justify-content: center;
         }
-
         #themeToggle:hover {
             background-color: var(--button-secondary-hover-bg);
         }
@@ -382,9 +381,8 @@
 
     <header class="text-center mb-8 px-4 w-full max-w-4xl flex justify-between items-center">
         <h1 class="text-4xl font-extrabold text-purple-800 tracking-tight">Wonderful Wino</h1>
-        <button id="themeToggle" class="flex items-center space-x-2 px-3 py-2 rounded-full shadow-sm text-sm">
+        <button id="themeToggle" class="w-10 h-10 flex items-center justify-center rounded-full shadow-sm">
             <span id="themeIcon">☀️</span>
-            <span id="themeText">Light Mode</span>
         </button>
     </header>
 
@@ -1138,19 +1136,28 @@
         // --- Theme Toggling Logic ---
         const themeToggle = document.getElementById('themeToggle');
         const themeIcon = document.getElementById('themeIcon');
-        const themeText = document.getElementById('themeText');
         function enableDarkMode() {
-            document.body.classList.add('dark-theme');
-            localStorage.setItem('theme', 'dark');
-            themeIcon.textContent = '🌙';
-            themeText.textContent = 'Dark';
-        }
+                document.body.classList.add('dark-theme');
+                localStorage.setItem('theme', 'dark');
+                themeIcon.textContent = '🌙';
+            }
         function enableLightMode() {
-            document.body.classList.remove('dark-theme');
-            localStorage.setItem('theme', 'light');
-            themeIcon.textContent = '☀️';
-            themeText.textContent = 'Light';
-        }
+                document.body.classList.remove('dark-theme');
+                localStorage.setItem('theme', 'light');
+                themeIcon.textContent = '☀️';
+            }
+
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
         themeToggle.addEventListener('click', () => {
             if (document.body.classList.contains('dark-theme')) {
                 enableLightMode();
