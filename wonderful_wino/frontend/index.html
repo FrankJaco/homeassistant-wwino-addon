@@ -347,6 +347,19 @@
         #themeToggle:hover {
             transform: scale(1.2); /* subtle hover feedback */
         }
+        
+        .icon-button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            font-size: 1.25rem; /* consistent size for icons */
+        }
+        .icon-button:hover {
+            transform: scale(1.2);
+        }
+
+
         input[type="text"],
         input[type="number"],
         select {
@@ -374,11 +387,11 @@
     <header class="text-center mb-8 px-4 w-full max-w-4xl flex justify-between items-center">
         <h1 class="text-4xl font-extrabold text-purple-800 tracking-tight">Wonderful Wino</h1>
         <div class="flex items-center gap-2">
-            <button id="settingsButton" class="flex items-center justify-center">
+            <button id="settingsButton" class="icon-button">
                 ⚙️
             </button>
-            <button id="themeToggle" class="flex items-center justify-center">
-                <span id="themeIcon">☀️</span>
+            <button id="themeToggle" class="icon-button">
+                <span id="themeIcon">☀️</spaicon-button">
             </button>
         </div>
     </header>
