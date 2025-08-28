@@ -273,6 +273,14 @@ def init_db():
             added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        )
+    ''')
+    
     conn.commit()
     conn.close()
     logger.info(f"SQLite database initialized at {DB_PATH}")
@@ -289,6 +297,7 @@ def reinitialize_database():
 
         logger.warning("Attempting to reinitialize the database: Dropping existing 'wines' table.")
         cursor.execute("DROP TABLE IF EXISTS wines")
+        cursor.execute("DROP TABLE IF EXISTS settings")
         conn.commit()
         logger.info("Successfully dropped 'wines' table (if it existed).")
 
@@ -792,6 +801,47 @@ def insert_wine_data(wine_data, quantity=1, cost_tier=None):
         return False
     finally:
         conn.close()
+
+@app.route('/api/settings', methods=['GET'])
+def get_settings():
+    """Endpoint to retrieve all settings."""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT key, value FROM settings")
+        rows = cursor.fetchall()
+        settings_dict = {row['key']: row['value'] for row in rows}
+        return jsonify(settings_dict), 200
+    except sqlite3.Error as e:
+        logger.error(f"Database error getting settings: {e}")
+        return jsonify({"error": "Database error"}), 500
+    finally:
+        if conn:
+            conn.close()
+
+@app.route('/api/settings', methods=['POST'])
+def update_settings():
+    """Endpoint to save or update settings."""
+    data = request.get_json()
+    if not isinstance(data, dict):
+        return jsonify({"error": "Invalid data format"}), 400
+    
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        for key, value in data.items():
+            # Use INSERT OR REPLACE to handle both new and existing keys
+            cursor.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
+        conn.commit()
+        return jsonify({"status": "success", "message": "Settings updated successfully."}), 200
+    except sqlite3.Error as e:
+        logger.error(f"Database error updating settings: {e}")
+        conn.rollback()
+        return jsonify({"error": "Database error"}), 500
+    finally:
+        if conn:
+            conn.close()
 
 # --- Flask Routes ---
 

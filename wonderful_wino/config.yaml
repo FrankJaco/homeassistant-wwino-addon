@@ -1,5 +1,5 @@
 name: Wonderful Wino
-version: "0.3.2"
+version: "0.3.3"
 slug: wonderful_wino
 description: Access your wines from within Home Assistant and its AI/Voice assistant
 url: https://github.com/FrankJaco/homeassistant-wwino-addon
@@ -28,8 +28,7 @@ options:
   LOG_LEVEL: "info"
 schema:
   HOME_ASSISTANT_URL: str
-  # THIS IS THE CORRECTED PART FOR HA_LONG_LIVED_TOKEN - USING 'password' TYPE
-  HA_LONG_LIVED_TOKEN: password # <--- CHANGE HERE!
+  HA_LONG_LIVED_TOKEN: password
   TODO_LIST_ENTITY_ID: str
   LOG_LEVEL: list(debug|info|warning|error|critical)
 ports:

@@ -649,15 +649,54 @@
             </form>
         </div>
     </div>
+        
         <div id="settingsModal" class="modal-overlay hidden">
             <div class="modal-content">
                 <button class="modal-close-button" onclick="closeSettingsModal()">&times;</button>
                 <h3 class="text-xl font-semibold mb-4">Settings</h3>
-                <p class="text-sm mb-6">Settings options will go here.</p>
-                <div class="mt-6 text-right">
-                    <button onclick="closeSettingsModal()"
-                        class="bg-gray-200 text-gray-600 px-4 py-2 rounded-md hover:bg-gray-300">Cancel</button>
-                </div>
+        
+                <form id="settingsForm">
+                    <div class="space-y-4">
+                        <h4 class="text-lg font-medium text-gray-700 border-b border-gray-300 pb-2">Cost Tier Labels</h4>
+                        <p class="text-sm text-gray-600">Set the text that appears when you hover over the cost tier symbols ($
+                            - $$$$$).</p>
+        
+                        <div>
+                            <label for="costTier1Label" class="block text-sm font-medium">Tier 1 ($)</label>
+                            <input type="text" id="costTier1Label" class="mt-1 block w-full border rounded-md p-2"
+                                placeholder="e.g., Under $10">
+                        </div>
+                        <div>
+                            <label for="costTier2Label" class="block text-sm font-medium">Tier 2 ($$)</label>
+                            <input type="text" id="costTier2Label" class="mt-1 block w-full border rounded-md p-2"
+                                placeholder="e.g., $10 - $20">
+                        </div>
+                        <div>
+                            <label for="costTier3Label" class="block text-sm font-medium">Tier 3 ($$$)</label>
+                            <input type="text" id="costTier3Label" class="mt-1 block w-full border rounded-md p-2"
+                                placeholder="e.g., $20 - $35">
+                        </div>
+                        <div>
+                            <label for="costTier4Label" class="block text-sm font-medium">Tier 4 ($$$$)</label>
+                            <input type="text" id="costTier4Label" class="mt-1 block w-full border rounded-md p-2"
+                                placeholder="e.g., $35 - $50">
+                        </div>
+                        <div>
+                            <label for="costTier5Label" class="block text-sm font-medium">Tier 5 ($$$$$)</label>
+                            <input type="text" id="costTier5Label" class="mt-1 block w-full border rounded-md p-2"
+                                placeholder="e.g., Over $50">
+                        </div>
+                    </div>
+        
+                    <div id="settingsMessage" class="mt-4 text-center"></div>
+        
+                    <div class="mt-6 flex justify-end gap-4">
+                        <button type="button" onclick="closeSettingsModal()"
+                            class="bg-gray-200 text-gray-600 px-4 py-2 rounded-md hover:bg-gray-300">Cancel</button>
+                        <button type="submit" class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Save
+                            Settings</button>
+                    </div>
+                </form>
             </div>
         </div>
 
@@ -677,6 +716,7 @@
         let currentSortBy = 'name';
         let currentSortDirection = 'asc';
         let currentFilter = 'on_hand';
+        let appSettings = {};
 
         function showMessage(elementId, message, type = 'info', isModal = false) {
             const element = document.getElementById(elementId);
@@ -1148,6 +1188,54 @@
             settingsModal.classList.add('hidden');
         }
         
+        // --- NEW FEATURE: Settings Modal Functions ---
+            async function fetchSettings() {
+                try {
+                    const response = await fetch(`${BASE_URL}api/settings`);
+                    if (!response.ok) throw new Error('Failed to fetch settings');
+                    appSettings = await response.json();
+                    console.log('Settings loaded:', appSettings);
+                } catch (error) {
+                    console.error('Error fetching settings:', error);
+                    // On error, appSettings will be an empty object, and defaults will be used.
+                }
+            }
+
+            function updateCostTierTooltips() {
+                const tierSelectors = document.querySelectorAll('.cost-tier-selector');
+                tierSelectors.forEach(selector => {
+                    selector.querySelectorAll('span').forEach(span => {
+                        const tierValue = span.dataset.value;
+                        const settingKey = `cost_tier_${tierValue}_label`;
+                        const tooltipText = appSettings[settingKey] || `Tier ${tierValue}`; // Use saved label or a default
+                        span.title = tooltipText;
+                    });
+                });
+            }
+
+            // Replace your existing open/close settings modal functions with these
+            function openSettingsModal() {
+                // Populate the modal with current settings
+                for (let i = 1; i <= 5; i++) {
+                    const input = document.getElementById(`costTier${i}Label`);
+                    const key = `cost_tier_${i}_label`;
+                    if (input) {
+                        input.value = appSettings[key] || '';
+                    }
+                }
+                document.getElementById('settingsModal').classList.remove('hidden');
+            }
+
+            function closeSettingsModal() {
+                document.getElementById('settingsModal').classList.add('hidden');
+                // Also clear any previous message
+                const msgEl = document.getElementById('settingsMessage');
+                if (msgEl) {
+                    msgEl.style.display = 'none';
+                    msgEl.textContent = '';
+                }
+            }
+
         // --- Sort Controls ---
         const sortSelect = document.getElementById('sortSelect');
         const sortDirectionToggle = document.getElementById('sortDirectionToggle');
@@ -1218,73 +1306,104 @@
         });
 
         // --- Page Load ---
-        document.addEventListener('DOMContentLoaded', () => {
-            // Moved all element lookups inside here to prevent crash
-            const tasteForm = document.getElementById('tasteForm');
-            const tasteRatingSelector = document.getElementById('tasteRatingSelector');
-            const tasteRatingInput = document.getElementById('tasteRatingInput');
-            const tasteRatingFeedback = document.getElementById('tasteRatingFeedback');
-            const editTasteRatingSelector = document.getElementById('editTasteRatingSelector');
-            const manualTasteRatingInput = document.getElementById('manualTasteRatingInput');
-            const editTasteRatingFeedback = document.getElementById('editTasteRatingFeedback');
+            document.addEventListener('DOMContentLoaded', async () => {
+                // ## CHANGE: Fetches settings and updates tooltips as soon as the page loads
+                await fetchSettings();
+                updateCostTierTooltips();
 
-            updateSortIcons();
-            const savedTheme = localStorage.getItem('theme');
-            if (savedTheme === 'dark') {
-                enableDarkMode();
-            } else {
-                enableLightMode();
-            }
-
-            // Setup star rating systems
-            setupStarRating(tasteRatingSelector, tasteRatingInput, tasteRatingFeedback);
-            setupStarRating(editTasteRatingSelector, manualTasteRatingInput, editTasteRatingFeedback);
-
-            // Setup Taste Modal form submission
-            tasteForm.addEventListener('submit', async function (event) {
-                event.preventDefault();
-                const vivinoUrl = document.getElementById('tasteVivinoUrl').value;
-                const rating = document.getElementById('tasteRatingInput').value ? parseFloat(document.getElementById('tasteRatingInput').value) : null;
-                const mode = document.getElementById('tasteMode').value;
-
-                let endpoint;
-                let payload;
-                let successMessage;
-
-                if (mode === 'rate') {
-                    if (rating === null) {
-                        closeTasteModal();
-                        return;
+                // --- Your existing code starts here ---
+                const tasteForm = document.getElementById('tasteForm');
+                const tasteRatingSelector = document.getElementById('tasteRatingSelector');
+                const tasteRatingInput = document.getElementById('tasteRatingInput');
+                const tasteRatingFeedback = document.getElementById('tasteRatingFeedback');
+                const editTasteRatingSelector = document.getElementById('editTasteRatingSelector');
+                const manualTasteRatingInput = document.getElementById('manualTasteRatingInput');
+                const editTasteRatingFeedback = document.getElementById('editTasteRatingFeedback');
+                updateSortIcons();
+                const savedTheme = localStorage.getItem('theme');
+                if (savedTheme === 'dark') {
+                    enableDarkMode();
+                } else {
+                    enableLightMode();
+                }
+                // Setup star rating systems
+                setupStarRating(tasteRatingSelector, tasteRatingInput, tasteRatingFeedback);
+                setupStarRating(editTasteRatingSelector, manualTasteRatingInput, editTasteRatingFeedback);
+                // Setup Taste Modal form submission
+                tasteForm.addEventListener('submit', async function (event) {
+                    event.preventDefault();
+                    const vivinoUrl = document.getElementById('tasteVivinoUrl').value;
+                    const rating = document.getElementById('tasteRatingInput').value ? parseFloat(document.getElementById('tasteRatingInput').value) : null;
+                    const mode = document.getElementById('tasteMode').value;
+                    let endpoint;
+                    let payload;
+                    let successMessage;
+                    if (mode === 'rate') {
+                        if (rating === null) {
+                            closeTasteModal();
+                            return;
+                        }
+                        endpoint = `${BASE_URL}api/rate-wine`;
+                        payload = { vivino_url: vivinoUrl, personal_rating: rating };
+                        successMessage = 'Rating saved!';
+                    } else { // Default to 'consume' mode
+                        endpoint = `${BASE_URL}inventory/wine/consume`;
+                        payload = { vivino_url: vivinoUrl, personal_rating: rating };
+                        successMessage = 'Wine consumed successfully!';
                     }
-                    endpoint = `${BASE_URL}api/rate-wine`;
-                    payload = { vivino_url: vivinoUrl, personal_rating: rating };
-                    successMessage = 'Rating saved!';
-                } else { // Default to 'consume' mode
-                    endpoint = `${BASE_URL}inventory/wine/consume`;
-                    payload = { vivino_url: vivinoUrl, personal_rating: rating };
-                    successMessage = 'Wine consumed successfully!';
-                }
+                    try {
+                        const response = await fetch(endpoint, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        const result = await response.json();
+                        if (!response.ok) throw new Error(result.error || result.message || 'An unknown error occurred');
+                        showMessage('inventoryMessage', successMessage);
+                        closeTasteModal();
+                        fetchInventory();
+                    } catch (error) {
+                        showMessage('inventoryMessage', `Error: ${error.message}`, 'error');
+                    }
+                });
+                // --- End of your existing code ---
 
-                try {
-                    const response = await fetch(endpoint, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    const result = await response.json();
-                    if (!response.ok) throw new Error(result.error || result.message || 'An unknown error occurred');
 
-                    showMessage('inventoryMessage', successMessage);
-                    closeTasteModal();
-                    fetchInventory();
+                // ## CHANGE: Added event listeners for the new settings functionality
+                const settingsButton = document.getElementById('settingsButton');
+                settingsButton.addEventListener('click', openSettingsModal);
 
-                } catch (error) {
-                    showMessage('inventoryMessage', `Error: ${error.message}`, 'error');
-                }
+                const settingsForm = document.getElementById('settingsForm');
+                settingsForm.addEventListener('submit', async (event) => {
+                    event.preventDefault();
+                    const payload = {};
+                    for (let i = 1; i <= 5; i++) {
+                        const key = `cost_tier_${i}_label`;
+                        payload[key] = document.getElementById(`costTier${i}Label`).value;
+                    }
+
+                    try {
+                        const response = await fetch(`${BASE_URL}api/settings`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        const result = await response.json();
+                        if (!response.ok) throw new Error(result.error || 'Failed to save settings');
+
+                        // On success, update the local settings variable and re-apply tooltips
+                        appSettings = payload;
+                        updateCostTierTooltips();
+                        showMessage('settingsMessage', 'Settings saved successfully!', 'info', true);
+                        setTimeout(closeSettingsModal, 2000);
+                    } catch (error) {
+                        showMessage('settingsMessage', `Error: ${error.message}`, 'error', true);
+                    }
+                });
+
+                // Finally, fetch the initial wine inventory
+                fetchInventory();
             });
-
-            fetchInventory();
-        });
     </script>
 
 </html>
