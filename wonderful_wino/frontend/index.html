@@ -381,9 +381,14 @@
 
     <header class="text-center mb-8 px-4 w-full max-w-4xl flex justify-between items-center">
         <h1 class="text-4xl font-extrabold text-purple-800 tracking-tight">Wonderful Wino</h1>
-        <button id="themeToggle" class="w-10 h-10 flex items-center justify-center rounded-full shadow-sm">
-            <span id="themeIcon">☀️</span>
-        </button>
+        <div class="flex items-center gap-2">
+            <button id="settingsButton" class="w-10 h-10 flex items-center justify-center rounded-full shadow-sm">
+                ⚙️
+            </button>
+            <button id="themeToggle" class="w-10 h-10 flex items-center justify-center rounded-full shadow-sm">
+                <span id="themeIcon">☀️</span>
+            </button>
+        </div>
     </header>
 
     <main class="w-full max-w-4xl px-4">
@@ -639,6 +644,17 @@
             </form>
         </div>
     </div>
+        <div id="settingsModal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <button class="modal-close-button" onclick="closeSettingsModal()">&times;</button>
+                <h3 class="text-xl font-semibold mb-4">Settings</h3>
+                <p class="text-sm mb-6">Settings options will go here.</p>
+                <div class="mt-6 text-right">
+                    <button onclick="closeSettingsModal()"
+                        class="bg-gray-200 text-gray-600 px-4 py-2 rounded-md hover:bg-gray-300">Cancel</button>
+                </div>
+            </div>
+        </div>
 
     <script>
         let BASE_URL = '';
@@ -1111,7 +1127,22 @@
                 span.classList.toggle('selected', span.dataset.value == selectedValue);
             });
         }
+                // --- Settings Modal ---
+        const settingsModal = document.getElementById('settingsModal');
+        const settingsButton = document.getElementById('settingsButton');
 
+        settingsButton.addEventListener('click', () => {
+            openSettingsModal();
+        });
+
+        function openSettingsModal() {
+            settingsModal.classList.remove('hidden');
+        }
+
+        function closeSettingsModal() {
+            settingsModal.classList.add('hidden');
+        }
+        
         // --- Sort Controls ---
         const sortSelect = document.getElementById('sortSelect');
         const sortDirectionToggle = document.getElementById('sortDirectionToggle');
