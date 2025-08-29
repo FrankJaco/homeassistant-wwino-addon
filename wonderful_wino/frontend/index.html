@@ -707,27 +707,28 @@
                         <h4 class="text-lg font-medium mb-2">Maintenance</h4>
                         <p class="text-sm text-gray-600 mb-4">Tools to manage your inventory data.</p>
                     
-                        <!-- Match main GUI layout: row on desktop, stack on mobile -->
+                        <!-- Row on desktop, stacked on mobile -->
                         <div class="flex flex-col sm:flex-row gap-4 mb-4 items-center">
-                            <!-- Sync ToDo from DB (calls the *existing* main button so confirm + fetch + messages are identical) -->
-                            <button type="button" onclick="document.getElementById('syncAllWinesButton').click()"
+                            <!-- Sync ToDo from DB -->
+                            <button type="button" onclick="triggerSyncFromSettings()"
                                 class="w-full sm:flex-grow bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700">
                                 Sync ToDo from DB
                             </button>
                     
-                            <!-- Reset DB (calls the *existing* main button so confirm + fetch + messages are identical) -->
-                            <button type="button" onclick="document.getElementById('reinitializeDbButton').click()"
+                            <!-- Reset DB -->
+                            <button type="button" onclick="triggerResetFromSettings()"
                                 class="w-full sm:flex-grow bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg">
                                 Reset DB
                             </button>
                     
-                            <!-- Help ? (close Settings first so Help modal is on top, then reuse existing Help button logic) -->
-                            <button type="button" onclick="closeSettingsModal(); document.getElementById('helpButton').click()"
+                            <!-- Help -->
+                            <button type="button" onclick="openHelpFromSettings()"
                                 class="w-12 h-12 flex items-center justify-center bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg flex-shrink-0">
                                 ?
                             </button>
                         </div>
-                    </section>               
+                        <div id="settingsMessage" class="text-center mt-2 text-sm"></div>
+                    </section>
                     <div id="settingsMessage" class="mt-4 text-center"></div>
                 </form>
             </div>
@@ -1108,6 +1109,33 @@
             document.getElementById('tasteModal').classList.add('hidden');
             document.getElementById('tasteForm').reset();
         }
+        function triggerSyncFromSettings() {
+                document.getElementById("syncAllWinesButton").click(); // fire original
+                document.getElementById("settingsMessage").innerText = "Sync started...";
+            }
+
+            function triggerResetFromSettings() {
+                document.getElementById("reinitializeDbButton").click(); // fire original
+                document.getElementById("settingsMessage").innerText = "Reset started...";
+            }
+
+            function openHelpFromSettings() {
+                // Track that Help came from Settings
+                window.fromSettings = true;
+                document.getElementById("helpButton").click(); // open Help via original
+            }
+
+            // Patch closeHelpModal to restore Settings if needed
+            const originalCloseHelp = window.closeHelpModal;
+            window.closeHelpModal = function () {
+                if (typeof originalCloseHelp === "function") {
+                    originalCloseHelp();
+                }
+                if (window.fromSettings) {
+                    window.fromSettings = false;
+                    openSettingsModal(); // reopen Settings
+                }
+            };
 
         // --- Shared Star Rating Logic ---
         function setupStarRating(selectorEl, inputEl, feedbackEl) {
