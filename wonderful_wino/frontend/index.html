@@ -707,7 +707,6 @@
                         <h4 class="text-lg font-medium mb-2">Maintenance</h4>
                         <p class="text-sm text-gray-600 mb-4">Tools to manage your inventory data.</p>
                     
-                        <!-- Row on desktop, stacked on mobile -->
                         <div class="flex flex-col sm:flex-row gap-4 mb-4 items-center">
                             <!-- Sync ToDo from DB -->
                             <button type="button" onclick="triggerSyncFromSettings()"
@@ -728,7 +727,7 @@
                             </button>
                         </div>
                         <div id="settingsMessage" class="text-center mt-2 text-sm"></div>
-                    </section>
+                    </section>  
                     <div id="settingsMessage" class="mt-4 text-center"></div>
                 </form>
             </div>
@@ -752,13 +751,28 @@
         let currentFilter = 'on_hand';
         let appSettings = {};
 
-        function showMessage(elementId, message, type = 'info', isModal = false) {
-            const element = document.getElementById(elementId);
-            element.textContent = message;
-            element.className = `mt-4 text-center p-2 rounded-md ${type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`;
-            element.style.display = 'block';
-            if (!isModal) { setTimeout(() => { element.style.display = 'none'; }, 5000); }
-        }
+        function showMessage(text, type) {
+                const messageEl = document.getElementById("message");
+                messageEl.textContent = text;
+                messageEl.className = type === "error"
+                    ? "text-red-600 mt-2"
+                    : "text-green-600 mt-2";
+
+                // NEW: also update Settings modal if visible
+                const settingsMsg = document.getElementById("settingsMessage");
+                if (settingsMsg) {
+                    settingsMsg.textContent = text;
+                    settingsMsg.className = type === "error"
+                        ? "text-red-600 mt-2"
+                        : "text-green-600 mt-2";
+                }
+
+                // Clear after 3s
+                setTimeout(() => {
+                    messageEl.textContent = "";
+                    if (settingsMsg) settingsMsg.textContent = "";
+                }, 3000);
+            }
 
         function sortInventory(inventory, sortBy, sortDirection) {
             const sortedInventory = [...inventory];
@@ -1110,22 +1124,23 @@
             document.getElementById('tasteForm').reset();
         }
         function triggerSyncFromSettings() {
-                document.getElementById("syncAllWinesButton").click(); // fire original
-                document.getElementById("settingsMessage").innerText = "Sync started...";
+                document.getElementById("syncAllWinesButton").click(); // run original
             }
 
             function triggerResetFromSettings() {
-                document.getElementById("reinitializeDbButton").click(); // fire original
-                document.getElementById("settingsMessage").innerText = "Reset started...";
+                document.getElementById("reinitializeDbButton").click(); // run original
             }
 
             function openHelpFromSettings() {
-                // Track that Help came from Settings
+                // hide Settings modal first
+                document.getElementById("settingsModal").classList.add("hidden");
                 window.fromSettings = true;
-                document.getElementById("helpButton").click(); // open Help via original
+
+                // directly show Help modal
+                document.getElementById("helpModal").classList.remove("hidden");
             }
 
-            // Patch closeHelpModal to restore Settings if needed
+            // patch closeHelpModal so it restores Settings if needed
             const originalCloseHelp = window.closeHelpModal;
             window.closeHelpModal = function () {
                 if (typeof originalCloseHelp === "function") {
