@@ -706,19 +706,26 @@
                     <section class="mb-6">
                         <h4 class="text-lg font-medium mb-2">Maintenance</h4>
                         <p class="text-sm text-gray-600 mb-4">Tools to manage your inventory data.</p>
-                        <div class="flex flex-col gap-3">
-                            <button type="button" onclick="rebuildMetadata()"
-                                class="bg-yellow-500 text-white px-4 py-2 rounded-md hover:bg-yellow-600">
-                                Sync ToDo from DB
-                            </button>
+                        <div class="flex flex-wrap gap-3">
+                            <!-- Clear Inventory -->
                             <button type="button" onclick="clearInventory()"
-                                class="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600">
-                                Reset DB
+                                class="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 flex-1 min-w-[120px]">
+                                Clear Inventory
                             </button>
-                            
+                    
+                            <!-- Rebuild Database -->
+                            <button type="button" onclick="rebuildDatabase()"
+                                class="bg-yellow-500 text-white px-4 py-2 rounded-md hover:bg-yellow-600 flex-1 min-w-[120px]">
+                                Rebuild Database
+                            </button>
+                    
+                            <!-- Help -->
+                            <button type="button" onclick="openHelpModal()"
+                                class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 flex-1 min-w-[120px]">
+                                Help&nbsp;?
+                            </button>
                         </div>
                     </section>
-
                     <div id="settingsMessage" class="mt-4 text-center"></div>
                 </form>
             </div>
@@ -1314,17 +1321,6 @@
                 themeIcon.textContent = '☀️';
             }
 
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
         themeToggle.addEventListener('click', () => {
             if (document.body.classList.contains('dark-theme')) {
                 enableLightMode();
