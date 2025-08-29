@@ -1123,34 +1123,45 @@
             document.getElementById('tasteModal').classList.add('hidden');
             document.getElementById('tasteForm').reset();
         }
+        
         function triggerSyncFromSettings() {
-                document.getElementById("syncAllWinesButton").click(); // run original
+            const settingsMsg = document.getElementById("settingsMessage");
+            if (settingsMsg) {
+                settingsMsg.textContent = "Sync started...";
+                settingsMsg.className = "text-blue-600 mt-2";
+             }
+            document.getElementById("syncAllWinesButton").click(); // run original logic (confirm + fetch + showMessage)
+        }
+
+        function triggerResetFromSettings() {
+            const settingsMsg = document.getElementById("settingsMessage");
+            if (settingsMsg) {
+                settingsMsg.textContent = "Reset started...";
+                settingsMsg.className = "text-red-600 mt-2";
             }
+            document.getElementById("reinitializeDbButton").click(); // run original logic (confirm + fetch + showMessage)
+        }
 
-            function triggerResetFromSettings() {
-                document.getElementById("reinitializeDbButton").click(); // run original
+        function openHelpFromSettings() {
+            // hide Settings modal first
+            document.getElementById("settingsModal").classList.add("hidden");
+             window.fromSettings = true;
+
+             // directly show Help modal
+            document.getElementById("helpModal").classList.remove("hidden");
+        }
+
+        // patch closeHelpModal so it restores Settings if needed
+        const originalCloseHelp = window.closeHelpModal;
+        window.closeHelpModal = function () {
+            if (typeof originalCloseHelp === "function") {
+                 originalCloseHelp();
             }
-
-            function openHelpFromSettings() {
-                // hide Settings modal first
-                document.getElementById("settingsModal").classList.add("hidden");
-                window.fromSettings = true;
-
-                // directly show Help modal
-                document.getElementById("helpModal").classList.remove("hidden");
-            }
-
-            // patch closeHelpModal so it restores Settings if needed
-            const originalCloseHelp = window.closeHelpModal;
-            window.closeHelpModal = function () {
-                if (typeof originalCloseHelp === "function") {
-                    originalCloseHelp();
-                }
-                if (window.fromSettings) {
-                    window.fromSettings = false;
-                    openSettingsModal(); // reopen Settings
-                }
-            };
+            if (window.fromSettings) {
+                window.fromSettings = false;
+                openSettingsModal(); // reopen Settings
+             }
+        };
 
         // --- Shared Star Rating Logic ---
         function setupStarRating(selectorEl, inputEl, feedbackEl) {
