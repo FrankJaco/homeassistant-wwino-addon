@@ -702,7 +702,22 @@
                             </div>
                         </div>
                     </section>
-        
+                    <!-- Maintenance Section -->
+                    <section class="mb-6">
+                        <h4 class="text-lg font-medium mb-2">Maintenance</h4>
+                        <p class="text-sm text-gray-600 mb-4">Tools to manage your inventory data.</p>
+                        <div class="flex flex-col gap-3">
+                            <button type="button" onclick="clearInventory()"
+                                class="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600">
+                                Clear Inventory
+                            </button>
+                            <button type="button" onclick="rebuildMetadata()"
+                                class="bg-yellow-500 text-white px-4 py-2 rounded-md hover:bg-yellow-600">
+                                Rebuild Metadata
+                            </button>
+                        </div>
+                    </section>
+
                     <div id="settingsMessage" class="mt-4 text-center"></div>
                 </form>
             </div>
