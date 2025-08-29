@@ -656,45 +656,50 @@
                 <h3 class="text-xl font-semibold mb-4">Settings</h3>
         
                 <form id="settingsForm">
-                    <div class="space-y-4">
-                        <h4 class="text-lg font-medium text-gray-700 border-b border-gray-300 pb-2">Cost Tier Labels</h4>
-                        <p class="text-sm text-gray-600">Set the text that appears when you hover over the cost tier symbols ($
-                            - $$$$$).</p>
-        
-                        <div>
-                            <label for="costTier1Label" class="block text-sm font-medium">Tier 1 ($)</label>
-                            <input type="text" id="costTier1Label" class="mt-1 block w-full border rounded-md p-2"
-                                placeholder="e.g., Under $10">
+                    <!-- Cost Tier Labels Section -->
+                    <section class="mb-6">
+                        <h4 class="text-lg font-medium mb-2">Cost Tier Labels</h4>
+                        <p class="text-sm text-gray-600 mb-4">
+                            Set the text that appears when you hover over the cost tier symbols ($ - $$$$$).
+                        </p>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label for="costTier1Label" class="block text-sm font-medium">Tier 1 ($)</label>
+                                <input type="text" id="costTier1Label" class="w-full border rounded-md px-2 py-1"
+                                    placeholder="e.g., Under $10">
+                            </div>
+                            <div>
+                                <label for="costTier2Label" class="block text-sm font-medium">Tier 2 ($$)</label>
+                                <input type="text" id="costTier2Label" class="w-full border rounded-md px-2 py-1"
+                                    placeholder="e.g., $10 - $20">
+                            </div>
+                            <div>
+                                <label for="costTier3Label" class="block text-sm font-medium">Tier 3 ($$$)</label>
+                                <input type="text" id="costTier3Label" class="w-full border rounded-md px-2 py-1"
+                                    placeholder="e.g., $20 - $35">
+                            </div>
+                            <div>
+                                <label for="costTier4Label" class="block text-sm font-medium">Tier 4 ($$$$)</label>
+                                <input type="text" id="costTier4Label" class="w-full border rounded-md px-2 py-1"
+                                    placeholder="e.g., $35 - $50">
+                            </div>
+                            <div>
+                                <label for="costTier5Label" class="block text-sm font-medium">Tier 5 ($$$$$)</label>
+                                <input type="text" id="costTier5Label" class="w-full border rounded-md px-2 py-1"
+                                    placeholder="e.g., Over $50">
+                            </div>
                         </div>
-                        <div>
-                            <label for="costTier2Label" class="block text-sm font-medium">Tier 2 ($$)</label>
-                            <input type="text" id="costTier2Label" class="mt-1 block w-full border rounded-md p-2"
-                                placeholder="e.g., $10 - $20">
-                        </div>
-                        <div>
-                            <label for="costTier3Label" class="block text-sm font-medium">Tier 3 ($$$)</label>
-                            <input type="text" id="costTier3Label" class="mt-1 block w-full border rounded-md p-2"
-                                placeholder="e.g., $20 - $35">
-                        </div>
-                        <div>
-                            <label for="costTier4Label" class="block text-sm font-medium">Tier 4 ($$$$)</label>
-                            <input type="text" id="costTier4Label" class="mt-1 block w-full border rounded-md p-2"
-                                placeholder="e.g., $35 - $50">
-                        </div>
-                        <div>
-                            <label for="costTier5Label" class="block text-sm font-medium">Tier 5 ($$$$$)</label>
-                            <input type="text" id="costTier5Label" class="mt-1 block w-full border rounded-md p-2"
-                                placeholder="e.g., Over $50">
-                        </div>
-                    </div>
+                    </section>
         
                     <div id="settingsMessage" class="mt-4 text-center"></div>
         
+                    <!-- Footer buttons -->
                     <div class="mt-6 flex justify-end gap-4">
                         <button type="button" onclick="closeSettingsModal()"
                             class="bg-gray-200 text-gray-600 px-4 py-2 rounded-md hover:bg-gray-300">Cancel</button>
-                        <button type="submit" class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Save
-                            Settings</button>
+                        <button type="submit" class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">
+                            Save Settings
+                        </button>
                     </div>
                 </form>
             </div>
