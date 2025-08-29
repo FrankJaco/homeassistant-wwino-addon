@@ -706,26 +706,28 @@
                     <section class="mb-6">
                         <h4 class="text-lg font-medium mb-2">Maintenance</h4>
                         <p class="text-sm text-gray-600 mb-4">Tools to manage your inventory data.</p>
-                        <div class="flex flex-wrap gap-3">
-                            <!-- Clear Inventory -->
-                            <button type="button" onclick="clearInventory()"
-                                class="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 flex-1 min-w-[120px]">
-                                Clear Inventory
+                    
+                        <!-- Match main GUI layout: row on desktop, stack on mobile -->
+                        <div class="flex flex-col sm:flex-row gap-4 mb-4 items-center">
+                            <!-- Sync ToDo from DB (calls the *existing* main button so confirm + fetch + messages are identical) -->
+                            <button type="button" onclick="document.getElementById('syncAllWinesButton').click()"
+                                class="w-full sm:flex-grow bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700">
+                                Sync ToDo from DB
                             </button>
                     
-                            <!-- Rebuild Database -->
-                            <button type="button" onclick="rebuildDatabase()"
-                                class="bg-yellow-500 text-white px-4 py-2 rounded-md hover:bg-yellow-600 flex-1 min-w-[120px]">
-                                Rebuild Database
+                            <!-- Reset DB (calls the *existing* main button so confirm + fetch + messages are identical) -->
+                            <button type="button" onclick="document.getElementById('reinitializeDbButton').click()"
+                                class="w-full sm:flex-grow bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg">
+                                Reset DB
                             </button>
                     
-                            <!-- Help -->
-                            <button type="button" onclick="openHelpModal()"
-                                class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 flex-1 min-w-[120px]">
-                                Help&nbsp;?
+                            <!-- Help ? (close Settings first so Help modal is on top, then reuse existing Help button logic) -->
+                            <button type="button" onclick="closeSettingsModal(); document.getElementById('helpButton').click()"
+                                class="w-12 h-12 flex items-center justify-center bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg flex-shrink-0">
+                                ?
                             </button>
                         </div>
-                    </section>
+                    </section>               
                     <div id="settingsMessage" class="mt-4 text-center"></div>
                 </form>
             </div>
