@@ -652,15 +652,19 @@
         
         <div id="settingsModal" class="modal-overlay hidden">
             <div class="modal-content">
-                <button class="modal-close-button" onclick="closeSettingsModal()">&times;</button>
-                <h3 class="text-xl font-semibold mb-4">Settings</h3>
+                <!-- Modal header with Settings title (left) and X close button (right) -->
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-semibold">Settings</h3>
+                    <button type="button" onclick="closeSettingsModal()" title="Cancel"
+                        class="text-gray-500 hover:text-gray-700 text-xl">&times;</button>
+                </div>
         
                 <form id="settingsForm">
-                    <!-- Cost Tier Labels Section -->
+                    <!-- Cost Tiers Section -->
                     <section class="mb-6">
-                        <h4 class="text-lg font-medium mb-2">Cost Tier Labels</h4>
+                        <h4 class="text-lg font-medium mb-2">Cost Tiers</h4>
                         <p class="text-sm text-gray-600 mb-4">
-                            Set the text that appears when you hover over the cost tier symbols ($ - $$$$$).
+                            Set the cost range for each of the Tiers.
                         </p>
                         <div class="grid grid-cols-2 gap-4">
                             <div>
@@ -688,19 +692,18 @@
                                 <input type="text" id="costTier5Label" class="w-full border rounded-md px-2 py-1"
                                     placeholder="e.g., Over $50">
                             </div>
+        
+                            <!-- Save Button (aligned like a 6th slot) -->
+                            <div class="flex items-end">
+                                <button type="submit"
+                                    class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 w-full">
+                                    Save
+                                </button>
+                            </div>
                         </div>
                     </section>
         
                     <div id="settingsMessage" class="mt-4 text-center"></div>
-        
-                    <!-- Footer buttons -->
-                    <div class="mt-6 flex justify-end gap-4">
-                        <button type="button" onclick="closeSettingsModal()"
-                            class="bg-gray-200 text-gray-600 px-4 py-2 rounded-md hover:bg-gray-300">Cancel</button>
-                        <button type="submit" class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">
-                            Save Settings
-                        </button>
-                    </div>
                 </form>
             </div>
         </div>
