@@ -1017,28 +1017,7 @@
         }
 
         document.getElementById('reinitializeDbButton').addEventListener('click', () => handleReinitializeDb('reinitializeDbMessage'));
-            if (!confirm('ARE YOU SURE? This will permanently delete ALL wine data!')) return;
-            try {
-                const response = await fetch(`${BASE_URL}reinitialize-database-action`, { method: 'POST' });
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.message);
-                showMessage('reinitializeDbMessage', data.message);
-                fetchInventory();
-            } catch (error) {
-                showMessage('reinitializeDbMessage', `Error: ${error.message}`, 'error');
-            }
-        });
         document.getElementById('syncAllWinesButton').addEventListener('click', () => handleSyncAllWines('syncMessage'));
-            if (!confirm('Sync all wines to your Home Assistant To-Do list?')) return;
-            try {
-                const response = await fetch(`${BASE_URL}sync-all-wines`, { method: 'POST' });
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.message);
-                showMessage('syncMessage', data.message);
-            } catch (error) {
-                showMessage('syncMessage', `Error: ${error.message}`, 'error');
-            }
-        });
         document.getElementById('vivinoSearchForm').addEventListener('submit', function (event) {
             event.preventDefault();
             const query = document.getElementById('vivinoSearchInput').value;
