@@ -695,7 +695,7 @@
         
                             <!-- Save Button (aligned like a 6th slot) -->
                             <div class="flex items-end">
-                                <button type="submit"
+                                <button type="button" onclick="saveCostTiers()"
                                     class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 w-full">
                                     Save
                                 </button>
@@ -1195,7 +1195,26 @@
         function closeSettingsModal() {
             settingsModal.classList.add('hidden');
         }
-        
+        function saveCostTiers() {
+                // Grab values
+                const tier1 = document.getElementById("costTier1Label").value;
+                const tier2 = document.getElementById("costTier2Label").value;
+                const tier3 = document.getElementById("costTier3Label").value;
+                const tier4 = document.getElementById("costTier4Label").value;
+                const tier5 = document.getElementById("costTier5Label").value;
+
+                // Placeholder action (replace with API call or persistence logic)
+                console.log("Saving cost tiers:", tier1, tier2, tier3, tier4, tier5);
+
+                // User feedback
+                const msg = document.getElementById("settingsMessage");
+                msg.textContent = "Cost tiers saved!";
+                msg.className = "mt-4 text-green-600 font-medium";
+
+                // Clear after a few seconds
+                setTimeout(() => { msg.textContent = ""; }, 3000);
+            }
+
         // --- NEW FEATURE: Settings Modal Functions ---
             async function fetchSettings() {
                 try {
