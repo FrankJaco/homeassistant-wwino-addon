@@ -510,23 +510,6 @@
             </div>
             <div id="inventoryMessage" class="mt-4 text-center hidden"></div>
         </section>
-
-        <section class="mt-12 w-full max-w-xl p-6 bg-white rounded-lg shadow-md mx-auto">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">Maintenance</h2>
-            <div class="flex flex-col sm:flex-row gap-4 mb-4 items-center">
-                <button id="syncAllWinesButton"
-                    class="w-full sm:flex-grow bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700">Sync ToDo
-                    from DB</button>
-                <button id="reinitializeDbButton"
-                    class="w-full sm:flex-grow bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg">Reset
-                    DB</button>
-                <button id="helpButton"
-                    class="w-12 h-12 flex items-center justify-center bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg flex-shrink-0">?</button>
-            </div>
-            <div id="reinitializeDbMessage" class="mt-3 text-center font-medium"></div>
-            <div id="syncMessage" class="mt-3 text-center font-medium"></div>
-        </section>
-
         <div id="root" class="w-full max-w-4xl px-4"></div>
     </main>
 
@@ -708,26 +691,23 @@
                         <p class="text-sm text-gray-600 mb-4">Tools to manage your inventory data.</p>
                     
                         <div class="flex flex-col sm:flex-row gap-4 mb-4 items-center">
-                            <!-- Sync ToDo from DB -->
-                            <button type="button" onclick="triggerSyncFromSettings()"
+                            <button type="button" onclick="handleSyncAllWines('settingsMessage')"
                                 class="w-full sm:flex-grow bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700">
                                 Sync ToDo from DB
                             </button>
                     
-                            <!-- Reset DB -->
-                            <button type="button" onclick="triggerResetFromSettings()"
+                            <button type="button" onclick="handleReinitializeDb('settingsMessage')"
                                 class="w-full sm:flex-grow bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg">
                                 Reset DB
                             </button>
                     
-                            <!-- Help -->
                             <button type="button" onclick="openHelpFromSettings()"
                                 class="w-12 h-12 flex items-center justify-center bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg flex-shrink-0">
                                 ?
                             </button>
                         </div>
                         <div id="settingsMessage" class="text-center mt-2 text-sm"></div>
-                    </section>  
+                    </section>                    
                     <div id="settingsMessage" class="mt-4 text-center"></div>
                 </form>
             </div>
@@ -751,28 +731,65 @@
         let currentFilter = 'on_hand';
         let appSettings = {};
 
-        function showMessage(text, type) {
-                const messageEl = document.getElementById("message");
-                messageEl.textContent = text;
-                messageEl.className = type === "error"
-                    ? "text-red-600 mt-2"
-                    : "text-green-600 mt-2";
-
-                // NEW: also update Settings modal if visible
-                const settingsMsg = document.getElementById("settingsMessage");
-                if (settingsMsg) {
-                    settingsMsg.textContent = text;
-                    settingsMsg.className = type === "error"
-                        ? "text-red-600 mt-2"
-                        : "text-green-600 mt-2";
-                }
-
-                // Clear after 3s
-                setTimeout(() => {
-                    messageEl.textContent = "";
-                    if (settingsMsg) settingsMsg.textContent = "";
-                }, 3000);
+        function showMessage(elementId, text, type = 'info') {
+            const messageEl = document.getElementById(elementId);
+            if (!messageEl) {
+                console.error(`Message element with ID '${elementId}' not found.`);
+                return;
             }
+
+            // Reset classes and set text
+            messageEl.textContent = text;
+            messageEl.className = 'mt-3 text-center font-medium'; // A base class
+            messageEl.classList.remove('hidden');
+
+            // Apply color based on type
+            if (type === 'error') {
+                messageEl.classList.add('text-red-600');
+            } else { // 'info' or 'success'
+                messageEl.classList.add('text-green-600');
+            }
+
+            // Clear the message after 3 seconds
+            setTimeout(() => {
+                messageEl.textContent = '';
+                messageEl.classList.add('hidden');
+            }, 3000);
+        }    
+
+    // ADD these new handler functions
+        async function handleSyncAllWines(messageElementId) {
+            if (!confirm('Sync all wines to your Home Assistant To-Do list?')) return;
+
+            const messageEl = document.getElementById(messageElementId);
+            if (messageEl) messageEl.textContent = 'Syncing...';
+
+            try {
+                const response = await fetch(`${BASE_URL}sync-all-wines`, { method: 'POST' });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.message);
+                showMessage(messageElementId, data.message, 'info');
+            } catch (error) {
+                showMessage(messageElementId, `Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function handleReinitializeDb(messageElementId) {
+            if (!confirm('ARE YOU SURE? This will permanently delete ALL wine data!')) return;
+
+            const messageEl = document.getElementById(messageElementId);
+            if (messageEl) messageEl.textContent = 'Resetting...';
+
+            try {
+                const response = await fetch(`${BASE_URL}reinitialize-database-action`, { method: 'POST' });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.message);
+                showMessage(messageElementId, data.message, 'info');
+                fetchInventory(); // Refresh inventory after reset
+            } catch (error) {
+                showMessage(messageElementId, `Error: ${error.message}`, 'error');
+            }
+        }    
 
         function sortInventory(inventory, sortBy, sortDirection) {
             const sortedInventory = [...inventory];
@@ -999,7 +1016,7 @@
             }
         }
 
-        document.getElementById('reinitializeDbButton').addEventListener('click', async () => {
+        document.getElementById('reinitializeDbButton').addEventListener('click', () => handleReinitializeDb('reinitializeDbMessage'));
             if (!confirm('ARE YOU SURE? This will permanently delete ALL wine data!')) return;
             try {
                 const response = await fetch(`${BASE_URL}reinitialize-database-action`, { method: 'POST' });
@@ -1011,7 +1028,7 @@
                 showMessage('reinitializeDbMessage', `Error: ${error.message}`, 'error');
             }
         });
-        document.getElementById('syncAllWinesButton').addEventListener('click', async () => {
+        document.getElementById('syncAllWinesButton').addEventListener('click', () => handleSyncAllWines('syncMessage'));
             if (!confirm('Sync all wines to your Home Assistant To-Do list?')) return;
             try {
                 const response = await fetch(`${BASE_URL}sync-all-wines`, { method: 'POST' });
@@ -1124,24 +1141,6 @@
             document.getElementById('tasteForm').reset();
         }
         
-        function triggerSyncFromSettings() {
-            const settingsMsg = document.getElementById("settingsMessage");
-            if (settingsMsg) {
-                settingsMsg.textContent = "Sync started...";
-                settingsMsg.className = "text-blue-600 mt-2";
-             }
-            document.getElementById("syncAllWinesButton").click(); // run original logic (confirm + fetch + showMessage)
-        }
-
-        function triggerResetFromSettings() {
-            const settingsMsg = document.getElementById("settingsMessage");
-            if (settingsMsg) {
-                settingsMsg.textContent = "Reset started...";
-                settingsMsg.className = "text-red-600 mt-2";
-            }
-            document.getElementById("reinitializeDbButton").click(); // run original logic (confirm + fetch + showMessage)
-        }
-
         function openHelpFromSettings() {
             // hide Settings modal first
             document.getElementById("settingsModal").classList.add("hidden");
