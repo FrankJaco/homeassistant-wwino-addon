@@ -648,43 +648,65 @@
 
             <form id="settingsForm" onsubmit="event.preventDefault();">
                 <section class="mb-6">
-                    <h4 class="text-lg font-medium mb-2">Cost Tiers</h4>
-                    <p class="text-sm text-gray-600 mb-4">
-                        Set the cost range for each of the Tiers.
-                    </p>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label for="costTier1Label" class="block text-sm font-medium">Tier 1 ($)</label>
-                            <input type="text" id="costTier1Label" class="w-full border rounded-md px-2 py-1"
-                                placeholder="e.g., Under $10">
+                    <div class="flex justify-between items-center border-b border-gray-300 pb-2">
+                        <h4 class="text-lg font-medium text-gray-700">Cost Tiers</h4>
+                        <button type="button" onclick="resetCostTiers()"
+                            class="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded hover:bg-gray-300">Reset</button>
+                    </div>
+                    <p class="text-sm text-gray-600 mb-4">Define the ranges for each cost tier. Left values are auto-filled.</p>
+                
+                    <div class="space-y-3">
+                        <!-- Tier 1 -->
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm">Under</span>
+                            <span>$</span>
+                            <input type="number" id="tier1" class="w-16 border rounded-md p-1 text-center" value="10"
+                                oninput="updateTiers()">
                         </div>
-                        <div>
-                            <label for="costTier2Label" class="block text-sm font-medium">Tier 2 ($$)</label>
-                            <input type="text" id="costTier2Label" class="w-full border rounded-md px-2 py-1"
-                                placeholder="e.g., $10 - $20">
+                
+                        <!-- Tier 2 -->
+                        <div class="flex items-center gap-2">
+                            <span>$</span>
+                            <input type="number" id="tier2Left" class="w-16 border rounded-md p-1 text-center bg-gray-100" readonly>
+                            <span class="text-sm">to</span>
+                            <span>$</span>
+                            <input type="number" id="tier2Right" class="w-16 border rounded-md p-1 text-center" value="20"
+                                oninput="updateTiers()">
                         </div>
-                        <div>
-                            <label for="costTier3Label" class="block text-sm font-medium">Tier 3 ($$$)</label>
-                            <input type="text" id="costTier3Label" class="w-full border rounded-md px-2 py-1"
-                                placeholder="e.g., $20 - $35">
+                
+                        <!-- Tier 3 -->
+                        <div class="flex items-center gap-2">
+                            <span>$</span>
+                            <input type="number" id="tier3Left" class="w-16 border rounded-md p-1 text-center bg-gray-100" readonly>
+                            <span class="text-sm">to</span>
+                            <span>$</span>
+                            <input type="number" id="tier3Right" class="w-16 border rounded-md p-1 text-center" value="35"
+                                oninput="updateTiers()">
                         </div>
-                        <div>
-                            <label for="costTier4Label" class="block text-sm font-medium">Tier 4 ($$$$)</label>
-                            <input type="text" id="costTier4Label" class="w-full border rounded-md px-2 py-1"
-                                placeholder="e.g., $35 - $50">
+                
+                        <!-- Tier 4 -->
+                        <div class="flex items-center gap-2">
+                            <span>$</span>
+                            <input type="number" id="tier4Left" class="w-16 border rounded-md p-1 text-center bg-gray-100" readonly>
+                            <span class="text-sm">to</span>
+                            <span>$</span>
+                            <input type="number" id="tier4Right" class="w-16 border rounded-md p-1 text-center" value="50"
+                                oninput="updateTiers()">
                         </div>
-                        <div>
-                            <label for="costTier5Label" class="block text-sm font-medium">Tier 5 ($$$$$)</label>
-                            <input type="text" id="costTier5Label" class="w-full border rounded-md px-2 py-1"
-                                placeholder="e.g., Over $50">
+                
+                        <!-- Tier 5 -->
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm">Over</span>
+                            <span>$</span>
+                            <input type="number" id="tier5" class="w-16 border rounded-md p-1 text-center bg-gray-100" readonly>
                         </div>
-
-                        <div class="flex items-end">
-                            <button type="submit"
-                                class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 w-full">
-                                Save
-                            </button>
-                        </div>
+                    </div>
+                
+                    <p id="costTierError" class="text-sm text-red-600 hidden"></p>
+                
+                    <div class="mt-4 flex justify-end">
+                        <button id="saveCostTiersBtn" type="button" onclick="saveCostTiers()"
+                            class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Save</button>
                     </div>
                 </section>
                 <section class="mb-6">
@@ -1221,6 +1243,92 @@
             });
         }
 
+        function updateTiers() {
+            const t1 = parseFloat(document.getElementById('tier1').value) || 0;
+            const t2Right = parseFloat(document.getElementById('tier2Right').value) || 0;
+            const t3Right = parseFloat(document.getElementById('tier3Right').value) || 0;
+            const t4Right = parseFloat(document.getElementById('tier4Right').value) || 0;
+
+            // auto-fill left sides
+            document.getElementById('tier2Left').value = t1;
+            document.getElementById('tier3Left').value = t2Right;
+            document.getElementById('tier4Left').value = t3Right;
+            document.getElementById('tier5').value = t4Right;
+
+            // validate
+            validateTiers([t1, t2Right, t3Right, t4Right]);
+        }
+
+        function validateTiers(values) {
+            const errorEl = document.getElementById('costTierError');
+            const saveBtn = document.getElementById('saveCostTiersBtn');
+            let valid = true;
+
+            for (let i = 1; i < values.length; i++) {
+                if (values[i] <= values[i - 1]) {
+                    valid = false;
+                    break;
+                }
+            }
+
+            if (!valid) {
+                errorEl.textContent = "Each tier must be greater than the one before it.";
+                errorEl.classList.remove("hidden");
+                saveBtn.disabled = true;
+                saveBtn.title = "Fix ranges before saving";
+                saveBtn.classList.add("opacity-50", "cursor-not-allowed");
+            } else {
+                errorEl.textContent = "";
+                errorEl.classList.add("hidden");
+                saveBtn.disabled = false;
+                saveBtn.title = "";
+                saveBtn.classList.remove("opacity-50", "cursor-not-allowed");
+            }
+        }
+
+        function resetCostTiers() {
+            document.getElementById('tier1').value = 10;
+            document.getElementById('tier2Right').value = 20;
+            document.getElementById('tier3Right').value = 35;
+            document.getElementById('tier4Right').value = 50;
+            updateTiers();
+        }
+
+       function saveCostTiers() {
+            const t1 = parseFloat(document.getElementById('tier1').value) || 0;
+            const t2Right = parseFloat(document.getElementById('tier2Right').value) || 0;
+            const t3Right = parseFloat(document.getElementById('tier3Right').value) || 0;
+            const t4Right = parseFloat(document.getElementById('tier4Right').value) || 0;
+            const t5 = parseFloat(document.getElementById('tier5').value) || 0;
+
+            const payload = {
+                cost_tier_1_label: `Under $${t1}`,
+                cost_tier_2_label: `$${t1} - $${t2Right}`,
+                cost_tier_3_label: `$${t2Right} - $${t3Right}`,
+                cost_tier_4_label: `$${t3Right} - $${t4Right}`,
+                cost_tier_5_label: `Over $${t5}`
+            };
+
+            fetch(`${BASE_URL}api/settings`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+                .then(r => r.json().then(data => ({ ok: r.ok, data })))
+                .then(({ ok, data }) => {
+                    if (!ok) throw new Error(data.error || 'Failed to save settings');
+                    appSettings = payload;
+                    updateCostTierTooltips();
+                    showMessage('settingsMessage', 'Cost tiers saved successfully!', 'info', true);
+                })
+                .catch(err => {
+                    showMessage('settingsMessage', `Error: ${err.message}`, 'error', true);
+                });
+        }
+
+        // initialize
+        resetCostTiers();
+
         // --- Settings Modal Functions ---
         function openHelpFromSettings() {
             closeSettingsModal();
@@ -1325,6 +1433,8 @@
                 fetchInventory();
             }
         });
+
+        
 
         // --- Page Load ---
         document.addEventListener('DOMContentLoaded', async () => {
