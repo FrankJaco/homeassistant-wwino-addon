@@ -342,19 +342,24 @@
             border: none;
             cursor: pointer;
             transition: transform 0.2s ease;
-            font-size: 1.25rem; /* same size as gear */
+            font-size: 1.25rem;
+            /* same size as gear */
         }
+
         #themeToggle:hover {
-            transform: scale(1.2); /* subtle hover feedback */
+            transform: scale(1.2);
+            /* subtle hover feedback */
         }
-        
+
         .icon-button {
             background: none;
             border: none;
             cursor: pointer;
             transition: transform 0.2s ease;
-            font-size: 1.25rem; /* consistent size for icons */
+            font-size: 1.25rem;
+            /* consistent size for icons */
         }
+
         .icon-button:hover {
             transform: scale(1.2);
         }
@@ -391,7 +396,7 @@
                 ⚙️
             </button>
             <button id="themeToggle" class="icon-button">
-                <span id="themeIcon">☀️</spaicon-button">
+                <span id="themeIcon">☀️</span>
             </button>
         </div>
     </header>
@@ -632,86 +637,81 @@
             </form>
         </div>
     </div>
-        
-        <div id="settingsModal" class="modal-overlay hidden">
-            <div class="modal-content">
-                <!-- Modal header with Settings title (left) and X close button (right) -->
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-xl font-semibold">Settings</h3>
-                    <button type="button" onclick="closeSettingsModal()" title="Cancel"
-                        class="text-gray-500 hover:text-gray-700 text-xl">&times;</button>
-                </div>
-        
-                <form id="settingsForm">
-                    <!-- Cost Tiers Section -->
-                    <section class="mb-6">
-                        <h4 class="text-lg font-medium mb-2">Cost Tiers</h4>
-                        <p class="text-sm text-gray-600 mb-4">
-                            Set the cost range for each of the Tiers.
-                        </p>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label for="costTier1Label" class="block text-sm font-medium">Tier 1 ($)</label>
-                                <input type="text" id="costTier1Label" class="w-full border rounded-md px-2 py-1"
-                                    placeholder="e.g., Under $10">
-                            </div>
-                            <div>
-                                <label for="costTier2Label" class="block text-sm font-medium">Tier 2 ($$)</label>
-                                <input type="text" id="costTier2Label" class="w-full border rounded-md px-2 py-1"
-                                    placeholder="e.g., $10 - $20">
-                            </div>
-                            <div>
-                                <label for="costTier3Label" class="block text-sm font-medium">Tier 3 ($$$)</label>
-                                <input type="text" id="costTier3Label" class="w-full border rounded-md px-2 py-1"
-                                    placeholder="e.g., $20 - $35">
-                            </div>
-                            <div>
-                                <label for="costTier4Label" class="block text-sm font-medium">Tier 4 ($$$$)</label>
-                                <input type="text" id="costTier4Label" class="w-full border rounded-md px-2 py-1"
-                                    placeholder="e.g., $35 - $50">
-                            </div>
-                            <div>
-                                <label for="costTier5Label" class="block text-sm font-medium">Tier 5 ($$$$$)</label>
-                                <input type="text" id="costTier5Label" class="w-full border rounded-md px-2 py-1"
-                                    placeholder="e.g., Over $50">
-                            </div>
-        
-                            <!-- Save Button (aligned like a 6th slot) -->
-                            <div class="flex items-end">
-                                <button type="button" onclick="saveCostTiers()"
-                                    class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 w-full">
-                                    Save
-                                </button>
-                            </div>
-                        </div>
-                    </section>
-                    <!-- Maintenance Section -->
-                    <section class="mb-6">
-                        <h4 class="text-lg font-medium mb-2">Maintenance</h4>
-                        <p class="text-sm text-gray-600 mb-4">Tools to manage your inventory data.</p>
-                    
-                        <div class="flex flex-col sm:flex-row gap-4 mb-4 items-center">
-                            <button type="button" onclick="handleSyncAllWines('settingsMessage')"
-                                class="w-full sm:flex-grow bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700">
-                                Sync ToDo from DB
-                            </button>
-                    
-                            <button type="button" onclick="handleReinitializeDb('settingsMessage')"
-                                class="w-full sm:flex-grow bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg">
-                                Reset DB
-                            </button>
-                    
-                            <button type="button" onclick="openHelpFromSettings()"
-                                class="w-12 h-12 flex items-center justify-center bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg flex-shrink-0">
-                                ?
-                            </button>
-                        </div>
-                        <div id="settingsMessage" class="text-center mt-2 text-sm"></div>
-                    </section>                    
-                    <div id="settingsMessage" class="mt-4 text-center"></div>
-                </form>
+
+    <div id="settingsModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-semibold">Settings</h3>
+                <button type="button" onclick="closeSettingsModal()" title="Cancel"
+                    class="text-gray-500 hover:text-gray-700 text-xl">&times;</button>
             </div>
+
+            <form id="settingsForm" onsubmit="event.preventDefault();">
+                <section class="mb-6">
+                    <h4 class="text-lg font-medium mb-2">Cost Tiers</h4>
+                    <p class="text-sm text-gray-600 mb-4">
+                        Set the cost range for each of the Tiers.
+                    </p>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="costTier1Label" class="block text-sm font-medium">Tier 1 ($)</label>
+                            <input type="text" id="costTier1Label" class="w-full border rounded-md px-2 py-1"
+                                placeholder="e.g., Under $10">
+                        </div>
+                        <div>
+                            <label for="costTier2Label" class="block text-sm font-medium">Tier 2 ($$)</label>
+                            <input type="text" id="costTier2Label" class="w-full border rounded-md px-2 py-1"
+                                placeholder="e.g., $10 - $20">
+                        </div>
+                        <div>
+                            <label for="costTier3Label" class="block text-sm font-medium">Tier 3 ($$$)</label>
+                            <input type="text" id="costTier3Label" class="w-full border rounded-md px-2 py-1"
+                                placeholder="e.g., $20 - $35">
+                        </div>
+                        <div>
+                            <label for="costTier4Label" class="block text-sm font-medium">Tier 4 ($$$$)</label>
+                            <input type="text" id="costTier4Label" class="w-full border rounded-md px-2 py-1"
+                                placeholder="e.g., $35 - $50">
+                        </div>
+                        <div>
+                            <label for="costTier5Label" class="block text-sm font-medium">Tier 5 ($$$$$)</label>
+                            <input type="text" id="costTier5Label" class="w-full border rounded-md px-2 py-1"
+                                placeholder="e.g., Over $50">
+                        </div>
+
+                        <div class="flex items-end">
+                            <button type="submit"
+                                class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 w-full">
+                                Save
+                            </button>
+                        </div>
+                    </div>
+                </section>
+                <section class="mb-6">
+                    <h4 class="text-lg font-medium mb-2">Maintenance</h4>
+                    <p class="text-sm text-gray-600 mb-4">Tools to manage your inventory data.</p>
+
+                    <div class="flex flex-col sm:flex-row gap-4 mb-4 items-center">
+                        <button type="button" onclick="handleSyncAllWines('settingsMessage')"
+                            class="w-full sm:flex-grow bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700">
+                            Sync ToDo from DB
+                        </button>
+
+                        <button type="button" onclick="handleReinitializeDb('settingsMessage')"
+                            class="w-full sm:flex-grow bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg">
+                            Reset DB
+                        </button>
+
+                        <button type="button" onclick="openHelpFromSettings()"
+                            class="w-12 h-12 flex items-center justify-center bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg flex-shrink-0">
+                            ?
+                        </button>
+                    </div>
+                </section>
+                <div id="settingsMessage" class="mt-4 text-center"></div>
+            </form>
         </div>
+    </div>
 
     <script>
         let BASE_URL = '';
@@ -731,33 +731,31 @@
         let currentFilter = 'on_hand';
         let appSettings = {};
 
-        function showMessage(elementId, text, type = 'info') {
+        function showMessage(elementId, text, type = 'info', isModal = false) {
             const messageEl = document.getElementById(elementId);
             if (!messageEl) {
                 console.error(`Message element with ID '${elementId}' not found.`);
                 return;
             }
 
-            // Reset classes and set text
             messageEl.textContent = text;
-            messageEl.className = 'mt-3 text-center font-medium'; // A base class
+            messageEl.className = 'mt-3 text-center font-medium';
             messageEl.classList.remove('hidden');
 
-            // Apply color based on type
             if (type === 'error') {
                 messageEl.classList.add('text-red-600');
-            } else { // 'info' or 'success'
+            } else {
                 messageEl.classList.add('text-green-600');
             }
 
-            // Clear the message after 3 seconds
-            setTimeout(() => {
-                messageEl.textContent = '';
-                messageEl.classList.add('hidden');
-            }, 3000);
-        }    
+            if (!isModal) {
+                setTimeout(() => {
+                    messageEl.textContent = '';
+                    messageEl.classList.add('hidden');
+                }, 3000);
+            }
+        }
 
-    // ADD these new handler functions
         async function handleSyncAllWines(messageElementId) {
             if (!confirm('Sync all wines to your Home Assistant To-Do list?')) return;
 
@@ -768,9 +766,9 @@
                 const response = await fetch(`${BASE_URL}sync-all-wines`, { method: 'POST' });
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.message);
-                showMessage(messageElementId, data.message, 'info');
+                showMessage(messageElementId, data.message, 'info', true);
             } catch (error) {
-                showMessage(messageElementId, `Error: ${error.message}`, 'error');
+                showMessage(messageElementId, `Error: ${error.message}`, 'error', true);
             }
         }
 
@@ -784,12 +782,12 @@
                 const response = await fetch(`${BASE_URL}reinitialize-database-action`, { method: 'POST' });
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.message);
-                showMessage(messageElementId, data.message, 'info');
+                showMessage(messageElementId, data.message, 'info', true);
                 fetchInventory(); // Refresh inventory after reset
             } catch (error) {
-                showMessage(messageElementId, `Error: ${error.message}`, 'error');
+                showMessage(messageElementId, `Error: ${error.message}`, 'error', true);
             }
-        }    
+        }
 
         function sortInventory(inventory, sortBy, sortDirection) {
             const sortedInventory = [...inventory];
@@ -1016,8 +1014,6 @@
             }
         }
 
-        document.getElementById('reinitializeDbButton').addEventListener('click', () => handleReinitializeDb('reinitializeDbMessage'));
-        document.getElementById('syncAllWinesButton').addEventListener('click', () => handleSyncAllWines('syncMessage'));
         document.getElementById('vivinoSearchForm').addEventListener('submit', function (event) {
             event.preventDefault();
             const query = document.getElementById('vivinoSearchInput').value;
@@ -1028,16 +1024,24 @@
         // --- Modal Functionality ---
         const helpModal = document.getElementById('helpModal');
         const entryModal = document.getElementById('entryModal');
+        const settingsModal = document.getElementById('settingsModal');
 
-        document.getElementById('helpButton').addEventListener('click', () => { helpModal.classList.remove('hidden'); });
         document.getElementById('openEntryModalBtn').addEventListener('click', () => openAddModal());
 
-        function closeHelpModal() { helpModal.classList.add('hidden'); }
+        function closeHelpModal() {
+            helpModal.classList.add('hidden');
+            if (window.fromSettings) {
+                window.fromSettings = false;
+                openSettingsModal(); // Reopen Settings modal
+            }
+        }
+
         function closeEntryModal() {
             entryModal.classList.add('hidden');
             document.getElementById('entryForm').reset();
-            document.getElementById('entryMessage').style.display = 'none';
+            document.getElementById('entryMessage').classList.add('hidden');
         }
+
         function openAddModal() {
             document.getElementById('entryForm').reset();
             document.getElementById('entryVivinoUrl').value = '';
@@ -1048,6 +1052,7 @@
             updateFeedbackText(document.getElementById('editTasteRatingFeedback'), 0);
             entryModal.classList.remove('hidden');
         }
+
         function openEditModal(wine) {
             document.getElementById('entryForm').reset();
             document.getElementById('entryVivinoUrl').value = wine.vivino_url;
@@ -1085,6 +1090,7 @@
             entryModal.classList.remove('hidden');
             document.getElementById('manualVintageInput').focus();
         }
+
         // --- Taste Modal JS ---
         function openTasteModal(wine, mode = 'consume') {
             const tasteModal = document.getElementById('tasteModal');
@@ -1095,12 +1101,10 @@
             const tasteRatingFeedback = document.getElementById('tasteRatingFeedback');
             const tasteModeInput = document.getElementById('tasteMode');
             const tasteTitle = document.getElementById('tasteModalTitle');
-
             const tasteSubmitBtn = document.getElementById('tasteSubmitBtn');
 
             tasteVivinoUrlInput.value = wine.vivino_url;
             tasteModalWineName.textContent = `${wine.name} (${wine.vintage || 'NV'})`;
-
             tasteModeInput.value = mode;
 
             if (mode === 'rate') {
@@ -1119,27 +1123,6 @@
             document.getElementById('tasteModal').classList.add('hidden');
             document.getElementById('tasteForm').reset();
         }
-        
-        function openHelpFromSettings() {
-            // hide Settings modal first
-            document.getElementById("settingsModal").classList.add("hidden");
-             window.fromSettings = true;
-
-             // directly show Help modal
-            document.getElementById("helpModal").classList.remove("hidden");
-        }
-
-        // patch closeHelpModal so it restores Settings if needed
-        const originalCloseHelp = window.closeHelpModal;
-        window.closeHelpModal = function () {
-            if (typeof originalCloseHelp === "function") {
-                 originalCloseHelp();
-            }
-            if (window.fromSettings) {
-                window.fromSettings = false;
-                openSettingsModal(); // reopen Settings
-             }
-        };
 
         // --- Shared Star Rating Logic ---
         function setupStarRating(selectorEl, inputEl, feedbackEl) {
@@ -1237,88 +1220,56 @@
                 span.classList.toggle('selected', span.dataset.value == selectedValue);
             });
         }
-                // --- Settings Modal ---
-        const settingsModal = document.getElementById('settingsModal');
-        const settingsButton = document.getElementById('settingsButton');
 
-        settingsButton.addEventListener('click', () => {
-            openSettingsModal();
-        });
+        // --- Settings Modal Functions ---
+        function openHelpFromSettings() {
+            closeSettingsModal();
+            window.fromSettings = true;
+            helpModal.classList.remove('hidden');
+        }
+
+        async function fetchSettings() {
+            try {
+                const response = await fetch(`${BASE_URL}api/settings`);
+                if (!response.ok) throw new Error('Failed to fetch settings');
+                appSettings = await response.json();
+                console.log('Settings loaded:', appSettings);
+            } catch (error) {
+                console.error('Error fetching settings:', error);
+            }
+        }
+
+        function updateCostTierTooltips() {
+            const tierSelectors = document.querySelectorAll('.cost-tier-selector');
+            tierSelectors.forEach(selector => {
+                selector.querySelectorAll('span').forEach(span => {
+                    const tierValue = span.dataset.value;
+                    const settingKey = `cost_tier_${tierValue}_label`;
+                    const tooltipText = appSettings[settingKey] || `Tier ${tierValue}`;
+                    span.title = tooltipText;
+                });
+            });
+        }
 
         function openSettingsModal() {
+            for (let i = 1; i <= 5; i++) {
+                const input = document.getElementById(`costTier${i}Label`);
+                const key = `cost_tier_${i}_label`;
+                if (input) {
+                    input.value = appSettings[key] || '';
+                }
+            }
             settingsModal.classList.remove('hidden');
         }
 
         function closeSettingsModal() {
             settingsModal.classList.add('hidden');
+            const msgEl = document.getElementById('settingsMessage');
+            if (msgEl) {
+                msgEl.classList.add('hidden');
+                msgEl.textContent = '';
+            }
         }
-        function saveCostTiers() {
-                // Grab values
-                const tier1 = document.getElementById("costTier1Label").value;
-                const tier2 = document.getElementById("costTier2Label").value;
-                const tier3 = document.getElementById("costTier3Label").value;
-                const tier4 = document.getElementById("costTier4Label").value;
-                const tier5 = document.getElementById("costTier5Label").value;
-
-                // Placeholder action (replace with API call or persistence logic)
-                console.log("Saving cost tiers:", tier1, tier2, tier3, tier4, tier5);
-
-                // User feedback
-                const msg = document.getElementById("settingsMessage");
-                msg.textContent = "Cost tiers saved!";
-                msg.className = "mt-4 text-green-600 font-medium";
-
-                // Clear after a few seconds
-                setTimeout(() => { msg.textContent = ""; }, 3000);
-            }
-
-        // --- NEW FEATURE: Settings Modal Functions ---
-            async function fetchSettings() {
-                try {
-                    const response = await fetch(`${BASE_URL}api/settings`);
-                    if (!response.ok) throw new Error('Failed to fetch settings');
-                    appSettings = await response.json();
-                    console.log('Settings loaded:', appSettings);
-                } catch (error) {
-                    console.error('Error fetching settings:', error);
-                    // On error, appSettings will be an empty object, and defaults will be used.
-                }
-            }
-
-            function updateCostTierTooltips() {
-                const tierSelectors = document.querySelectorAll('.cost-tier-selector');
-                tierSelectors.forEach(selector => {
-                    selector.querySelectorAll('span').forEach(span => {
-                        const tierValue = span.dataset.value;
-                        const settingKey = `cost_tier_${tierValue}_label`;
-                        const tooltipText = appSettings[settingKey] || `Tier ${tierValue}`; // Use saved label or a default
-                        span.title = tooltipText;
-                    });
-                });
-            }
-
-            // Replace your existing open/close settings modal functions with these
-            function openSettingsModal() {
-                // Populate the modal with current settings
-                for (let i = 1; i <= 5; i++) {
-                    const input = document.getElementById(`costTier${i}Label`);
-                    const key = `cost_tier_${i}_label`;
-                    if (input) {
-                        input.value = appSettings[key] || '';
-                    }
-                }
-                document.getElementById('settingsModal').classList.remove('hidden');
-            }
-
-            function closeSettingsModal() {
-                document.getElementById('settingsModal').classList.add('hidden');
-                // Also clear any previous message
-                const msgEl = document.getElementById('settingsMessage');
-                if (msgEl) {
-                    msgEl.style.display = 'none';
-                    msgEl.textContent = '';
-                }
-            }
 
         // --- Sort Controls ---
         const sortSelect = document.getElementById('sortSelect');
@@ -1331,13 +1282,11 @@
         }
         sortSelect.addEventListener('change', (event) => {
             currentSortBy = event.target.value;
-            fetchInventory();
             applySortAndDisplayInventory();
         });
         sortDirectionToggle.addEventListener('click', () => {
             currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
             updateSortIcons();
-            fetchInventory();
             applySortAndDisplayInventory();
         });
 
@@ -1345,15 +1294,15 @@
         const themeToggle = document.getElementById('themeToggle');
         const themeIcon = document.getElementById('themeIcon');
         function enableDarkMode() {
-                document.body.classList.add('dark-theme');
-                localStorage.setItem('theme', 'dark');
-                themeIcon.textContent = '🌙';
-            }
+            document.body.classList.add('dark-theme');
+            localStorage.setItem('theme', 'dark');
+            themeIcon.textContent = '🌙';
+        }
         function enableLightMode() {
-                document.body.classList.remove('dark-theme');
-                localStorage.setItem('theme', 'light');
-                themeIcon.textContent = '☀️';
-            }
+            document.body.classList.remove('dark-theme');
+            localStorage.setItem('theme', 'light');
+            themeIcon.textContent = '☀️';
+        }
 
         themeToggle.addEventListener('click', () => {
             if (document.body.classList.contains('dark-theme')) {
@@ -1361,7 +1310,6 @@
             } else {
                 enableDarkMode();
             }
-            fetchInventory();
         });
 
         // --- Filter Logic ---
@@ -1379,104 +1327,97 @@
         });
 
         // --- Page Load ---
-            document.addEventListener('DOMContentLoaded', async () => {
-                // ## CHANGE: Fetches settings and updates tooltips as soon as the page loads
-                await fetchSettings();
-                updateCostTierTooltips();
+        document.addEventListener('DOMContentLoaded', async () => {
+            await fetchSettings();
+            updateCostTierTooltips();
 
-                // --- Your existing code starts here ---
-                const tasteForm = document.getElementById('tasteForm');
-                const tasteRatingSelector = document.getElementById('tasteRatingSelector');
-                const tasteRatingInput = document.getElementById('tasteRatingInput');
-                const tasteRatingFeedback = document.getElementById('tasteRatingFeedback');
-                const editTasteRatingSelector = document.getElementById('editTasteRatingSelector');
-                const manualTasteRatingInput = document.getElementById('manualTasteRatingInput');
-                const editTasteRatingFeedback = document.getElementById('editTasteRatingFeedback');
-                updateSortIcons();
-                const savedTheme = localStorage.getItem('theme');
-                if (savedTheme === 'dark') {
-                    enableDarkMode();
-                } else {
-                    enableLightMode();
-                }
-                // Setup star rating systems
-                setupStarRating(tasteRatingSelector, tasteRatingInput, tasteRatingFeedback);
-                setupStarRating(editTasteRatingSelector, manualTasteRatingInput, editTasteRatingFeedback);
-                // Setup Taste Modal form submission
-                tasteForm.addEventListener('submit', async function (event) {
-                    event.preventDefault();
-                    const vivinoUrl = document.getElementById('tasteVivinoUrl').value;
-                    const rating = document.getElementById('tasteRatingInput').value ? parseFloat(document.getElementById('tasteRatingInput').value) : null;
-                    const mode = document.getElementById('tasteMode').value;
-                    let endpoint;
-                    let payload;
-                    let successMessage;
-                    if (mode === 'rate') {
-                        if (rating === null) {
-                            closeTasteModal();
-                            return;
-                        }
-                        endpoint = `${BASE_URL}api/rate-wine`;
-                        payload = { vivino_url: vivinoUrl, personal_rating: rating };
-                        successMessage = 'Rating saved!';
-                    } else { // Default to 'consume' mode
-                        endpoint = `${BASE_URL}inventory/wine/consume`;
-                        payload = { vivino_url: vivinoUrl, personal_rating: rating };
-                        successMessage = 'Wine consumed successfully!';
-                    }
-                    try {
-                        const response = await fetch(endpoint, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(payload)
-                        });
-                        const result = await response.json();
-                        if (!response.ok) throw new Error(result.error || result.message || 'An unknown error occurred');
-                        showMessage('inventoryMessage', successMessage);
+            const tasteForm = document.getElementById('tasteForm');
+            const tasteRatingSelector = document.getElementById('tasteRatingSelector');
+            const tasteRatingInput = document.getElementById('tasteRatingInput');
+            const tasteRatingFeedback = document.getElementById('tasteRatingFeedback');
+            const editTasteRatingSelector = document.getElementById('editTasteRatingSelector');
+            const manualTasteRatingInput = document.getElementById('manualTasteRatingInput');
+            const editTasteRatingFeedback = document.getElementById('editTasteRatingFeedback');
+
+            updateSortIcons();
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') {
+                enableDarkMode();
+            } else {
+                enableLightMode();
+            }
+
+            setupStarRating(tasteRatingSelector, tasteRatingInput, tasteRatingFeedback);
+            setupStarRating(editTasteRatingSelector, manualTasteRatingInput, editTasteRatingFeedback);
+
+            tasteForm.addEventListener('submit', async function (event) {
+                event.preventDefault();
+                const vivinoUrl = document.getElementById('tasteVivinoUrl').value;
+                const rating = document.getElementById('tasteRatingInput').value ? parseFloat(document.getElementById('tasteRatingInput').value) : null;
+                const mode = document.getElementById('tasteMode').value;
+                let endpoint;
+                let payload;
+                let successMessage;
+
+                if (mode === 'rate') {
+                    if (rating === null) {
                         closeTasteModal();
-                        fetchInventory();
-                    } catch (error) {
-                        showMessage('inventoryMessage', `Error: ${error.message}`, 'error');
+                        return;
                     }
-                });
-                // --- End of your existing code ---
-
-
-                // ## CHANGE: Added event listeners for the new settings functionality
-                const settingsButton = document.getElementById('settingsButton');
-                settingsButton.addEventListener('click', openSettingsModal);
-
-                const settingsForm = document.getElementById('settingsForm');
-                settingsForm.addEventListener('submit', async (event) => {
-                    event.preventDefault();
-                    const payload = {};
-                    for (let i = 1; i <= 5; i++) {
-                        const key = `cost_tier_${i}_label`;
-                        payload[key] = document.getElementById(`costTier${i}Label`).value;
-                    }
-
-                    try {
-                        const response = await fetch(`${BASE_URL}api/settings`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(payload)
-                        });
-                        const result = await response.json();
-                        if (!response.ok) throw new Error(result.error || 'Failed to save settings');
-
-                        // On success, update the local settings variable and re-apply tooltips
-                        appSettings = payload;
-                        updateCostTierTooltips();
-                        showMessage('settingsMessage', 'Settings saved successfully!', 'info', true);
-                        setTimeout(closeSettingsModal, 2000);
-                    } catch (error) {
-                        showMessage('settingsMessage', `Error: ${error.message}`, 'error', true);
-                    }
-                });
-
-                // Finally, fetch the initial wine inventory
-                fetchInventory();
+                    endpoint = `${BASE_URL}api/rate-wine`;
+                    payload = { vivino_url: vivinoUrl, personal_rating: rating };
+                    successMessage = 'Rating saved!';
+                } else { // 'consume' mode
+                    endpoint = `${BASE_URL}inventory/wine/consume`;
+                    payload = { vivino_url: vivinoUrl, personal_rating: rating };
+                    successMessage = 'Wine consumed successfully!';
+                }
+                try {
+                    const response = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    const result = await response.json();
+                    if (!response.ok) throw new Error(result.error || result.message || 'An unknown error occurred');
+                    showMessage('inventoryMessage', successMessage);
+                    closeTasteModal();
+                    fetchInventory();
+                } catch (error) {
+                    showMessage('inventoryMessage', `Error: ${error.message}`, 'error');
+                }
             });
+
+            document.getElementById('settingsButton').addEventListener('click', openSettingsModal);
+
+            document.getElementById('settingsForm').addEventListener('submit', async (event) => {
+                event.preventDefault(); // This is redundant due to onsubmit in HTML, but safe
+                const payload = {};
+                for (let i = 1; i <= 5; i++) {
+                    const key = `cost_tier_${i}_label`;
+                    payload[key] = document.getElementById(`costTier${i}Label`).value;
+                }
+
+                try {
+                    const response = await fetch(`${BASE_URL}api/settings`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    const result = await response.json();
+                    if (!response.ok) throw new Error(result.error || 'Failed to save settings');
+
+                    appSettings = payload;
+                    updateCostTierTooltips();
+                    showMessage('settingsMessage', 'Settings saved successfully!', 'info', true);
+                    setTimeout(closeSettingsModal, 2000);
+                } catch (error) {
+                    showMessage('settingsMessage', `Error: ${error.message}`, 'error', true);
+                }
+            });
+
+            fetchInventory();
+        });
     </script>
 
 </html>
