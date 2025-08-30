@@ -654,56 +654,66 @@
                             class="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded hover:bg-gray-300">Reset</button>
                     </div>
                     <p class="text-sm text-gray-600 mb-4">Define the ranges for each cost tier. Left values are auto-filled.</p>
-                
-                    <div class="space-y-3">
-                        <!-- Tier 1 -->
+            
+                    <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-3 items-center">
+                        <div class="flex items-center justify-end">
+                            <span class="text-xl text-gray-700">$</span>
+                        </div>
                         <div class="flex items-center gap-2">
                             <span class="text-sm">Under</span>
                             <span>$</span>
-                            <input type="number" id="tier1" class="w-16 border rounded-md p-1 text-center" value="10"
+                            <input type="number" id="tier1" class="w-20 border rounded-md p-1 text-center" value="10"
                                 oninput="updateTiers()">
                         </div>
-                
-                        <!-- Tier 2 -->
+            
+                        <div class="flex items-center justify-end">
+                            <span class="text-xl text-gray-700">$$</span>
+                        </div>
                         <div class="flex items-center gap-2">
                             <span>$</span>
-                            <input type="number" id="tier2Left" class="w-16 border rounded-md p-1 text-center bg-gray-100" readonly>
+                            <input type="number" id="tier2Left" class="w-20 border rounded-md p-1 text-center bg-gray-100" readonly>
                             <span class="text-sm">to</span>
                             <span>$</span>
-                            <input type="number" id="tier2Right" class="w-16 border rounded-md p-1 text-center" value="20"
+                            <input type="number" id="tier2Right" class="w-20 border rounded-md p-1 text-center" value="20"
                                 oninput="updateTiers()">
                         </div>
-                
-                        <!-- Tier 3 -->
+            
+                        <div class="flex items-center justify-end">
+                            <span class="text-xl text-gray-700">$$$</span>
+                        </div>
                         <div class="flex items-center gap-2">
                             <span>$</span>
-                            <input type="number" id="tier3Left" class="w-16 border rounded-md p-1 text-center bg-gray-100" readonly>
+                            <input type="number" id="tier3Left" class="w-20 border rounded-md p-1 text-center bg-gray-100" readonly>
                             <span class="text-sm">to</span>
                             <span>$</span>
-                            <input type="number" id="tier3Right" class="w-16 border rounded-md p-1 text-center" value="35"
+                            <input type="number" id="tier3Right" class="w-20 border rounded-md p-1 text-center" value="35"
                                 oninput="updateTiers()">
                         </div>
-                
-                        <!-- Tier 4 -->
+            
+                        <div class="flex items-center justify-end">
+                            <span class="text-xl text-gray-700">$$$$</span>
+                        </div>
                         <div class="flex items-center gap-2">
                             <span>$</span>
-                            <input type="number" id="tier4Left" class="w-16 border rounded-md p-1 text-center bg-gray-100" readonly>
+                            <input type="number" id="tier4Left" class="w-20 border rounded-md p-1 text-center bg-gray-100" readonly>
                             <span class="text-sm">to</span>
                             <span>$</span>
-                            <input type="number" id="tier4Right" class="w-16 border rounded-md p-1 text-center" value="50"
+                            <input type="number" id="tier4Right" class="w-20 border rounded-md p-1 text-center" value="50"
                                 oninput="updateTiers()">
                         </div>
-                
-                        <!-- Tier 5 -->
+            
+                        <div class="flex items-center justify-end">
+                            <span class="text-xl text-gray-700">$$$$$</span>
+                        </div>
                         <div class="flex items-center gap-2">
                             <span class="text-sm">Over</span>
                             <span>$</span>
-                            <input type="number" id="tier5" class="w-16 border rounded-md p-1 text-center bg-gray-100" readonly>
+                            <input type="number" id="tier5" class="w-20 border rounded-md p-1 text-center bg-gray-100" readonly>
                         </div>
                     </div>
-                
+            
                     <p id="costTierError" class="text-sm text-red-600 hidden"></p>
-                
+            
                     <div class="mt-4 flex justify-end">
                         <button id="saveCostTiersBtn" type="button" onclick="saveCostTiers()"
                             class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Save</button>
@@ -712,18 +722,15 @@
                 <section class="mb-6">
                     <h4 class="text-lg font-medium mb-2">Maintenance</h4>
                     <p class="text-sm text-gray-600 mb-4">Tools to manage your inventory data.</p>
-
                     <div class="flex flex-col sm:flex-row gap-4 mb-4 items-center">
                         <button type="button" onclick="handleSyncAllWines('settingsMessage')"
                             class="w-full sm:flex-grow bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700">
                             Sync ToDo from DB
                         </button>
-
                         <button type="button" onclick="handleReinitializeDb('settingsMessage')"
                             class="w-full sm:flex-grow bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg">
                             Reset DB
                         </button>
-
                         <button type="button" onclick="openHelpFromSettings()"
                             class="w-12 h-12 flex items-center justify-center bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg flex-shrink-0">
                             ?
@@ -731,7 +738,7 @@
                     </div>
                 </section>
                 <div id="settingsMessage" class="mt-4 text-center"></div>
-            </form>
+            </form>   
         </div>
     </div>
 
