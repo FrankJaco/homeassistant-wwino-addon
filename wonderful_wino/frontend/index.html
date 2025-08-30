@@ -1341,6 +1341,7 @@
                 const response = await fetch(`${BASE_URL}api/settings`);
                 if (!response.ok) throw new Error('Failed to fetch settings');
                 appSettings = await response.json();
+                populateCostTierFieldsFromSettings();
                 console.log('Settings loaded:', appSettings);
             } catch (error) {
                 console.error('Error fetching settings:', error);
@@ -1500,31 +1501,6 @@
 
             document.getElementById('settingsButton').addEventListener('click', openSettingsModal);
 
-            document.getElementById('settingsForm').addEventListener('submit', async (event) => {
-                event.preventDefault(); // This is redundant due to onsubmit in HTML, but safe
-                const payload = {};
-                for (let i = 1; i <= 5; i++) {
-                    const key = `cost_tier_${i}_label`;
-                    payload[key] = document.getElementById(`costTier${i}Label`).value;
-                }
-
-                try {
-                    const response = await fetch(`${BASE_URL}api/settings`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    const result = await response.json();
-                    if (!response.ok) throw new Error(result.error || 'Failed to save settings');
-
-                    appSettings = payload;
-                    updateCostTierTooltips();
-                    showMessage('settingsMessage', 'Settings saved successfully!', 'info', true);
-                    setTimeout(closeSettingsModal, 2000);
-                } catch (error) {
-                    showMessage('settingsMessage', `Error: ${error.message}`, 'error', true);
-                }
-            });
 
             fetchInventory();
         });
