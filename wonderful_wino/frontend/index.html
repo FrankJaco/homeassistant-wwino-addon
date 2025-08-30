@@ -1333,6 +1333,29 @@
                 });
         }
 
+        function populateCostTierFieldsFromSettings() {
+                if (appSettings) {
+                    // Parse the labels to get the numeric values
+                    // Cost Tier 1: "Under $10" -> 10
+                    let val1 = appSettings.cost_tier_1_label ? parseFloat(appSettings.cost_tier_1_label.replace('Under $', '')) : 10;
+                    document.getElementById('tier1').value = val1;
+
+                    // Cost Tier 2: "$10 - $20" -> 20
+                    let val2 = appSettings.cost_tier_2_label ? parseFloat(appSettings.cost_tier_2_label.split(' - $')[1]) : 20;
+                    document.getElementById('tier2Right').value = val2;
+
+                    // Cost Tier 3: "$20 - $35" -> 35
+                    let val3 = appSettings.cost_tier_3_label ? parseFloat(appSettings.cost_tier_3_label.split(' - $')[1]) : 35;
+                    document.getElementById('tier3Right').value = val3;
+
+                    // Cost Tier 4: "$35 - $50" -> 50
+                    let val4 = appSettings.cost_tier_4_label ? parseFloat(appSettings.cost_tier_4_label.split(' - $')[1]) : 50;
+                    document.getElementById('tier4Right').value = val4;
+                }
+                // Update the auto-filled left values and validate
+                updateTiers();
+            }
+        
         // initialize
         resetCostTiers();
 
