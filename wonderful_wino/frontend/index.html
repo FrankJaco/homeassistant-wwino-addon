@@ -475,6 +475,7 @@
                             <option value="region">Region</option>
                             <option value="vintage">Vintage</option>
                             <option value="vivino_rating">Rating</option>
+                            <option value="b4b_score">B4B</option>
                             <option value="quantity">Quantity</option>
                         </select>
                         <button id="sortDirectionToggle"
@@ -926,7 +927,9 @@
                 if (item.cost_tier) {
                     detailsHtml += `<p><strong>Cost:</strong> ${'$'.repeat(item.cost_tier)}</p>`;
                 }
-
+                 if (item.b4b_score != null) { // Checks for both null and undefined
+                    detailsHtml += `<p><strong>B4B:</strong> ${item.b4b_score.toFixed(1)}</p>`;
+                }
                 detailsCell.innerHTML = detailsHtml;
 
                 const actionsCell = document.createElement('td');

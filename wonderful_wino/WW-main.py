@@ -1000,7 +1000,36 @@ def get_inventory():
     try:
         cursor.execute(query)
         wines = cursor.fetchall()
-        return jsonify([dict(wine_row) for wine_row in wines]), 200
+
+        # New logic to calculate B4B score
+        wines_with_b4b = []
+        for wine_row in wines:
+            wine_dict = dict(wine_row)
+            
+            personal_rating = wine_dict.get('personal_rating')
+            vivino_rating = wine_dict.get('vivino_rating')
+            cost_tier = wine_dict.get('cost_tier')
+            
+            # Determine the hybrid display rating
+            display_rating = None
+            if personal_rating is not None and vivino_rating is not None:
+                display_rating = (personal_rating + vivino_rating) / 2
+            elif personal_rating is not None:
+                display_rating = personal_rating
+            elif vivino_rating is not None:
+                display_rating = vivino_rating
+            
+            # Calculate B4B score if possible
+            b4b_score = None
+            if display_rating is not None and cost_tier is not None and cost_tier > 0:
+                # Formula: (23.76 * Rating) - (19.8 * Cost Tier)
+                raw_score = (23.76 * display_rating) - (19.8 * cost_tier)
+                b4b_score = round(raw_score, 1) # Round to one decimal place
+
+            wine_dict['b4b_score'] = b4b_score
+            wines_with_b4b.append(wine_dict)
+            
+        return jsonify(wines_with_b4b), 200
     finally:
         if conn: conn.close()
 
