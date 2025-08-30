@@ -1435,7 +1435,7 @@
             }
         });
 
-        
+        <!-- keep all your other <script> content above -->
 
         // --- Page Load ---
         document.addEventListener('DOMContentLoaded', async () => {
@@ -1464,7 +1464,8 @@
             tasteForm.addEventListener('submit', async function (event) {
                 event.preventDefault();
                 const vivinoUrl = document.getElementById('tasteVivinoUrl').value;
-                const rating = document.getElementById('tasteRatingInput').value ? parseFloat(document.getElementById('tasteRatingInput').value) : null;
+                const ratingVal = document.getElementById('tasteRatingInput').value;
+                const rating = ratingVal ? parseFloat(ratingVal) : null;
                 const mode = document.getElementById('tasteMode').value;
                 let endpoint;
                 let payload;
@@ -1499,11 +1500,76 @@
                 }
             });
 
+            // Settings button
             document.getElementById('settingsButton').addEventListener('click', openSettingsModal);
 
+            // ✅ Removed old settingsForm.addEventListener('submit', …) 
+            // because cost tiers now save via saveCostTiers()
+            // and load via populateCostTierFieldsFromSettings()
 
             fetchInventory();
         });
     </script>
+    
+    </html>
+        
 
-</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
