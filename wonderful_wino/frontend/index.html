@@ -645,16 +645,18 @@
                 <button type="button" onclick="closeSettingsModal()" title="Cancel"
                     class="text-gray-500 hover:text-gray-700 text-xl">&times;</button>
             </div>
-
+    
             <form id="settingsForm" onsubmit="event.preventDefault();">
+                <hr class="border-t border-gray-300 mb-6">
                 <section class="mb-6">
-                    <div class="flex justify-between items-center border-b border-gray-300 pb-2">
+                    <div class="flex justify-between items-center pb-2">
                         <h4 class="text-lg font-medium text-gray-700">Cost Tiers</h4>
                         <button type="button" onclick="resetCostTiers()"
                             class="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded hover:bg-gray-300">Reset</button>
                     </div>
-                    <p class="text-sm text-gray-600 mb-4">Define the ranges for each cost tier. Left values are auto-filled.</p>
-            
+                    <p class="text-sm text-gray-600 mb-4">Define the ranges for each cost tier. Left values are auto-filled.
+                    </p>
+    
                     <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-3 items-center">
                         <div class="flex items-center justify-end">
                             <span class="text-xl text-gray-700">$</span>
@@ -665,61 +667,67 @@
                             <input type="number" id="tier1" class="w-20 border rounded-md p-1 text-center" value="10"
                                 oninput="updateTiers()">
                         </div>
-            
+    
                         <div class="flex items-center justify-end">
                             <span class="text-xl text-gray-700">$$</span>
                         </div>
                         <div class="flex items-center gap-2">
                             <span>$</span>
-                            <input type="number" id="tier2Left" class="w-20 border rounded-md p-1 text-center bg-gray-100" readonly>
+                            <input type="number" id="tier2Left" class="w-20 border rounded-md p-1 text-center bg-gray-100"
+                                readonly>
                             <span class="text-sm">to</span>
                             <span class="ml-2">$</span>
                             <input type="number" id="tier2Right" class="w-20 border rounded-md p-1 text-center" value="20"
                                 oninput="updateTiers()">
                         </div>
-            
+    
                         <div class="flex items-center justify-end">
                             <span class="text-xl text-gray-700">$$$</span>
                         </div>
                         <div class="flex items-center gap-2">
                             <span>$</span>
-                            <input type="number" id="tier3Left" class="w-20 border rounded-md p-1 text-center bg-gray-100" readonly>
+                            <input type="number" id="tier3Left" class="w-20 border rounded-md p-1 text-center bg-gray-100"
+                                readonly>
                             <span class="text-sm">to</span>
                             <span class="ml-2">$</span>
                             <input type="number" id="tier3Right" class="w-20 border rounded-md p-1 text-center" value="35"
                                 oninput="updateTiers()">
                         </div>
-            
+    
                         <div class="flex items-center justify-end">
                             <span class="text-xl text-gray-700">$$$$</span>
                         </div>
                         <div class="flex items-center gap-2">
                             <span>$</span>
-                            <input type="number" id="tier4Left" class="w-20 border rounded-md p-1 text-center bg-gray-100" readonly>
+                            <input type="number" id="tier4Left" class="w-20 border rounded-md p-1 text-center bg-gray-100"
+                                readonly>
                             <span class="text-sm">to</span>
                             <span class="ml-2">$</span>
                             <input type="number" id="tier4Right" class="w-20 border rounded-md p-1 text-center" value="50"
                                 oninput="updateTiers()">
                         </div>
-            
+    
                         <div class="flex items-center justify-end">
                             <span class="text-xl text-gray-700">$$$$$</span>
                         </div>
                         <div class="flex items-center gap-2">
                             <span class="text-sm">Over</span>
                             <span class="ml-2">$</span>
-                            <input type="number" id="tier5" class="w-20 border rounded-md p-1 text-center bg-gray-100" readonly>
+                            <input type="number" id="tier5" class="w-20 border rounded-md p-1 text-center bg-gray-100"
+                                readonly>
                         </div>
                     </div>
-            
+    
                     <p id="costTierError" class="text-sm text-red-600 hidden"></p>
-            
+    
                     <div class="mt-4 flex justify-end">
                         <button id="saveCostTiersBtn" type="button" onclick="saveCostTiers()"
                             class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Save</button>
                     </div>
                 </section>
-                <section class="mb-6">
+    
+                <hr class="border-t border-gray-300 mt-6">
+                <section class="mt-6 mb-6">
                     <h4 class="text-lg font-medium mb-2">Maintenance</h4>
                     <p class="text-sm text-gray-600 mb-4">Tools to manage your inventory data.</p>
                     <div class="flex flex-col sm:flex-row gap-4 mb-4 items-center">
@@ -737,11 +745,17 @@
                         </button>
                     </div>
                 </section>
+    
+                <hr class="border-t border-gray-300 mb-6">
                 <div id="settingsMessage" class="mt-4 text-center"></div>
-            </form>   
+    
+                <div class="mt-4 flex justify-end">
+                    <button type="button" onclick="closeSettingsModal()"
+                        class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Close</button>
+                </div>
+            </form>
         </div>
     </div>
-
     <script>
         let BASE_URL = '';
         if (typeof window !== 'undefined' && typeof window.__ingress_url !== 'undefined' && window.__ingress_url !== '') {
