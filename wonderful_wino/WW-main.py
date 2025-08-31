@@ -111,14 +111,13 @@ def build_markdown_description(wine: dict, current_quantity: int, is_for_todo: b
 
     MAX_VISUAL_LINE_LENGTH_FOR_VARIETAL = 32
     TRUNCATION_THRESHOLD_PERCENT = 0.60
-    ELLIPSIS_LENGTH = 0 # Not used for visual length, but kept for context
+    ELLIPSIS_LENGTH = 0  # Not used for visual length, but kept for context
 
     if varietal_str and varietal_str != "Unknown Varietal":
         individual_varietals = [v.strip() for v in varietal_str.split(',')]
-
         if individual_varietals:
             if is_for_todo:
-                # --- Handle the first grape (bolded) for ToDo truncation ---
+                # Bold the first grape (truncate if needed)
                 first_grape = individual_varietals[0]
                 visual_len_first_grape = len(first_grape)
 
@@ -134,7 +133,7 @@ def build_markdown_description(wine: dict, current_quantity: int, is_for_todo: b
 
                 # --- Handle subsequent grapes for ToDo truncation ---
                 for i, grape in enumerate(individual_varietals[1:]):
-                    if not rendered_varietal_line_markdown and i > 0: # If first grape was too long, don't add more
+                    if not rendered_varietal_line_markdown and i > 0:  # If first grape was too long, don't add more
                         break
 
                     separator_text = " " if i == 0 else ", "
@@ -155,53 +154,56 @@ def build_markdown_description(wine: dict, current_quantity: int, is_for_todo: b
                                 current_visual_length += len(separator_text) + len(truncated_grape)
                         break
             else:
-                # For full display, just join all varietals
+                # Full display: bold first, then list all
                 rendered_varietal_line_markdown.append(f"**{individual_varietals[0]}**")
                 if len(individual_varietals) > 1:
                     rendered_varietal_line_markdown.append(f", {', '.join(individual_varietals[1:])}")
 
-    if rendered_varietal_line_markdown:
-        description_parts.append("".join(rendered_varietal_line_markdown))
-    else:
-        description_parts.append("Unknown Varietal")
+    description_parts.append("".join(rendered_varietal_line_markdown) if rendered_varietal_line_markdown else "Unknown Varietal")
 
-
-    # Line 2: Region, Country (bold region, un-bold country, conditional abbreviation)
+    # Line 2: Region + Country (with truncation for ToDo)
     region_str = wine.get("region")
     country_str = wine.get("country")
-
-    MAX_VISUAL_LINE_LENGTH_FOR_REGION_COUNTRY = 32 # Same limit as varietal line
 
     region_country_display = []
     current_rc_visual_length = 0
 
     if region_str and region_str != "Unknown Region":
-        # Add region, always bolded
-        region_country_display.append(f"**{region_str}**")
-        current_rc_visual_length += len(region_str) # Only count visual chars
+        if is_for_todo:
+            # Bold region (truncate if needed)
+            visual_len_region = len(region_str)
+            if visual_len_region <= MAX_VISUAL_LINE_LENGTH_FOR_VARIETAL:
+                region_country_display.append(f"**{region_str}**")
+                current_rc_visual_length += visual_len_region
+            else:
+                chars_for_truncated_region = MAX_VISUAL_LINE_LENGTH_FOR_VARIETAL - ELLIPSIS_LENGTH
+                if chars_for_truncated_region > 0:
+                    truncated_region = region_str[:chars_for_truncated_region]
+                    region_country_display.append(f"**{truncated_region}**")
+                    current_rc_visual_length += len(truncated_region)
+        else:
+            region_country_display.append(f"**{region_str}**")
 
     if country_str and country_str != "Unknown Country":
-        separator_rc = " " # Always a single space between region and country
-
         if is_for_todo:
-            # First, try to add the full country name
-            potential_full_country_segment = f"{separator_rc}{country_str}"
-            if (current_rc_visual_length + len(potential_full_country_segment)) <= MAX_VISUAL_LINE_LENGTH_FOR_REGION_COUNTRY:
-                region_country_display.append(potential_full_country_segment)
+            # Add country only if it fits
+            if region_country_display:
+                separator_rc = " "
             else:
-                # Full country doesn't fit. Try abbreviation.
-                abbreviated_country = COUNTRY_ABBREVIATIONS.get(country_str, country_str)
-                potential_abbr_country_segment = f"{separator_rc}{abbreviated_country}"
+                separator_rc = ""
 
-                if (current_rc_visual_length + len(potential_abbr_country_segment)) <= MAX_VISUAL_LINE_LENGTH_FOR_REGION_COUNTRY:
-                    region_country_display.append(potential_abbr_country_segment)
-                else:
-                    # Even abbreviation doesn't fit, or no abbreviation. Truncate country.
-                    space_for_country_body = MAX_VISUAL_LINE_LENGTH_FOR_REGION_COUNTRY - current_rc_visual_length - len(separator_rc)
-                    if space_for_country_body > 0:
-                        truncated_country = country_str[:space_for_country_body]
-                        region_country_display.append(f"{separator_rc}{truncated_country}")
-                    # If no space for "X", then country won't be added to this line.
+            remaining_space_rc = MAX_VISUAL_LINE_LENGTH_FOR_VARIETAL - current_rc_visual_length
+            visual_len_country = len(country_str)
+
+            if remaining_space_rc >= (len(separator_rc) + visual_len_country):
+                region_country_display.append(f"{separator_rc}{country_str}")
+                current_rc_visual_length += len(separator_rc) + visual_len_country
+            else:
+                space_for_country_body = remaining_space_rc - len(separator_rc)
+                if space_for_country_body > 0 and (space_for_country_body / visual_len_country) >= TRUNCATION_THRESHOLD_PERCENT:
+                    truncated_country = country_str[:space_for_country_body]
+                    region_country_display.append(f"{separator_rc}{truncated_country}")
+                # If no space for "X", then country won't be added to this line.
         else:
             # For full display, just add full country name
             region_country_display.append(f"{separator_rc}{country_str}")
@@ -211,34 +213,36 @@ def build_markdown_description(wine: dict, current_quantity: int, is_for_todo: b
     else:
         description_parts.append("Unknown Region/Country")
 
-    details_line = []
-
-    # Rating Logic (This is forward-compatible for when we add personal ratings)
+    # --- Line 4: Qty, Ratings, B4B, and Cost Tier (formatted for markdown) ---
+    # Rating logic (Vivino and/or personal)
     vivino_rating = wine.get('vivino_rating')
-    personal_rating = wine.get('personal_rating') # This will be None for now
-    display_rating = vivino_rating # Default to the Vivino rating
-
-    # This logic will work automatically in Phase 3 when we add personal ratings
+    personal_rating = wine.get('personal_rating')  # May be None
+    display_rating = vivino_rating
     if personal_rating is not None and vivino_rating is not None:
         display_rating = (personal_rating + vivino_rating) / 2
     elif personal_rating is not None:
         display_rating = personal_rating
 
+    # Cost tier (int -> '$' repeated)
+    cost_tier = wine.get('cost_tier')
+
+    # Prefer precomputed b4b_score from inventory; compute if absent and inputs available
+    b4b_score = wine.get('b4b_score')
+    if b4b_score is None and display_rating is not None and cost_tier is not None and isinstance(cost_tier, int) and cost_tier > 0:
+        raw_score = (23.76 * display_rating) - (19.8 * cost_tier)
+        b4b_score = round(raw_score, 1)
+
+    # Build the markdown line in the requested order/style
+    line4 = f"Qty: [ **{current_quantity}** ]"
     if display_rating is not None:
-        details_line.append(f"Quality: ⭐ **{display_rating:.1f}**")
-
-    # Cost Tier Logic (This will work once we add cost tiers)
-    cost_tier = wine.get('cost_tier') # This will be None for now
+        line4 += f"&emsp;⭐**{display_rating:.1f}**"
+    if b4b_score is not None:
+        line4 += f" | 🎯**{b4b_score:.1f}**"
     if cost_tier and isinstance(cost_tier, int) and cost_tier > 0:
-        # Create a string of dollar signs based on the tier number
         cost_display = ''.join(['$'] * cost_tier)
-        details_line.append(f"Cost: **{cost_display}**")
-        
-    # Quantity Logic (Unchanged)
-    details_line.append(f"Qty: [ **{current_quantity}** ]")
+        line4 += f" | **{cost_display}**"
 
-    # Join the parts with a separator
-    description_parts.append("  |  ".join(details_line))
+    description_parts.append(line4)
 
     # Join the main parts with two spaces and a newline for proper Markdown line breaks
     # For ToDo, ensure we only join up to the first 3 elements
@@ -248,7 +252,6 @@ def build_markdown_description(wine: dict, current_quantity: int, is_for_todo: b
         # If not for ToDo, return all parts generated by this function (which is 3 lines)
         # The frontend will now construct its display from individual fields directly.
         return "  \n".join(description_parts)
-
 
 # --- Database Initialization ---
 def init_db():
