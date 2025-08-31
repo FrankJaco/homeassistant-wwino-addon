@@ -533,17 +533,17 @@
             </p>
             <ul class="list-disc pl-5 mt-3 text-sm space-y-2">
                 <li>
-                    <strong>Sync ToDo from DB:</strong> This button will synchronize your entire wine inventory from the
+                    <strong>Sync: DB → ToDo</strong> This button will synchronize your entire wine inventory from the
                     Wonderful-Wino database to your ToDo list. It attempts to update or re-add every wine from your
                     inventory into the list.
                     <p class="text-sm mt-3">
-                        <span class="font-bold">Important Note:</span> If your ToDo list contains items that are no
+                        <span class="font-bold">Important Note</span> If your ToDo list contains items that are no
                         longer in your inventory, the "Sync" operation will not remove them. You can clear these
                         manually by “completing” them via the ToDo list in the same manner as when consuming a wine.
                     </p>
                 </li>
                 <li>
-                    <strong>Reset DB:</strong> <span class="font-bold text-red-600">WARNING:</span> This action will
+                    <strong>Reset DB</strong> <span class="font-bold text-red-600">WARNING:</span> This action will
                     permanently delete ALL your wine data from the Wonderful-Wino database. This cannot be undone. Use
                     this only if you want to start your wine inventory from scratch.
                 </li>
@@ -734,7 +734,7 @@
                     <div class="flex flex-col sm:flex-row gap-4 mb-4 items-center">
                         <button type="button" onclick="handleSyncAllWines('settingsMessage')"
                             class="w-full sm:flex-grow bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700">
-                            Sync ToDo from DB
+                            Sync: DB → ToDo
                         </button>
                         <button type="button" onclick="handleReinitializeDb('settingsMessage')"
                             class="w-full sm:flex-grow bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg">
