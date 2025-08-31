@@ -236,8 +236,12 @@ def build_markdown_description(wine: dict, current_quantity: int, is_for_todo: b
     line4 = f"Qty: [ **{current_quantity}** ]"
     if display_rating is not None:
         line4 += f"&emsp;⭐**{display_rating:.1f}**"
+    # Insert zero-width space after minus to avoid Markdown list parsing
     if b4b_score is not None:
-        line4 += f" | 🎯**{b4b_score:.1f}**"
+        score_str = f"{b4b_score:.1f}"
+        if score_str.startswith("-"):
+            score_str = "\u200B" + score_str
+        line4 += f" | 🎯**{score_str}**"    
     if cost_tier and isinstance(cost_tier, int) and cost_tier > 0:
         cost_display = ''.join(['$'] * cost_tier)
         line4 += f" | **{cost_display}**"
