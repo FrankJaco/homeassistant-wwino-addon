@@ -659,66 +659,85 @@
                     </p>
     
                     <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-3 items-center">
+                        <!-- Tier 1 -->
                         <div class="flex items-center justify-end">
                             <span class="text-xl text-gray-700">$</span>
                         </div>
                         <div class="flex items-center gap-2">
                             <span class="text-sm">Under</span>
-                            <span class="ml-2">$</span>
-                            <input type="number" id="tier1" class="w-20 border rounded-md p-1 text-center" value="10"
-                                oninput="updateTiers()">
+                            <div class="relative w-20">
+                                <span class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
+                                <input type="number" id="tier1" class="w-full border rounded-md pl-6 p-1 text-center" value="10"
+                                    oninput="updateTiers()">
+                            </div>
                         </div>
-    
+                    
+                        <!-- Tier 2 -->
                         <div class="flex items-center justify-end">
                             <span class="text-xl text-gray-700">$$</span>
                         </div>
                         <div class="flex items-center gap-2">
-                            <span>$</span>
-                            <input type="number" id="tier2Left" class="w-20 border rounded-md p-1 text-center bg-gray-100"
-                                readonly>
+                            <div class="relative w-20">
+                                <span class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
+                                <input type="number" id="tier2Left" class="w-full border rounded-md pl-6 p-1 text-center bg-gray-100"
+                                    readonly>
+                            </div>
                             <span class="text-sm">to</span>
-                            <span class="ml-2">$</span>
-                            <input type="number" id="tier2Right" class="w-20 border rounded-md p-1 text-center" value="20"
-                                oninput="updateTiers()">
+                            <div class="relative w-20">
+                                <span class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
+                                <input type="number" id="tier2Right" class="w-full border rounded-md pl-6 p-1 text-center" value="20"
+                                    oninput="updateTiers()">
+                            </div>
                         </div>
-    
+                    
+                        <!-- Tier 3 -->
                         <div class="flex items-center justify-end">
                             <span class="text-xl text-gray-700">$$$</span>
                         </div>
                         <div class="flex items-center gap-2">
-                            <span>$</span>
-                            <input type="number" id="tier3Left" class="w-20 border rounded-md p-1 text-center bg-gray-100"
-                                readonly>
+                            <div class="relative w-20">
+                                <span class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
+                                <input type="number" id="tier3Left" class="w-full border rounded-md pl-6 p-1 text-center bg-gray-100"
+                                    readonly>
+                            </div>
                             <span class="text-sm">to</span>
-                            <span class="ml-2">$</span>
-                            <input type="number" id="tier3Right" class="w-20 border rounded-md p-1 text-center" value="35"
-                                oninput="updateTiers()">
+                            <div class="relative w-20">
+                                <span class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
+                                <input type="number" id="tier3Right" class="w-full border rounded-md pl-6 p-1 text-center" value="35"
+                                    oninput="updateTiers()">
+                            </div>
                         </div>
-    
+                    
+                        <!-- Tier 4 -->
                         <div class="flex items-center justify-end">
                             <span class="text-xl text-gray-700">$$$$</span>
                         </div>
                         <div class="flex items-center gap-2">
-                            <span>$</span>
-                            <input type="number" id="tier4Left" class="w-20 border rounded-md p-1 text-center bg-gray-100"
-                                readonly>
+                            <div class="relative w-20">
+                                <span class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
+                                <input type="number" id="tier4Left" class="w-full border rounded-md pl-6 p-1 text-center bg-gray-100"
+                                    readonly>
+                            </div>
                             <span class="text-sm">to</span>
-                            <span class="ml-2">$</span>
-                            <input type="number" id="tier4Right" class="w-20 border rounded-md p-1 text-center" value="50"
-                                oninput="updateTiers()">
+                            <div class="relative w-20">
+                                <span class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
+                                <input type="number" id="tier4Right" class="w-full border rounded-md pl-6 p-1 text-center" value="50"
+                                    oninput="updateTiers()">
+                            </div>
                         </div>
-    
+                    
+                        <!-- Tier 5 -->
                         <div class="flex items-center justify-end">
                             <span class="text-xl text-gray-700">$$$$$</span>
                         </div>
                         <div class="flex items-center gap-2">
                             <span class="text-sm">Over</span>
-                            <span class="ml-2">$</span>
-                            <input type="number" id="tier5" class="w-20 border rounded-md p-1 text-center bg-gray-100"
-                                readonly>
+                            <div class="relative w-20">
+                                <span class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
+                                <input type="number" id="tier5" class="w-full border rounded-md pl-6 p-1 text-center bg-gray-100" readonly>
+                            </div>
                         </div>
                     </div>
-    
                     <p id="costTierError" class="text-sm text-red-600 hidden"></p>
     
                     <div class="mt-4 flex justify-end">
