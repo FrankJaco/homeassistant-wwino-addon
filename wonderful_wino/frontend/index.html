@@ -1427,13 +1427,6 @@
         }
 
         function openSettingsModal() {
-            for (let i = 1; i <= 5; i++) {
-                const input = document.getElementById(`costTier${i}Label`);
-                const key = `cost_tier_${i}_label`;
-                if (input) {
-                    input.value = appSettings[key] || '';
-                }
-            }
             settingsModal.classList.remove('hidden');
             populateCostTierFieldsFromSettings();
         }
@@ -1569,11 +1562,6 @@
 
             // Settings button
             document.getElementById('settingsButton').addEventListener('click', openSettingsModal);
-
-            // ✅ Removed old settingsForm.addEventListener('submit', …) 
-            // because cost tiers now save via saveCostTiers()
-            // and load via populateCostTierFieldsFromSettings()
-
             fetchInventory();
         });
     </script>
