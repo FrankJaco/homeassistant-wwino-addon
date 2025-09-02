@@ -994,9 +994,10 @@
         function applySortAndDisplayInventory() {
             const scrollY = window.scrollY;
             const sortedData = sortInventory(currentInventory, currentSortBy, currentSortDirection);
-            
             displayInventory(sortedData);
-            window.scrollTo(0, scrollY);
+            setTimeout(() => {
+                window.scrollTo(0, scrollY);
+            }, 0);
         }
 
         async function fetchInventory() {
