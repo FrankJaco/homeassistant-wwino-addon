@@ -995,9 +995,13 @@
             const scrollY = window.scrollY;
             const sortedData = sortInventory(currentInventory, currentSortBy, currentSortDirection);
             displayInventory(sortedData);
-            setTimeout(() => {
-                window.scrollTo(0, scrollY);
-            }, 0);
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    window.scrollTo(0, scrollY);
+                });
+            });
+            
+            
         }
 
         async function fetchInventory() {
