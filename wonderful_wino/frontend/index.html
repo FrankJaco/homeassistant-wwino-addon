@@ -750,6 +750,16 @@
                 <section class="mt-6 mb-6">
                     <h4 class="text-lg font-medium mb-2">Maintenance</h4>
                     <p class="text-sm text-gray-600 mb-4">Tools to manage your inventory data.</p>
+                    <div class="flex flex-col sm:flex-row gap-4 mb-4">
+                        <button type="button" onclick="handleBackupDb('settingsMessage')"
+                            class="w-full sm:flex-grow bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg">
+                            Backup Database
+                        </button>
+                        <button type="button" onclick="handleRestoreDb('settingsMessage')"
+                            class="w-full sm:flex-grow bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-3 px-6 rounded-lg">
+                            Restore Database
+                        </button>
+                    </div>
                     <div class="flex flex-col sm:flex-row gap-4 mb-4 items-center">
                         <button type="button" onclick="handleSyncAllWines('settingsMessage')"
                             class="w-full sm:flex-grow bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700">
@@ -851,6 +861,52 @@
                 showMessage(messageElementId, `Error: ${error.message}`, 'error', true);
             }
         }
+
+        async function handleBackupDb(messageElementId) {
+                if (!confirm('Create a backup of your database? This will overwrite any existing backup file.')) return;
+
+                const messageEl = document.getElementById(messageElementId);
+                if (messageEl) {
+                    messageEl.textContent = 'Backing up...';
+                    messageEl.className = 'mt-3 text-center font-medium text-gray-700';
+                    messageEl.classList.remove('hidden');
+                }
+
+                try {
+                    const response = await fetch(`${BASE_URL}backup-database`, { method: 'POST' });
+                    const data = await response.json();
+                    if (!response.ok) throw new Error(data.message);
+                    showMessage(messageElementId, data.message, 'info', true);
+                } catch (error) {
+                    showMessage(messageElementId, `Error: ${error.message}`, 'error', true);
+                }
+            }
+
+            async function handleRestoreDb(messageElementId) {
+                if (!confirm('ARE YOU SURE? This will overwrite your current database with the backup file. Any changes since the last backup will be lost.')) return;
+
+                const messageEl = document.getElementById(messageElementId);
+                if (messageEl) {
+                    messageEl.textContent = 'Restoring...';
+                    messageEl.className = 'mt-3 text-center font-medium text-gray-700';
+                    messageEl.classList.remove('hidden');
+                }
+
+                try {
+                    const response = await fetch(`${BASE_URL}restore-database`, { method: 'POST' });
+                    const data = await response.json();
+                    if (!response.ok) throw new Error(data.message);
+                    showMessage(messageElementId, data.message, 'info', true);
+
+                    // Refresh the inventory to show the restored data
+                    setTimeout(() => {
+                        fetchInventory();
+                    }, 1500);
+
+                } catch (error) {
+                    showMessage(messageElementId, `Error: ${error.message}`, 'error', true);
+                }
+            }
 
         function sortInventory(inventory, sortBy, sortDirection) {
             const sortedInventory = [...inventory];

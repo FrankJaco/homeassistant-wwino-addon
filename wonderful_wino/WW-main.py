@@ -9,6 +9,7 @@ import json # For parsing JSON-LD data from Vivino
 from flask_cors import CORS # Re-enabled CORS
 from urllib.parse import urlparse, parse_qs
 import time # For generating unique IDs for manual entries
+import shutil
 
 # --- Configuration (read from environment variables) ---
 HOME_ASSISTANT_URL = os.environ.get("HOME_ASSISTANT_URL")
@@ -1222,6 +1223,68 @@ def reinitialize_db_endpoint():
     except Exception as e:
         logger.error(f"Error reinitializing database: {e}")
         return jsonify({"status": "error", "message": "Internal error during reinitialization."}), 500
+
+@app.route("/backup-database", methods=["POST"])
+def backup_db_endpoint():
+    """Creates a safe backup of the database to the /share directory."""
+    backup_dir = os.path.dirname(DB_PATH) # e.g., /share/wwino
+    backup_path = os.path.join(backup_dir, "wonderful_wino_backup.db")
+    
+    logger.info(f"Starting database backup from {DB_PATH} to {backup_path}")
+    
+    # Use SQLite's Online Backup API for a safe copy
+    try:
+        source_conn = sqlite3.connect(DB_PATH)
+        backup_conn = sqlite3.connect(backup_path)
+        
+        with backup_conn:
+            source_conn.backup(backup_conn)
+            
+        source_conn.close()
+        backup_conn.close()
+        
+        logger.info("Database backup completed successfully.")
+        return jsonify({"status": "success", "message": f"Backup successful! File saved in {backup_dir}."}), 200
+    except sqlite3.Error as e:
+        logger.error(f"Database backup failed: {e}")
+        return jsonify({"status": "error", "message": f"Database backup failed: {e}"}), 500
+    except Exception as e:
+        logger.error(f"An unexpected error occurred during backup: {e}")
+        return jsonify({"status": "error", "message": "An unexpected error occurred during backup."}), 500
+
+@app.route("/restore-database", methods=["POST"])
+def restore_db_endpoint():
+    """Restores the database from the backup file in the /share directory."""
+    backup_dir = os.path.dirname(DB_PATH)
+    backup_path = os.path.join(backup_dir, "wonderful_wino_backup.db")
+
+    if not os.path.exists(backup_path):
+        logger.warning("Restore failed: Backup file not found at {backup_path}")
+        return jsonify({"status": "error", "message": "Backup file not found. Please create a backup first."}), 404
+
+    logger.info(f"Starting database restore from {backup_path} to {DB_PATH}")
+    
+    # Use SQLite's Online Backup API to safely overwrite the live DB
+    try:
+        source_conn = sqlite3.connect(backup_path)
+        dest_conn = sqlite3.connect(DB_PATH)
+
+        with dest_conn:
+            source_conn.backup(dest_conn)
+
+        source_conn.close()
+        dest_conn.close()
+        
+        logger.info("Database restore completed successfully.")
+        # Optionally, you could trigger a full sync to HA ToDo list after restore
+        # sync_db_to_ha_todo() 
+        return jsonify({"status": "success", "message": "Database restored successfully. The page will now refresh."}), 200
+    except sqlite3.Error as e:
+        logger.error(f"Database restore failed: {e}")
+        return jsonify({"status": "error", "message": f"Database restore failed: {e}"}), 500
+    except Exception as e:
+        logger.error(f"An unexpected error occurred during restore: {e}")
+        return jsonify({"status": "error", "message": "An unexpected error occurred during restore."}), 500
 
 @app.route("/")
 def serve_frontend():
