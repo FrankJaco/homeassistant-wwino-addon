@@ -581,8 +581,17 @@
                     <div class="sm:col-span-2"><label class="block text-sm font-medium">Wine Name *</label><input
                             type="text" id="manualNameInput" class="mt-1 block w-full border rounded-md p-2" required>
                     </div>
-                    <div><label class="block text-sm font-medium">Vintage *</label><input type="number"
-                            id="manualVintageInput" class="mt-1 block w-full border rounded-md p-2" required></div>
+                    
+                    <label class="block text-sm font-medium">Vintage *</label>
+                    <div class="flex items-center gap-4 mt-1">
+                        <input type="number" id="manualVintageInput" class="block w-full border rounded-md p-2" required min="1900">
+                        <div class="flex items-center whitespace-nowrap">
+                            <input type="checkbox" id="nvCheckbox"
+                                class="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500">
+                            <label for="nvCheckbox" class="ml-2 block text-sm">Non-Vintage (NV)</label>
+                        </div>
+                    </div>
+
                     <div><label class="block text-sm font-medium">Varietal</label><input type="text"
                             id="manualVarietalInput" class="mt-1 block w-full border rounded-md p-2"></div>
                     <div><label class="block text-sm font-medium">Region</label><input type="text"
@@ -1088,9 +1097,12 @@
             event.preventDefault();
             const vivinoUrl = document.getElementById('entryVivinoUrl').value;
             const isEditMode = !!vivinoUrl;
+            const isNv = document.getElementById('nvCheckbox').checked;
+            const vintageValue = document.getElementById('manualVintageInput').value;
+            const quantityValue = document.getElementById('manualQuantityInput').value;
             const payload = {
                 name: document.getElementById('manualNameInput').value,
-                vintage: parseInt(document.getElementById('manualVintageInput').value, 10),
+                vintage: isNv ? null : (parseInt(vintageValue, 10) || null),
                 varietal: document.getElementById('manualVarietalInput').value,
                 region: document.getElementById('manualRegionInput').value,
                 country: document.getElementById('manualCountryInput').value,
@@ -1099,6 +1111,11 @@
                 personal_rating: parseFloat(document.getElementById('manualTasteRatingInput').value) || null
             };
             if (!payload.name || isNaN(payload.vintage) || isNaN(payload.quantity)) {
+                showMessage('entryMessage', 'Please fill in all required fields.', 'error', true);
+                return;
+            }
+            // Updated validation: vintage is required ONLY if not NV
+            if (!payload.name || (!isNv && !payload.vintage) || isNaN(payload.quantity)) {
                 showMessage('entryMessage', 'Please fill in all required fields.', 'error', true);
                 return;
             }
@@ -1194,6 +1211,12 @@
             document.getElementById('entryVivinoUrl').value = '';
             document.getElementById('entryModalTitle').textContent = 'Add Wine Manually';
             document.getElementById('entrySubmitBtn').textContent = 'Add Wine';
+            // Reset NV checkbox and enable vintage input
+            const nvCheckbox = document.getElementById('nvCheckbox');
+            const vintageInput = document.getElementById('manualVintageInput');
+            nvCheckbox.checked = false;
+            vintageInput.disabled = false;
+            vintageInput.required = true;
             updateCostTierSelector(null);
             updateStarVisuals(document.getElementById('editTasteRatingSelector'), 0, 'rated');
             updateFeedbackText(document.getElementById('editTasteRatingFeedback'), 0);
@@ -1204,7 +1227,13 @@
             document.getElementById('entryForm').reset();
             document.getElementById('entryVivinoUrl').value = wine.vivino_url;
             document.getElementById('manualNameInput').value = wine.name;
-            document.getElementById('manualVintageInput').value = wine.vintage;
+            // Reset NV checkbox and enable vintage input
+            const nvCheckbox = document.getElementById('nvCheckbox');
+            const vintageInput = document.getElementById('manualVintageInput');
+            nvCheckbox.checked = false;
+            vintageInput.disabled = false;
+            vintageInput.required = true;
+            //document.getElementById('manualVintageInput').value = wine.vintage;
             document.getElementById('manualVarietalInput').value = wine.varietal !== 'Unknown Varietal' ? wine.varietal : '';
             document.getElementById('manualRegionInput').value = wine.region !== 'Unknown Region' ? wine.region : '';
             document.getElementById('manualCountryInput').value = wine.country !== 'Unknown Country' ? wine.country : '';
@@ -1235,6 +1264,14 @@
             document.getElementById('entryModalTitle').textContent = 'Duplicate Wine';
             document.getElementById('entrySubmitBtn').textContent = 'Add Wine';
             entryModal.classList.remove('hidden');
+            const vintageInput = document.getElementById('manualVintageInput');
+            const nvCheckbox = document.getElementById('nvCheckbox');
+
+            // Duplicating a wine assumes the user will enter a NEW vintage
+            vintageInput.value = '';
+            vintageInput.disabled = false;
+            vintageInput.required = true;
+            nvCheckbox.checked = false;
             document.getElementById('manualVintageInput').focus();
         }
 
@@ -1521,7 +1558,26 @@
                 msgEl.textContent = '';
             }
         }
+        function setupVintageControls() {
+            const vintageInput = document.getElementById('manualVintageInput');
+            const nvCheckbox = document.getElementById('nvCheckbox');
 
+            // Dynamically set the max year to prevent future-dating too far
+            const currentYear = new Date().getFullYear();
+            vintageInput.max = currentYear + 5;
+
+            nvCheckbox.addEventListener('change', () => {
+                if (nvCheckbox.checked) {
+                    vintageInput.disabled = true;
+                    vintageInput.required = false; // It's no longer required if NV is checked
+                    vintageInput.value = '';
+                } else {
+                    vintageInput.disabled = false;
+                    vintageInput.required = true;
+                    vintageInput.focus();
+                }
+            });
+        }
         // --- Sort Controls ---
         const sortSelect = document.getElementById('sortSelect');
         const sortDirectionToggle = document.getElementById('sortDirectionToggle');
