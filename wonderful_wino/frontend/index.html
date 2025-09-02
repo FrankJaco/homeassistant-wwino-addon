@@ -531,31 +531,26 @@
                 This section provides tools to manage your wine inventory database and its synchronization with the Home
                 Assistant ToDo list.
             </p>
-            <ul class="list-disc pl-5 mt-3 text-sm space-y-2">
-                            <li>
-                <strong>Backup Database:</strong> Creates a safe copy of your entire wine inventory. The backup is stored as `wonderful_wino_backup.db` inside your Home Assistant `/share/wwino/` folder. You can access this file using the Samba or File Editor add-ons. This is useful for creating a restore point before making major changes.
-            </li>
-            <li>
-                <strong>Restore Database:</strong> <span class="font-bold text-yellow-600">WARNING:</span> This will completely overwrite your current inventory with the data from the `wonderful_wino_backup.db` file. Any wines added since your last backup will be lost. Use this to recover your data if something goes wrong.
-            </li>
+            <ul class="list-disc pl-5 mt-3 text-sm space-y-4">
                 <li>
-                    <strong>Backup Database:</strong> Creates a safe copy of your entire wine inventory. The backup is stored as
-                    `wonderful_wino_backup.db` inside your Home Assistant `/share/wwino/` folder. You can access this file using the
-                    Samba or File Editor add-ons. This is useful for creating a restore point before making major changes.
+                    <strong>Backup Database:</strong> Creates a safe copy of your entire wine inventory. The backup is
+                    stored as `wonderful_wino_backup.db` inside your Home Assistant `/share/wwino/` folder. You can
+                    access this file using the Samba or File Editor add-ons. This is useful for creating a restore point
+                    before making major changes.
                 </li>
                 <li>
-                    <strong>Restore Database:</strong> <span class="font-bold text-yellow-600">WARNING:</span> This will completely
-                    overwrite your current inventory with the data from the `wonderful_wino_backup.db` file. Any wines added since your
-                    last backup will be lost. Use this to recover your data if something goes wrong.
+                    <strong>Restore Database:</strong> <span class="font-bold text-yellow-600">WARNING:</span> This will
+                    completely overwrite your current inventory with the data from the `wonderful_wino_backup.db` file.
+                    Any wines added since your last backup will be lost. Use this to recover your data if something goes
+                    wrong.
                 </li>
                 <li>
                     <strong>Sync DB→ToDo:</strong> This button will synchronize your entire wine inventory from the
                     Wonderful-Wino database to your ToDo list. It attempts to update or re-add every wine from your
                     inventory into the list.
-                    <p class="text-sm mt-3">
-                        <span class="font-bold">Important Note:</span> If your ToDo list contains items that are no
-                        longer in your inventory, the "Sync" operation will not remove them. You can clear these
-                        manually by “completing” them via the ToDo list in the same manner as when consuming a wine.
+                    <p class="text-sm mt-1">
+                        <span class="font-bold">Note:</span> This operation will not remove items from the ToDo list
+                        that are no longer in your inventory.
                     </p>
                 </li>
                 <li>
@@ -575,23 +570,43 @@
         <div class="modal-content">
             <button class="modal-close-button" onclick="closeEntryModal()">&times;</button>
             <h3 id="entryModalTitle" class="text-xl font-semibold mb-4">Add Wine Manually</h3>
-            <form id="entryForm">
+            <form id="entryForm" novalidate>
                 <input type="hidden" id="entryVivinoUrl">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div class="sm:col-span-2"><label class="block text-sm font-medium">Wine Name *</label><input
-                            type="text" id="manualNameInput" class="mt-1 block w-full border rounded-md p-2" required>
+                    <div class="sm:col-span-2">
+                        <label class="block text-sm font-medium">Wine Name *</label>
+                        <input type="text" id="manualNameInput" class="mt-1 block w-full border rounded-md p-2"
+                            required>
                     </div>
-                    <div><label class="block text-sm font-medium">Vintage *</label><input type="number"
-                            id="manualVintageInput" class="mt-1 block w-full border rounded-md p-2" required></div>
-                    <div><label class="block text-sm font-medium">Varietal</label><input type="text"
-                            id="manualVarietalInput" class="mt-1 block w-full border rounded-md p-2"></div>
-                    <div><label class="block text-sm font-medium">Region</label><input type="text"
-                            id="manualRegionInput" class="mt-1 block w-full border rounded-md p-2"></div>
-                    <div><label class="block text-sm font-medium">Country</label><input type="text"
-                            id="manualCountryInput" class="mt-1 block w-full border rounded-md p-2"></div>
-                    <div class="sm:col-span-2"><label class="block text-sm font-medium">Quantity *</label><input
-                            type="number" id="manualQuantityInput" min="0" value="1"
-                            class="mt-1 block w-full border rounded-md p-2" required></div>
+                    <div>
+                        <label class="block text-sm font-medium">Vintage *</label>
+                        <div class="flex items-center gap-4 mt-1">
+                            <input type="number" id="manualVintageInput" class="block w-28 border rounded-md p-2"
+                                required min="1900">
+                            <div class="flex items-center whitespace-nowrap">
+                                <input type="checkbox" id="nvCheckbox"
+                                    class="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500">
+                                <label for="nvCheckbox" class="ml-2 block text-sm">Non-Vintage (NV)</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium">Varietal</label>
+                        <input type="text" id="manualVarietalInput" class="mt-1 block w-full border rounded-md p-2">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium">Region</label>
+                        <input type="text" id="manualRegionInput" class="mt-1 block w-full border rounded-md p-2">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium">Country</label>
+                        <input type="text" id="manualCountryInput" class="mt-1 block w-full border rounded-md p-2">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="block text-sm font-medium">Quantity *</label>
+                        <input type="number" id="manualQuantityInput" min="0" value="1"
+                            class="mt-1 block w-full border rounded-md p-2" required>
+                    </div>
                     <div class="sm:col-span-2">
                         <label class="block text-sm font-medium">Cost Tier</label>
                         <div id="costTierSelector" class="flex items-center gap-2 mt-1 cost-tier-selector">
@@ -662,7 +677,7 @@
                 <button type="button" onclick="closeSettingsModal()" title="Cancel"
                     class="text-gray-500 hover:text-gray-700 text-xl">&times;</button>
             </div>
-    
+
             <form id="settingsForm" onsubmit="event.preventDefault();">
                 <hr class="border-t border-gray-300 mb-6">
                 <section class="mb-6">
@@ -671,97 +686,105 @@
                         <button type="button" onclick="resetCostTiers()"
                             class="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded hover:bg-gray-300">Reset</button>
                     </div>
-                    <p class="text-sm text-gray-600 mb-4">Define the ranges for each cost tier. Left values are auto-filled.
+                    <p class="text-sm text-gray-600 mb-4">Define the ranges for each cost tier. Left values are
+                        auto-filled.
                     </p>
-    
+
                     <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-3 items-center">
-                        <!-- Tier 1 -->
                         <div class="flex items-center justify-end">
                             <span class="text-xl text-gray-700">$</span>
                         </div>
                         <div class="flex items-center gap-2">
                             <span class="text-sm">Under</span>
                             <div class="relative w-20">
-                                <span class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
-                                <input type="number" id="tier1" class="w-full border rounded-md pl-6 p-1 text-center" value="10"
-                                    oninput="updateTiers()">
+                                <span
+                                    class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
+                                <input type="number" id="tier1" class="w-full border rounded-md pl-6 p-1 text-center"
+                                    value="10" oninput="updateTiers()">
                             </div>
                         </div>
-                    
-                        <!-- Tier 2 -->
+
                         <div class="flex items-center justify-end">
                             <span class="text-xl text-gray-700">$$</span>
                         </div>
                         <div class="flex items-center gap-2">
                             <div class="relative w-20">
-                                <span class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
-                                <input type="number" id="tier2Left" class="w-full border rounded-md pl-6 p-1 text-center bg-gray-100"
-                                    readonly>
+                                <span
+                                    class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
+                                <input type="number" id="tier2Left"
+                                    class="w-full border rounded-md pl-6 p-1 text-center bg-gray-100" readonly>
                             </div>
                             <span class="text-sm">to</span>
                             <div class="relative w-20">
-                                <span class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
-                                <input type="number" id="tier2Right" class="w-full border rounded-md pl-6 p-1 text-center" value="20"
+                                <span
+                                    class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
+                                <input type="number" id="tier2Right"
+                                    class="w-full border rounded-md pl-6 p-1 text-center" value="20"
                                     oninput="updateTiers()">
                             </div>
                         </div>
-                    
-                        <!-- Tier 3 -->
+
                         <div class="flex items-center justify-end">
                             <span class="text-xl text-gray-700">$$$</span>
                         </div>
                         <div class="flex items-center gap-2">
                             <div class="relative w-20">
-                                <span class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
-                                <input type="number" id="tier3Left" class="w-full border rounded-md pl-6 p-1 text-center bg-gray-100"
-                                    readonly>
+                                <span
+                                    class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
+                                <input type="number" id="tier3Left"
+                                    class="w-full border rounded-md pl-6 p-1 text-center bg-gray-100" readonly>
                             </div>
                             <span class="text-sm">to</span>
                             <div class="relative w-20">
-                                <span class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
-                                <input type="number" id="tier3Right" class="w-full border rounded-md pl-6 p-1 text-center" value="35"
+                                <span
+                                    class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
+                                <input type="number" id="tier3Right"
+                                    class="w-full border rounded-md pl-6 p-1 text-center" value="35"
                                     oninput="updateTiers()">
                             </div>
                         </div>
-                    
-                        <!-- Tier 4 -->
+
                         <div class="flex items-center justify-end">
                             <span class="text-xl text-gray-700">$$$$</span>
                         </div>
                         <div class="flex items-center gap-2">
                             <div class="relative w-20">
-                                <span class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
-                                <input type="number" id="tier4Left" class="w-full border rounded-md pl-6 p-1 text-center bg-gray-100"
-                                    readonly>
+                                <span
+                                    class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
+                                <input type="number" id="tier4Left"
+                                    class="w-full border rounded-md pl-6 p-1 text-center bg-gray-100" readonly>
                             </div>
                             <span class="text-sm">to</span>
                             <div class="relative w-20">
-                                <span class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
-                                <input type="number" id="tier4Right" class="w-full border rounded-md pl-6 p-1 text-center" value="50"
+                                <span
+                                    class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
+                                <input type="number" id="tier4Right"
+                                    class="w-full border rounded-md pl-6 p-1 text-center" value="50"
                                     oninput="updateTiers()">
                             </div>
                         </div>
-                    
-                        <!-- Tier 5 -->
+
                         <div class="flex items-center justify-end">
                             <span class="text-xl text-gray-700">$$$$$</span>
                         </div>
                         <div class="flex items-center gap-2">
                             <span class="text-sm">Over</span>
                             <div class="relative w-20">
-                                <span class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
-                                <input type="number" id="tier5" class="w-full border rounded-md pl-6 p-1 text-center bg-gray-100" readonly>
+                                <span
+                                    class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
+                                <input type="number" id="tier5"
+                                    class="w-full border rounded-md pl-6 p-1 text-center bg-gray-100" readonly>
                             </div>
                         </div>
                     </div>
                     <p id="costTierError" class="text-sm text-red-600 hidden"></p>
-    
+
                     <div class="mt-4 flex justify-end">
                         <button id="saveCostTiersBtn" type="button" onclick="saveCostTiers()"
                             class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Save</button>
                     </div>
                 </section>
-    
+
                 <hr class="border-t border-gray-300 mt-6">
                 <section class="mt-6 mb-6">
                     <div class="flex justify-between items-center mb-4">
@@ -772,7 +795,7 @@
                             ?
                         </button>
                     </div>
-                
+
                     <h5 class="text-base font-semibold text-gray-700 mb-2">Database Backup & Recovery</h5>
                     <p class="text-sm text-gray-600 mb-4">Protect and restore your wine inventory data.</p>
                     <div class="flex flex-col sm:flex-row gap-4">
@@ -785,9 +808,9 @@
                             Restore Database
                         </button>
                     </div>
-                
+
                     <hr class="border-t border-gray-300 my-6">
-                
+
                     <h5 class="text-base font-semibold text-gray-700 mb-2">Advanced Operations</h5>
                     <p class="text-sm text-gray-600 mb-4">Tools for synchronization and permanent data deletion.</p>
                     <div class="flex flex-col sm:flex-row gap-4">
@@ -801,10 +824,10 @@
                         </button>
                     </div>
                 </section>
-    
+
                 <hr class="border-t border-gray-300 mb-6">
                 <div id="settingsMessage" class="mt-4 text-center"></div>
-    
+
                 <div class="mt-4 flex justify-end">
                     <button type="button" onclick="closeSettingsModal()"
                         class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Close</button>
@@ -889,50 +912,50 @@
         }
 
         async function handleBackupDb(messageElementId) {
-                if (!confirm('Create a backup of your database? This will overwrite any existing backup file.')) return;
+            if (!confirm('Create a backup of your database? This will overwrite any existing backup file.')) return;
 
-                const messageEl = document.getElementById(messageElementId);
-                if (messageEl) {
-                    messageEl.textContent = 'Backing up...';
-                    messageEl.className = 'mt-3 text-center font-medium text-gray-700';
-                    messageEl.classList.remove('hidden');
-                }
-
-                try {
-                    const response = await fetch(`${BASE_URL}backup-database`, { method: 'POST' });
-                    const data = await response.json();
-                    if (!response.ok) throw new Error(data.message);
-                    showMessage(messageElementId, data.message, 'info', true);
-                } catch (error) {
-                    showMessage(messageElementId, `Error: ${error.message}`, 'error', true);
-                }
+            const messageEl = document.getElementById(messageElementId);
+            if (messageEl) {
+                messageEl.textContent = 'Backing up...';
+                messageEl.className = 'mt-3 text-center font-medium text-gray-700';
+                messageEl.classList.remove('hidden');
             }
 
-            async function handleRestoreDb(messageElementId) {
-                if (!confirm('ARE YOU SURE? This will overwrite your current database with the backup file. Any changes since the last backup will be lost.')) return;
-
-                const messageEl = document.getElementById(messageElementId);
-                if (messageEl) {
-                    messageEl.textContent = 'Restoring...';
-                    messageEl.className = 'mt-3 text-center font-medium text-gray-700';
-                    messageEl.classList.remove('hidden');
-                }
-
-                try {
-                    const response = await fetch(`${BASE_URL}restore-database`, { method: 'POST' });
-                    const data = await response.json();
-                    if (!response.ok) throw new Error(data.message);
-                    showMessage(messageElementId, data.message, 'info', true);
-
-                    // Refresh the inventory to show the restored data
-                    setTimeout(() => {
-                        fetchInventory();
-                    }, 1500);
-
-                } catch (error) {
-                    showMessage(messageElementId, `Error: ${error.message}`, 'error', true);
-                }
+            try {
+                const response = await fetch(`${BASE_URL}backup-database`, { method: 'POST' });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.message);
+                showMessage(messageElementId, data.message, 'info', true);
+            } catch (error) {
+                showMessage(messageElementId, `Error: ${error.message}`, 'error', true);
             }
+        }
+
+        async function handleRestoreDb(messageElementId) {
+            if (!confirm('ARE YOU SURE? This will overwrite your current database with the backup file. Any changes since the last backup will be lost.')) return;
+
+            const messageEl = document.getElementById(messageElementId);
+            if (messageEl) {
+                messageEl.textContent = 'Restoring...';
+                messageEl.className = 'mt-3 text-center font-medium text-gray-700';
+                messageEl.classList.remove('hidden');
+            }
+
+            try {
+                const response = await fetch(`${BASE_URL}restore-database`, { method: 'POST' });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.message);
+                showMessage(messageElementId, data.message, 'info', true);
+
+                // Refresh the inventory to show the restored data
+                setTimeout(() => {
+                    fetchInventory();
+                }, 1500);
+
+            } catch (error) {
+                showMessage(messageElementId, `Error: ${error.message}`, 'error', true);
+            }
+        }
 
         function sortInventory(inventory, sortBy, sortDirection) {
             const sortedInventory = [...inventory];
@@ -1007,7 +1030,7 @@
 
                 const detailsCell = document.createElement('td');
                 detailsCell.className = 'py-4 sm:p-4 text-sm text-gray-900 wine-details-cell w-full sm:w-auto text-center sm:text-left';
-                let detailsHtml = `<h4>${item.name || 'N/A'} ${item.vintage ? `(${item.vintage})` : ''}</h4>`;
+                let detailsHtml = `<h4>${item.name || 'N/A'} ${item.vintage ? `(${item.vintage})` : '(NV)'}</h4>`;
                 if (item.varietal && item.varietal !== "Unknown Varietal") { detailsHtml += `<p><strong>Varietal:</strong> ${item.varietal}</p>`; }
                 let location = [];
                 if (item.region && item.region !== "Unknown Region") location.push(item.region);
@@ -1028,7 +1051,7 @@
                 if (item.cost_tier) {
                     detailsHtml += `<p><strong>Cost:</strong> ${'$'.repeat(item.cost_tier)}</p>`;
                 }
-                 if (item.b4b_score != null) { // Checks for both null and undefined
+                if (item.b4b_score != null) { // Checks for both null and undefined
                     detailsHtml += `<p><strong>B4B:</strong> 🎯 ${item.b4b_score.toFixed(1)}</p>`;
                 }
                 detailsCell.innerHTML = detailsHtml;
@@ -1084,24 +1107,33 @@
             }
         });
 
+        // MODIFICATION: Updated form submission logic
         document.getElementById('entryForm').addEventListener('submit', async function (event) {
             event.preventDefault();
             const vivinoUrl = document.getElementById('entryVivinoUrl').value;
             const isEditMode = !!vivinoUrl;
+
+            const isNv = document.getElementById('nvCheckbox').checked;
+            const vintageValue = document.getElementById('manualVintageInput').value;
+            const quantityValue = document.getElementById('manualQuantityInput').value;
+
             const payload = {
                 name: document.getElementById('manualNameInput').value,
-                vintage: parseInt(document.getElementById('manualVintageInput').value, 10),
+                vintage: isNv ? null : (parseInt(vintageValue, 10) || null),
                 varietal: document.getElementById('manualVarietalInput').value,
                 region: document.getElementById('manualRegionInput').value,
                 country: document.getElementById('manualCountryInput').value,
-                quantity: parseInt(document.getElementById('manualQuantityInput').value, 10),
+                quantity: parseInt(quantityValue, 10),
                 cost_tier: parseInt(document.getElementById('manualCostTierInput').value, 10) || null,
                 personal_rating: parseFloat(document.getElementById('manualTasteRatingInput').value) || null
             };
-            if (!payload.name || isNaN(payload.vintage) || isNaN(payload.quantity)) {
+
+            // Updated validation logic
+            if (!payload.name || (!isNv && !payload.vintage) || isNaN(payload.quantity)) {
                 showMessage('entryMessage', 'Please fill in all required fields.', 'error', true);
                 return;
             }
+
             let url = isEditMode ? `${BASE_URL}edit-wine` : `${BASE_URL}add-manual-wine`;
             if (isEditMode) { payload.vivino_url = vivinoUrl; }
             try {
@@ -1189,22 +1221,67 @@
             document.getElementById('entryMessage').classList.add('hidden');
         }
 
+        // MODIFICATION: New function to manage vintage controls
+        function setupVintageControls() {
+            const vintageInput = document.getElementById('manualVintageInput');
+            const nvCheckbox = document.getElementById('nvCheckbox');
+
+            const currentYear = new Date().getFullYear();
+            vintageInput.max = currentYear + 5;
+
+            nvCheckbox.addEventListener('change', () => {
+                if (nvCheckbox.checked) {
+                    vintageInput.disabled = true;
+                    vintageInput.required = false;
+                    vintageInput.value = '';
+                } else {
+                    vintageInput.disabled = false;
+                    vintageInput.required = true;
+                    vintageInput.focus();
+                }
+            });
+        }
+
+        // MODIFICATION: Updated openAddModal
         function openAddModal() {
             document.getElementById('entryForm').reset();
             document.getElementById('entryVivinoUrl').value = '';
             document.getElementById('entryModalTitle').textContent = 'Add Wine Manually';
             document.getElementById('entrySubmitBtn').textContent = 'Add Wine';
+
+            const nvCheckbox = document.getElementById('nvCheckbox');
+            const vintageInput = document.getElementById('manualVintageInput');
+            nvCheckbox.checked = false;
+            vintageInput.disabled = false;
+            vintageInput.required = true;
+
             updateCostTierSelector(null);
             updateStarVisuals(document.getElementById('editTasteRatingSelector'), 0, 'rated');
             updateFeedbackText(document.getElementById('editTasteRatingFeedback'), 0);
             entryModal.classList.remove('hidden');
         }
 
+        // MODIFICATION: Updated openEditModal
         function openEditModal(wine) {
             document.getElementById('entryForm').reset();
             document.getElementById('entryVivinoUrl').value = wine.vivino_url;
             document.getElementById('manualNameInput').value = wine.name;
-            document.getElementById('manualVintageInput').value = wine.vintage;
+
+            const vintageInput = document.getElementById('manualVintageInput');
+            const nvCheckbox = document.getElementById('nvCheckbox');
+
+            if (wine.vintage) {
+                vintageInput.value = wine.vintage;
+                vintageInput.disabled = false;
+                vintageInput.required = true;
+                nvCheckbox.checked = false;
+            } else {
+                vintageInput.value = '';
+                vintageInput.disabled = true;
+                vintageInput.required = false;
+                nvCheckbox.checked = true;
+            }
+
             document.getElementById('manualVarietalInput').value = wine.varietal !== 'Unknown Varietal' ? wine.varietal : '';
             document.getElementById('manualRegionInput').value = wine.region !== 'Unknown Region' ? wine.region : '';
             document.getElementById('manualCountryInput').value = wine.country !== 'Unknown Country' ? wine.country : '';
@@ -1220,6 +1297,8 @@
             document.getElementById('entrySubmitBtn').textContent = 'Save Changes';
             entryModal.classList.remove('hidden');
         }
+
+        // MODIFICATION: Updated openDuplicateModal
         function openDuplicateModal(wine) {
             document.getElementById('entryForm').reset();
             document.getElementById('entryVivinoUrl').value = '';
@@ -1227,7 +1306,14 @@
             document.getElementById('manualVarietalInput').value = wine.varietal !== 'Unknown Varietal' ? wine.varietal : '';
             document.getElementById('manualRegionInput').value = wine.region !== 'Unknown Region' ? wine.region : '';
             document.getElementById('manualCountryInput').value = wine.country !== 'Unknown Country' ? wine.country : '';
-            document.getElementById('manualVintageInput').value = '';
+
+            const vintageInput = document.getElementById('manualVintageInput');
+            const nvCheckbox = document.getElementById('nvCheckbox');
+            vintageInput.value = '';
+            vintageInput.disabled = false;
+            vintageInput.required = true;
+            nvCheckbox.checked = false;
+
             document.getElementById('manualQuantityInput').value = 1;
             updateCostTierSelector(wine.cost_tier);
             updateStarVisuals(document.getElementById('editTasteRatingSelector'), 0, 'rated');
@@ -1419,7 +1505,7 @@
             updateTiers();
         }
 
-       function saveCostTiers() {
+        function saveCostTiers() {
             const t1 = parseFloat(document.getElementById('tier1').value) || 0;
             const t2Right = parseFloat(document.getElementById('tier2Right').value) || 0;
             const t3Right = parseFloat(document.getElementById('tier3Right').value) || 0;
@@ -1452,28 +1538,28 @@
         }
 
         function populateCostTierFieldsFromSettings() {
-                if (appSettings) {
-                    // Parse the labels to get the numeric values
-                    // Cost Tier 1: "Under $10" -> 10
-                    let val1 = appSettings.cost_tier_1_label ? parseFloat(appSettings.cost_tier_1_label.replace('Under $', '')) : 10;
-                    document.getElementById('tier1').value = val1;
+            if (appSettings) {
+                // Parse the labels to get the numeric values
+                // Cost Tier 1: "Under $10" -> 10
+                let val1 = appSettings.cost_tier_1_label ? parseFloat(appSettings.cost_tier_1_label.replace('Under $', '')) : 10;
+                document.getElementById('tier1').value = val1;
 
-                    // Cost Tier 2: "$10 - $20" -> 20
-                    let val2 = appSettings.cost_tier_2_label ? parseFloat(appSettings.cost_tier_2_label.split(' - $')[1]) : 20;
-                    document.getElementById('tier2Right').value = val2;
+                // Cost Tier 2: "$10 - $20" -> 20
+                let val2 = appSettings.cost_tier_2_label ? parseFloat(appSettings.cost_tier_2_label.split(' - $')[1]) : 20;
+                document.getElementById('tier2Right').value = val2;
 
-                    // Cost Tier 3: "$20 - $35" -> 35
-                    let val3 = appSettings.cost_tier_3_label ? parseFloat(appSettings.cost_tier_3_label.split(' - $')[1]) : 35;
-                    document.getElementById('tier3Right').value = val3;
+                // Cost Tier 3: "$20 - $35" -> 35
+                let val3 = appSettings.cost_tier_3_label ? parseFloat(appSettings.cost_tier_3_label.split(' - $')[1]) : 35;
+                document.getElementById('tier3Right').value = val3;
 
-                    // Cost Tier 4: "$35 - $50" -> 50
-                    let val4 = appSettings.cost_tier_4_label ? parseFloat(appSettings.cost_tier_4_label.split(' - $')[1]) : 50;
-                    document.getElementById('tier4Right').value = val4;
-                }
-                // Update the auto-filled left values and validate
-                updateTiers();
+                // Cost Tier 4: "$35 - $50" -> 50
+                let val4 = appSettings.cost_tier_4_label ? parseFloat(appSettings.cost_tier_4_label.split(' - $')[1]) : 50;
+                document.getElementById('tier4Right').value = val4;
             }
-        
+            // Update the auto-filled left values and validate
+            updateTiers();
+        }
+
         // initialize
         resetCostTiers();
 
@@ -1577,8 +1663,6 @@
             }
         });
 
-        <!-- keep all your other <script> content above -->
-
         // --- Page Load ---
         document.addEventListener('DOMContentLoaded', async () => {
             await fetchSettings();
@@ -1599,6 +1683,9 @@
             } else {
                 enableLightMode();
             }
+
+            // MODIFICATION: Call the new setup function
+            setupVintageControls();
 
             setupStarRating(tasteRatingSelector, tasteRatingInput, tasteRatingFeedback);
             setupStarRating(editTasteRatingSelector, manualTasteRatingInput, editTasteRatingFeedback);
@@ -1647,66 +1734,5 @@
             fetchInventory();
         });
     </script>
-    
-    </html>
-        
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+</html>
