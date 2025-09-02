@@ -575,32 +575,42 @@
         <div class="modal-content">
             <button class="modal-close-button" onclick="closeEntryModal()">&times;</button>
             <h3 id="entryModalTitle" class="text-xl font-semibold mb-4">Add Wine Manually</h3>
-            <form id="entryForm">
+            <form id="entryForm" novalidate>
                 <input type="hidden" id="entryVivinoUrl">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div class="sm:col-span-2"><label class="block text-sm font-medium">Wine Name *</label><input
-                            type="text" id="manualNameInput" class="mt-1 block w-full border rounded-md p-2" required>
+                    <div class="sm:col-span-2">
+                        <label class="block text-sm font-medium">Wine Name *</label>
+                        <input type="text" id="manualNameInput" class="mt-1 block w-full border rounded-md p-2" required>
                     </div>
-                    
-                    <label class="block text-sm font-medium">Vintage *</label>
-                    <div class="flex items-center gap-4 mt-1">
-                        <input type="number" id="manualVintageInput" class="block w-full border rounded-md p-2" required min="1900">
-                        <div class="flex items-center whitespace-nowrap">
-                            <input type="checkbox" id="nvCheckbox"
-                                class="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500">
-                            <label for="nvCheckbox" class="ml-2 block text-sm">Non-Vintage (NV)</label>
+                    <div>
+                        <label class="block text-sm font-medium">Vintage *</label>
+                        <div class="flex items-center gap-4 mt-1">
+                            <input type="number" id="manualVintageInput" class="block w-28 border rounded-md p-2" required
+                                min="1900">
+                            <div class="flex items-center whitespace-nowrap">
+                                <input type="checkbox" id="nvCheckbox"
+                                    class="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500">
+                                <label for="nvCheckbox" class="ml-2 block text-sm">Non-Vintage (NV)</label>
+                            </div>
                         </div>
                     </div>
-
-                    <div><label class="block text-sm font-medium">Varietal</label><input type="text"
-                            id="manualVarietalInput" class="mt-1 block w-full border rounded-md p-2"></div>
-                    <div><label class="block text-sm font-medium">Region</label><input type="text"
-                            id="manualRegionInput" class="mt-1 block w-full border rounded-md p-2"></div>
-                    <div><label class="block text-sm font-medium">Country</label><input type="text"
-                            id="manualCountryInput" class="mt-1 block w-full border rounded-md p-2"></div>
-                    <div class="sm:col-span-2"><label class="block text-sm font-medium">Quantity *</label><input
-                            type="number" id="manualQuantityInput" min="0" value="1"
-                            class="mt-1 block w-full border rounded-md p-2" required></div>
+                    <div>
+                        <label class="block text-sm font-medium">Varietal</label>
+                        <input type="text" id="manualVarietalInput" class="mt-1 block w-full border rounded-md p-2">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium">Region</label>
+                        <input type="text" id="manualRegionInput" class="mt-1 block w-full border rounded-md p-2">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium">Country</label>
+                        <input type="text" id="manualCountryInput" class="mt-1 block w-full border rounded-md p-2">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="block text-sm font-medium">Quantity *</label>
+                        <input type="number" id="manualQuantityInput" min="0" value="1"
+                            class="mt-1 block w-full border rounded-md p-2" required>
+                    </div>
                     <div class="sm:col-span-2">
                         <label class="block text-sm font-medium">Cost Tier</label>
                         <div id="costTierSelector" class="flex items-center gap-2 mt-1 cost-tier-selector">
@@ -632,33 +642,6 @@
                         class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Cancel</button>
                     <button type="submit" id="entrySubmitBtn"
                         class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Add Wine</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div id="tasteModal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <h3 id="tasteModalTitle" class="text-xl font-semibold mb-2">Consume Wine</h3>
-            <p id="tasteModalWineName" class="mb-4 text-gray-700"></p>
-            <form id="tasteForm">
-                <input type="hidden" id="tasteVivinoUrl">
-                <input type="hidden" id="tasteMode" value="consume">
-                <label class="block text-sm font-medium mb-2">How did it taste? (Optional)</label>
-                <div id="tasteRatingSelector" class="flex text-4xl taste-rating-selector">
-                    <span data-value="1">☆</span>
-                    <span data-value="2">☆</span>
-                    <span data-value="3">☆</span>
-                    <span data-value="4">☆</span>
-                    <span data-value="5">☆</span>
-                </div>
-                <p id="tasteRatingFeedback" class="text-sm text-center h-6 mb-4"></p> <input type="hidden"
-                    id="tasteRatingInput">
-                <div class="mt-6 flex justify-end gap-4">
-                    <button type="button" onclick="closeTasteModal()"
-                        class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Cancel</button>
-                    <button type="submit" id="tasteSubmitBtn"
-                        class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Consume</button>
                 </div>
             </form>
         </div>
