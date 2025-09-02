@@ -532,6 +532,22 @@
                 Assistant ToDo list.
             </p>
             <ul class="list-disc pl-5 mt-3 text-sm space-y-2">
+                            <li>
+                <strong>Backup Database:</strong> Creates a safe copy of your entire wine inventory. The backup is stored as `wonderful_wino_backup.db` inside your Home Assistant `/share/wwino/` folder. You can access this file using the Samba or File Editor add-ons. This is useful for creating a restore point before making major changes.
+            </li>
+            <li>
+                <strong>Restore Database:</strong> <span class="font-bold text-yellow-600">WARNING:</span> This will completely overwrite your current inventory with the data from the `wonderful_wino_backup.db` file. Any wines added since your last backup will be lost. Use this to recover your data if something goes wrong.
+            </li>
+                <li>
+                    <strong>Backup Database:</strong> Creates a safe copy of your entire wine inventory. The backup is stored as
+                    `wonderful_wino_backup.db` inside your Home Assistant `/share/wwino/` folder. You can access this file using the
+                    Samba or File Editor add-ons. This is useful for creating a restore point before making major changes.
+                </li>
+                <li>
+                    <strong>Restore Database:</strong> <span class="font-bold text-yellow-600">WARNING:</span> This will completely
+                    overwrite your current inventory with the data from the `wonderful_wino_backup.db` file. Any wines added since your
+                    last backup will be lost. Use this to recover your data if something goes wrong.
+                </li>
                 <li>
                     <strong>Sync DB→ToDo:</strong> This button will synchronize your entire wine inventory from the
                     Wonderful-Wino database to your ToDo list. It attempts to update or re-add every wine from your
@@ -748,9 +764,18 @@
     
                 <hr class="border-t border-gray-300 mt-6">
                 <section class="mt-6 mb-6">
-                    <h4 class="text-lg font-medium mb-2">Maintenance</h4>
-                    <p class="text-sm text-gray-600 mb-4">Tools to manage your inventory data.</p>
-                    <div class="flex flex-col sm:flex-row gap-4 mb-4">
+                    <div class="flex justify-between items-center mb-4">
+                        <h4 class="text-lg font-medium">Maintenance</h4>
+                        <button type="button" onclick="openHelpFromSettings()"
+                            class="w-8 h-8 flex items-center justify-center bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold rounded-full flex-shrink-0 text-lg"
+                            title="Help">
+                            ?
+                        </button>
+                    </div>
+                
+                    <h5 class="text-base font-semibold text-gray-700 mb-2">Database Backup & Recovery</h5>
+                    <p class="text-sm text-gray-600 mb-4">Protect and restore your wine inventory data.</p>
+                    <div class="flex flex-col sm:flex-row gap-4">
                         <button type="button" onclick="handleBackupDb('settingsMessage')"
                             class="w-full sm:flex-grow bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg">
                             Backup Database
@@ -760,18 +785,19 @@
                             Restore Database
                         </button>
                     </div>
-                    <div class="flex flex-col sm:flex-row gap-4 mb-4 items-center">
+                
+                    <hr class="border-t border-gray-300 my-6">
+                
+                    <h5 class="text-base font-semibold text-gray-700 mb-2">Advanced Operations</h5>
+                    <p class="text-sm text-gray-600 mb-4">Tools for synchronization and permanent data deletion.</p>
+                    <div class="flex flex-col sm:flex-row gap-4">
                         <button type="button" onclick="handleSyncAllWines('settingsMessage')"
                             class="w-full sm:flex-grow bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700">
-                            Sync DB→ToDo
+                            Sync DB → ToDo
                         </button>
                         <button type="button" onclick="handleReinitializeDb('settingsMessage')"
                             class="w-full sm:flex-grow bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg">
                             Reset DB
-                        </button>
-                        <button type="button" onclick="openHelpFromSettings()"
-                            class="w-12 h-12 flex items-center justify-center bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg flex-shrink-0">
-                            ?
                         </button>
                     </div>
                 </section>
