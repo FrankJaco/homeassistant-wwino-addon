@@ -992,8 +992,11 @@
         }
 
         function applySortAndDisplayInventory() {
+            const scrollY = window.scrollY;
             const sortedData = sortInventory(currentInventory, currentSortBy, currentSortDirection);
+            
             displayInventory(sortedData);
+            window.scrollTo(0, scrollY);
         }
 
         async function fetchInventory() {
@@ -1732,6 +1735,7 @@
             // Settings button
             document.getElementById('settingsButton').addEventListener('click', openSettingsModal);
             fetchInventory();
+            setInterval(fetchInventory, 30000);
         });
     </script>
 
