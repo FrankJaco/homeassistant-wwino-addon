@@ -241,9 +241,12 @@ def build_markdown_description(wine: dict, current_quantity: int, is_for_todo: b
     if b4b_score is not None:
         try:
             b4b_value = round(float(b4b_score))
-            score_str = f"+{b4b_value}" if b4b_value > 0 else str(b4b_value)
+            if b4b_value > 0:
+                score_str = f"\u200B+{b4b_value}"  # zero-width space before plus
+            else:
+                score_str = str(b4b_value)
             if score_str.startswith("-"):
-                score_str = "\u200B" + score_str  # avoid Markdown parsing issue
+                score_str = "\u200B" + score_str  # zero-width space before minus
             line4 += f" | 🎯**{score_str}**"
         except Exception as e:
             logger.warning(f"Error formatting B4B score: {e}")
