@@ -247,7 +247,7 @@ def build_markdown_description(wine: dict, current_quantity: int, is_for_todo: b
                 score_str = str(b4b_value)
             if score_str.startswith("-"):
                 score_str = "\u200B" + score_str  # zero-width space before minus
-            line4 += f" | 🎯**{score_str}**"
+            line4 += f" | 🎯&nbsp;**{score_str}**"
         except Exception as e:
             logger.warning(f"Error formatting B4B score: {e}")
     if cost_tier and isinstance(cost_tier, int) and cost_tier > 0:
