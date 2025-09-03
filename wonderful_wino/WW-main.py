@@ -1232,7 +1232,7 @@ def sync_all_wines_to_ha():
         logger.error(f"Error during full sync: {e}")
         return jsonify({"status": "error", "message": "Internal error during sync."}), 500
 
-app.route("/reinitialize-database-action", methods=["POST"])
+@app.route("/reinitialize-database-action", methods=["POST"])
 def reinitialize_db_endpoint():
     try:
         reinitialize_database()
