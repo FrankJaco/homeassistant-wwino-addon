@@ -237,13 +237,16 @@ def build_markdown_description(wine: dict, current_quantity: int, is_for_todo: b
     line4 = f"Qty: [ **{current_quantity}** ]"
     if display_rating is not None:
         line4 += f"&emsp;⭐**{display_rating:.1f}**"
-    # Insert zero-width space after minus to avoid Markdown list parsing
+    # Insert B4B score if available
     if b4b_score is not None:
-        b4b_value = round(b4b_score)
-    score_str = f"+{b4b_value}" if b4b_value > 0 else str(b4b_value)
-    if score_str.startswith("-"):
-        score_str = "\u200B" + score_str   
-        line4 += f" | 🎯**{score_str}**"    
+        try:
+            b4b_value = round(float(b4b_score))
+            score_str = f"+{b4b_value}" if b4b_value > 0 else str(b4b_value)
+            if score_str.startswith("-"):
+                score_str = "\u200B" + score_str  # avoid Markdown parsing issue
+            line4 += f" | 🎯**{score_str}**"
+        except Exception as e:
+            logger.warning(f"Error formatting B4B score: {e}")
     if cost_tier and isinstance(cost_tier, int) and cost_tier > 0:
         cost_display = ''.join(['$'] * cost_tier)
         line4 += f" | **{cost_display}**"
@@ -1030,10 +1033,20 @@ def get_inventory():
             
             # Calculate B4B score if possible
             b4b_score = None
-            if display_rating is not None and cost_tier is not None and cost_tier > 0:
-                # Formula: (23.76 * Rating) - (19.8 * Cost Tier)
-                raw_score = (23.76 * display_rating) - (19.8 * cost_tier)
-                b4b_score = round(raw_score, 1) # Round to one decimal place
+            try:
+                if (
+                    display_rating is not None
+                    and isinstance(display_rating, (int, float))
+                    and cost_tier is not None
+                    and isinstance(cost_tier, int)
+                    and cost_tier > 0
+                ):
+                    # Formula: (23.76 * Rating) - (19.8 * Cost Tier)
+                    raw_score = (23.76 * display_rating) - (19.8 * cost_tier)
+                    b4b_score = round(raw_score)  # Whole number
+            except Exception as e:
+                logger.warning(f"Skipping B4B calculation due to invalid data: {e}")
+                b4b_score = None
 
             wine_dict['b4b_score'] = b4b_score
             wines_with_b4b.append(wine_dict)
