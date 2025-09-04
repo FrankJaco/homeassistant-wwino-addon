@@ -166,6 +166,18 @@
             color: var(--accent-color);
         }
 
+        /* NEW: Styles for the clickable wine image container */
+        .wine-image-container {
+            cursor: pointer;
+            position: relative;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .wine-image-container:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
         /* Apply theme variables to other elements */
         .bg-white {
             background-color: var(--card-bg) !important;
@@ -367,7 +379,8 @@
 
         input[type="text"],
         input[type="number"],
-        select {
+        select,
+        textarea {
             background-color: var(--input-bg) !important;
             color: var(--input-text) !important;
             border-color: var(--input-border) !important;
@@ -459,7 +472,11 @@
 
         <section class="bg-white p-6 rounded-lg shadow-md mb-8">
             <div class="flex flex-col sm:flex-row justify-between items-start mb-6 sm:mb-4 gap-4">
-                <h2 id="inventory-heading" class="text-2xl font-semibold text-gray-800">Wine Inventory</h2>
+                <div>
+                    <h2 id="inventory-heading" class="text-2xl font-semibold text-gray-800">Wine Inventory</h2>
+                    <div id="inventory-summary" class="text-sm text-gray-600 mt-1 hidden"></div>
+                </div>
+
                 <div class="flex flex-wrap items-center gap-4">
                     <div id="inventory-filters" class="flex items-center gap-2">
                         <button class="filter-button active" data-filter="on_hand">On Hand</button>
@@ -665,6 +682,25 @@
                         class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Cancel</button>
                     <button type="submit" id="tasteSubmitBtn"
                         class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Consume</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="notesModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 class="text-xl font-semibold mb-2">Tasting Notes</h3>
+            <p id="notesModalWineName" class="mb-4 text-gray-700"></p>
+            <form id="notesForm">
+                <input type="hidden" id="notesVivinoUrl">
+                <textarea id="tastingNotesInput" rows="5" placeholder="Enter your notes here..."
+                    class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"></textarea>
+                <div id="notesMessage" class="mt-4 text-center hidden"></div>
+                <div class="mt-6 flex justify-end gap-4">
+                    <button type="button" onclick="closeNotesModal()"
+                        class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Cancel</button>
+                    <button type="submit" class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Save
+                        Notes</button>
                 </div>
             </form>
         </div>
@@ -1014,19 +1050,46 @@
 
         function displayInventory(inventory) {
             const container = document.getElementById('inventoryTableBody');
+            const summaryEl = document.getElementById('inventory-summary');
             container.innerHTML = '';
+
+            // MODIFICATION: Calculate and display inventory summary
+            if (currentFilter === 'on_hand' && inventory.length > 0) {
+                const totalBottles = inventory.reduce((sum, wine) => sum + wine.quantity, 0);
+                const uniqueWines = inventory.length;
+                const bottleText = totalBottles === 1 ? 'bottle' : 'bottles';
+                const wineText = uniqueWines === 1 ? 'wine' : 'wines';
+                summaryEl.textContent = `${uniqueWines} unique ${wineText} / ${totalBottles} total ${bottleText}`;
+                summaryEl.classList.remove('hidden');
+            } else {
+                summaryEl.classList.add('hidden');
+            }
+
             if (inventory.length === 0) {
                 const filterText = currentFilter.replace('_', ' ');
                 container.innerHTML = `<tr><td colspan="3" class="py-4 text-center text-gray-500">No wines found for filter: ${filterText}</td></tr>`;
                 return;
             }
+
             inventory.forEach(item => {
                 const row = document.createElement('tr');
                 row.className = 'border-b border-gray-200 flex flex-col sm:table-row';
 
+                // MODIFICATION: Updated image cell to be a clickable container
                 const imageCell = document.createElement('td');
                 imageCell.className = 'py-4 sm:p-4 flex justify-center sm:block';
-                imageCell.innerHTML = item.image_url ? `<img src="${item.image_url}" class="h-24 w-24 object-cover rounded-md" alt="Wine Image">` : '<div class="text-gray-400 text-center w-24 h-24 flex items-center justify-center bg-gray-100 rounded-md">No Image</div>';
+                const imageContainer = document.createElement('div');
+                imageContainer.className = 'wine-image-container rounded-md overflow-hidden';
+                imageContainer.onclick = () => openNotesModal(item);
+                const tooltipText = item.tasting_notes ? item.tasting_notes : 'Click to add tasting notes';
+                imageContainer.title = tooltipText;
+
+                imageContainer.innerHTML = item.image_url ?
+                    `<img src="${item.image_url}" class="h-24 w-24 object-cover" alt="Wine Image">` :
+                    '<div class="text-gray-400 text-center w-24 h-24 flex items-center justify-center bg-gray-100">No Image</div>';
+
+                imageCell.appendChild(imageContainer);
+
 
                 const detailsCell = document.createElement('td');
                 detailsCell.className = 'py-4 sm:p-4 text-sm text-gray-900 wine-details-cell w-full sm:w-auto text-center sm:text-left';
@@ -1110,7 +1173,6 @@
             }
         });
 
-        // MODIFICATION: Updated form submission logic
         document.getElementById('entryForm').addEventListener('submit', async function (event) {
             event.preventDefault();
             const vivinoUrl = document.getElementById('entryVivinoUrl').value;
@@ -1131,7 +1193,6 @@
                 personal_rating: parseFloat(document.getElementById('manualTasteRatingInput').value) || null
             };
 
-            // Updated validation logic
             if (!payload.name || (!isNv && !payload.vintage) || isNaN(payload.quantity)) {
                 showMessage('entryMessage', 'Please fill in all required fields.', 'error', true);
                 return;
@@ -1224,7 +1285,6 @@
             document.getElementById('entryMessage').classList.add('hidden');
         }
 
-        // MODIFICATION: New function to manage vintage controls
         function setupVintageControls() {
             const vintageInput = document.getElementById('manualVintageInput');
             const nvCheckbox = document.getElementById('nvCheckbox');
@@ -1245,7 +1305,6 @@
             });
         }
 
-        // MODIFICATION: Updated openAddModal
         function openAddModal() {
             document.getElementById('entryForm').reset();
             document.getElementById('entryVivinoUrl').value = '';
@@ -1264,7 +1323,6 @@
             entryModal.classList.remove('hidden');
         }
 
-        // MODIFICATION: Updated openEditModal
         function openEditModal(wine) {
             document.getElementById('entryForm').reset();
             document.getElementById('entryVivinoUrl').value = wine.vivino_url;
@@ -1301,7 +1359,6 @@
             entryModal.classList.remove('hidden');
         }
 
-        // MODIFICATION: Updated openDuplicateModal
         function openDuplicateModal(wine) {
             document.getElementById('entryForm').reset();
             document.getElementById('entryVivinoUrl').value = '';
@@ -1359,6 +1416,23 @@
             document.getElementById('tasteModal').classList.add('hidden');
             document.getElementById('tasteForm').reset();
         }
+
+        // --- NEW: Notes Modal JS ---
+        function openNotesModal(wine) {
+            const notesModal = document.getElementById('notesModal');
+            document.getElementById('notesVivinoUrl').value = wine.vivino_url;
+            document.getElementById('notesModalWineName').textContent = `${wine.name} (${wine.vintage || 'NV'})`;
+            document.getElementById('tastingNotesInput').value = wine.tasting_notes || '';
+            document.getElementById('notesMessage').classList.add('hidden');
+            notesModal.classList.remove('hidden');
+            document.getElementById('tastingNotesInput').focus();
+        }
+
+        function closeNotesModal() {
+            document.getElementById('notesModal').classList.add('hidden');
+            document.getElementById('notesForm').reset();
+        }
+
 
         // --- Shared Star Rating Logic ---
         function setupStarRating(selectorEl, inputEl, feedbackEl) {
@@ -1689,7 +1763,6 @@
                 enableLightMode();
             }
 
-            // MODIFICATION: Call the new setup function
             setupVintageControls();
 
             setupStarRating(tasteRatingSelector, tasteRatingInput, tasteRatingFeedback);
@@ -1733,6 +1806,32 @@
                     showMessage('inventoryMessage', `Error: ${error.message}`, 'error');
                 }
             });
+
+            // NEW: Event listener for notes form
+            document.getElementById('notesForm').addEventListener('submit', async function (event) {
+                event.preventDefault();
+                const payload = {
+                    vivino_url: document.getElementById('notesVivinoUrl').value,
+                    tasting_notes: document.getElementById('tastingNotesInput').value
+                };
+
+                try {
+                    const response = await fetch(`${BASE_URL}api/wine/notes`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    const result = await response.json();
+                    if (!response.ok) throw new Error(result.message || 'Failed to save notes');
+
+                    showMessage('notesMessage', result.message || 'Notes saved!', 'info', true);
+                    fetchInventory();
+                    setTimeout(closeNotesModal, 1500);
+                } catch (error) {
+                    showMessage('notesMessage', `Error: ${error.message}`, 'error', true);
+                }
+            });
+
 
             // Settings button
             document.getElementById('settingsButton').addEventListener('click', openSettingsModal);

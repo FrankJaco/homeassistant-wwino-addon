@@ -270,7 +270,7 @@ def init_db():
     """Initializes the SQLite database, creating the 'wines' table if it doesn't exist."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    # PHASE 1 CHANGE: Updated table schema
+    # MODIFICATION: Added tasting_notes column
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS wines (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -285,6 +285,7 @@ def init_db():
             quantity INTEGER DEFAULT 1,
             cost_tier INTEGER,
             personal_rating REAL,
+            tasting_notes TEXT,
             added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -798,13 +799,14 @@ def insert_wine_data(wine_data, quantity=1, cost_tier=None):
             ))
             logger.info(f"Updated quantity for '{wine_data['name']}' to {new_quantity}.")
         else:
+            # MODIFICATION: Added tasting_notes to insert statement
             cursor.execute('''
-                INSERT INTO wines (vivino_url, name, vintage, varietal, region, country, vivino_rating, image_url, quantity, cost_tier, personal_rating)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO wines (vivino_url, name, vintage, varietal, region, country, vivino_rating, image_url, quantity, cost_tier, personal_rating, tasting_notes)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 wine_data['vivino_url'], wine_data['name'], wine_data['vintage'], wine_data['varietal'],
                 wine_data['region'], wine_data['country'], wine_data['vivino_rating'],
-                wine_data['image_url'], quantity, cost_tier, None
+                wine_data['image_url'], quantity, cost_tier, None, None
             ))
             logger.info(f"New wine '{wine_data['name']}' inserted with quantity {quantity}.")
 
@@ -974,14 +976,16 @@ def edit_wine():
             sync_to_ha_todo(old_wine_dict, 0)
         else:
             return jsonify({"status": "error", "message": "Wine to edit not found."}), 404
-
+        
+        # MODIFICATION: Added tasting_notes to the update query
         cursor.execute('''
             UPDATE wines SET name = ?, vintage = ?, varietal = ?, region = ?, country = ?, 
-            quantity = ?, cost_tier = ?, personal_rating = ? WHERE vivino_url = ?
+            quantity = ?, cost_tier = ?, personal_rating = ?, tasting_notes = ? WHERE vivino_url = ?
         ''', (
             data['name'], data['vintage'], data.get('varietal') or "Unknown Varietal",
             data.get('region') or "Unknown Region", data.get('country') or "Unknown Country",
-            data['quantity'], data.get('cost_tier'), data.get('personal_rating'), vivino_url
+            data['quantity'], data.get('cost_tier'), data.get('personal_rating'), 
+            data.get('tasting_notes'), vivino_url
         ))
         conn.commit()
 
@@ -1220,6 +1224,30 @@ def rate_wine():
             if updated_wine_dict['quantity'] > 0:
                 sync_to_ha_todo(updated_wine_dict, updated_wine_dict['quantity'])
         return jsonify({"status": "success"}), 200
+    finally:
+        if conn: conn.close()
+
+# NEW: Endpoint to save tasting notes
+@app.route('/api/wine/notes', methods=['POST'])
+def save_tasting_notes():
+    data = request.get_json()
+    vivino_url = data.get('vivino_url')
+    notes = data.get('tasting_notes', '') # Default to empty string
+    
+    if not vivino_url:
+        return jsonify({"status": "error", "message": "Missing required vivino_url"}), 400
+    
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("UPDATE wines SET tasting_notes = ? WHERE vivino_url = ?", (notes, vivino_url))
+        if cursor.rowcount == 0:
+            return jsonify({"status": "error", "message": "Wine not found"}), 404
+        conn.commit()
+        return jsonify({"status": "success", "message": "Tasting notes saved."}), 200
+    except sqlite3.Error as e:
+        logger.error(f"Database error saving notes: {e}")
+        return jsonify({"status": "error", "message": "Database error"}), 500
     finally:
         if conn: conn.close()
 
