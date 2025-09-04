@@ -589,6 +589,7 @@
             <h3 id="entryModalTitle" class="text-xl font-semibold mb-4">Add Wine Manually</h3>
             <form id="entryForm" novalidate>
                 <input type="hidden" id="entryVivinoUrl">
+                <input type="hidden" id="manualTastingNotesInput">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div class="sm:col-span-2">
                         <label class="block text-sm font-medium">Wine Name *</label>
@@ -1053,7 +1054,6 @@
             const summaryEl = document.getElementById('inventory-summary');
             container.innerHTML = '';
 
-            // MODIFICATION: Calculate and display inventory summary
             if (currentFilter === 'on_hand' && inventory.length > 0) {
                 const totalBottles = inventory.reduce((sum, wine) => sum + wine.quantity, 0);
                 const uniqueWines = inventory.length;
@@ -1075,7 +1075,6 @@
                 const row = document.createElement('tr');
                 row.className = 'border-b border-gray-200 flex flex-col sm:table-row';
 
-                // MODIFICATION: Updated image cell to be a clickable container
                 const imageCell = document.createElement('td');
                 imageCell.className = 'py-4 sm:p-4 flex justify-center sm:block';
                 const imageContainer = document.createElement('div');
@@ -1190,7 +1189,9 @@
                 country: document.getElementById('manualCountryInput').value,
                 quantity: parseInt(quantityValue, 10),
                 cost_tier: parseInt(document.getElementById('manualCostTierInput').value, 10) || null,
-                personal_rating: parseFloat(document.getElementById('manualTasteRatingInput').value) || null
+                personal_rating: parseFloat(document.getElementById('manualTasteRatingInput').value) || null,
+                // MODIFICATION: Read notes from the hidden input to send back to the server
+                tasting_notes: document.getElementById('manualTastingNotesInput').value
             };
 
             if (!payload.name || (!isNv && !payload.vintage) || isNaN(payload.quantity)) {
@@ -1326,6 +1327,8 @@
         function openEditModal(wine) {
             document.getElementById('entryForm').reset();
             document.getElementById('entryVivinoUrl').value = wine.vivino_url;
+            // MODIFICATION: Populate the hidden tasting notes input
+            document.getElementById('manualTastingNotesInput').value = wine.tasting_notes || '';
             document.getElementById('manualNameInput').value = wine.name;
 
             const vintageInput = document.getElementById('manualVintageInput');
@@ -1417,7 +1420,7 @@
             document.getElementById('tasteForm').reset();
         }
 
-        // --- NEW: Notes Modal JS ---
+        // --- Notes Modal JS ---
         function openNotesModal(wine) {
             const notesModal = document.getElementById('notesModal');
             document.getElementById('notesVivinoUrl').value = wine.vivino_url;
@@ -1807,7 +1810,6 @@
                 }
             });
 
-            // NEW: Event listener for notes form
             document.getElementById('notesForm').addEventListener('submit', async function (event) {
                 event.preventDefault();
                 const payload = {
