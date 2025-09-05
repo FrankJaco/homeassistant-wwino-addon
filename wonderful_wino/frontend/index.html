@@ -695,19 +695,26 @@
             <p id="notesModalWineName" class="mb-4 text-gray-700"></p>
             <form id="notesForm">
                 <input type="hidden" id="notesVivinoUrl">
-
+    
+                <!-- Tasting Notes FIRST -->
                 <div class="mb-4">
-                    <label for="imageUrlInput" class="block text-sm font-medium mb-1">Image URL</label>
-                    <input type="text" id="imageUrlInput" placeholder="Paste new image URL here"
-                        class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
-                </div>
-
-                <div>
                     <label for="tastingNotesInput" class="block text-sm font-medium mb-1">Tasting Notes</label>
                     <textarea id="tastingNotesInput" rows="5" placeholder="Enter your notes here..."
                         class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"></textarea>
                 </div>
-
+    
+                <!-- Image URL SECOND with lock toggle -->
+                <div class="mb-4">
+                    <div class="flex justify-between items-center">
+                        <label for="imageUrlInput" class="block text-sm font-medium mb-1">Image URL</label>
+                        <button type="button" id="toggleImageUrlLock"
+                            class="text-gray-500 hover:text-gray-700 focus:outline-none">🔒</button>
+                    </div>
+                    <input type="text" id="imageUrlInput" placeholder="Paste new image URL here"
+                        class="w-full p-2 border rounded-md bg-gray-100 text-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        readonly>
+                </div>
+    
                 <div id="notesMessage" class="mt-4 text-center hidden"></div>
                 <div class="mt-6 flex justify-end gap-4">
                     <button type="button" onclick="closeNotesModal()"
@@ -1439,21 +1446,50 @@
 
         // --- Notes Modal JS ---
         function openNotesModal(wine) {
-            const notesModal = document.getElementById('notesModal');
-            document.getElementById('notesVivinoUrl').value = wine.vivino_url;
-            document.getElementById('notesModalWineName').textContent = `${wine.name} (${wine.vintage || 'NV'})`;
-            document.getElementById('tastingNotesInput').value = wine.tasting_notes || '';
-            document.getElementById('imageUrlInput').value = wine.image_url || '';
-            document.getElementById('notesMessage').classList.add('hidden');
-            notesModal.classList.remove('hidden');
-            document.getElementById('tastingNotesInput').focus();
-        }
+                const notesModal = document.getElementById('notesModal');
+                const imageUrlInput = document.getElementById('imageUrlInput');
+                const toggleImageUrlLock = document.getElementById('toggleImageUrlLock');
+
+                document.getElementById('notesVivinoUrl').value = wine.vivino_url;
+                document.getElementById('notesModalWineName').textContent = `${wine.name} (${wine.vintage || 'NV'})`;
+                document.getElementById('tastingNotesInput').value = wine.tasting_notes || '';
+                document.getElementById('notesMessage').classList.add('hidden');
+
+                // Always reset Image URL to locked state
+                imageUrlInput.value = wine.image_url || '';
+                imageUrlInput.setAttribute('readonly', true);
+                imageUrlInput.classList.add('bg-gray-100', 'text-gray-500');
+                toggleImageUrlLock.textContent = '🔒';
+
+                notesModal.classList.remove('hidden');
+                document.getElementById('tastingNotesInput').focus();
+            }
+
+            function closeNotesModal() {
+                document.getElementById('notesModal').classList.add('hidden');
+                document.getElementById('notesForm').reset();
+            }
+
+            // --- Image URL lock toggle ---
+            const toggleImageUrlLock = document.getElementById('toggleImageUrlLock');
+            const imageUrlInput = document.getElementById('imageUrlInput');
+
+            toggleImageUrlLock.addEventListener('click', () => {
+                if (imageUrlInput.hasAttribute('readonly')) {
+                    imageUrlInput.removeAttribute('readonly');
+                    imageUrlInput.classList.remove('bg-gray-100', 'text-gray-500');
+                    toggleImageUrlLock.textContent = '🔓';
+                } else {
+                    imageUrlInput.setAttribute('readonly', true);
+                    imageUrlInput.classList.add('bg-gray-100', 'text-gray-500');
+                    toggleImageUrlLock.textContent = '🔒';
+                }
+            });
 
         function closeNotesModal() {
             document.getElementById('notesModal').classList.add('hidden');
             document.getElementById('notesForm').reset();
         }
-
 
         // --- Shared Star Rating Logic ---
         function setupStarRating(selectorEl, inputEl, feedbackEl) {
