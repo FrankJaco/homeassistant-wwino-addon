@@ -937,7 +937,10 @@ def add_manual_wine():
         'varietal': data.get('varietal') or "Unknown Varietal",
         'region': data.get('region') or "Unknown Region",
         'country': data.get('country') or "Unknown Country",
-        'vivino_rating': None, 'image_url': None, 'cost_tier': None, 'personal_rating': None,
+        'vivino_rating': None,
+        'image_url': data.get('image_url'),
+        'cost_tier': None,
+        'personal_rating': None,
     }
 
     if insert_wine_data(wine_data, quantity, cost_tier):
@@ -1227,12 +1230,10 @@ def rate_wine():
     finally:
         if conn: conn.close()
 
-# NEW: Endpoint to save tasting notes
 @app.route('/api/wine/notes', methods=['POST'])
-def save_tasting_notes():
+def save_tasting_notes_and_image():
     data = request.get_json()
     vivino_url = data.get('vivino_url')
-    notes = data.get('tasting_notes', '') # Default to empty string
     
     if not vivino_url:
         return jsonify({"status": "error", "message": "Missing required vivino_url"}), 400
@@ -1240,13 +1241,33 @@ def save_tasting_notes():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     try:
-        cursor.execute("UPDATE wines SET tasting_notes = ? WHERE vivino_url = ?", (notes, vivino_url))
+        # Dynamically build the update query based on provided data
+        updates = []
+        params = []
+        
+        if 'tasting_notes' in data:
+            updates.append("tasting_notes = ?")
+            params.append(data['tasting_notes'])
+            
+        if 'image_url' in data:
+            updates.append("image_url = ?")
+            params.append(data['image_url'])
+
+        if not updates:
+            return jsonify({"status": "info", "message": "No data provided to update."}), 200
+
+        query = f"UPDATE wines SET {', '.join(updates)} WHERE vivino_url = ?"
+        params.append(vivino_url)
+        
+        cursor.execute(query, tuple(params))
+        
         if cursor.rowcount == 0:
             return jsonify({"status": "error", "message": "Wine not found"}), 404
+            
         conn.commit()
-        return jsonify({"status": "success", "message": "Tasting notes saved."}), 200
+        return jsonify({"status": "success", "message": "Details saved."}), 200
     except sqlite3.Error as e:
-        logger.error(f"Database error saving notes: {e}")
+        logger.error(f"Database error saving details: {e}")
         return jsonify({"status": "error", "message": "Database error"}), 500
     finally:
         if conn: conn.close()

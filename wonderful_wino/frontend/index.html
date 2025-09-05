@@ -590,6 +590,7 @@
             <form id="entryForm" novalidate>
                 <input type="hidden" id="entryVivinoUrl">
                 <input type="hidden" id="manualTastingNotesInput">
+                <input type="hidden" id="manualImageUrlInput">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div class="sm:col-span-2">
                         <label class="block text-sm font-medium">Wine Name *</label>
@@ -694,14 +695,16 @@
             <p id="notesModalWineName" class="mb-4 text-gray-700"></p>
             <form id="notesForm">
                 <input type="hidden" id="notesVivinoUrl">
-                <textarea id="tastingNotesInput" rows="5" placeholder="Enter your notes here..."
-                    class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"></textarea>
-                <div id="notesMessage" class="mt-4 text-center hidden"></div>
-                <div class="mt-6 flex justify-end gap-4">
-                    <button type="button" onclick="closeNotesModal()"
-                        class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Cancel</button>
-                    <button type="submit" class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Save
-                        Notes</button>
+                <div class="mb-4">
+                    <label for="imageUrlInput" class="block text-sm font-medium mb-1">Image URL</label>
+                    <input type="text" id="imageUrlInput" placeholder="Paste new image URL here"
+                        class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                </div>
+                
+                <div>
+                    <label for="tastingNotesInput" class="block text-sm font-medium mb-1">Tasting Notes</label>
+                    <textarea id="tastingNotesInput" rows="5" placeholder="Enter your notes here..."
+                        class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"></textarea>
                 </div>
             </form>
         </div>
@@ -1365,6 +1368,7 @@
         function openDuplicateModal(wine) {
             document.getElementById('entryForm').reset();
             document.getElementById('entryVivinoUrl').value = '';
+            document.getElementById('manualImageUrlInput').value = wine.image_url || '';
             document.getElementById('manualNameInput').value = wine.name;
             document.getElementById('manualVarietalInput').value = wine.varietal !== 'Unknown Varietal' ? wine.varietal : '';
             document.getElementById('manualRegionInput').value = wine.region !== 'Unknown Region' ? wine.region : '';
@@ -1426,6 +1430,7 @@
             document.getElementById('notesVivinoUrl').value = wine.vivino_url;
             document.getElementById('notesModalWineName').textContent = `${wine.name} (${wine.vintage || 'NV'})`;
             document.getElementById('tastingNotesInput').value = wine.tasting_notes || '';
+            document.getElementById('imageUrlInput').value = wine.image_url || '';
             document.getElementById('notesMessage').classList.add('hidden');
             notesModal.classList.remove('hidden');
             document.getElementById('tastingNotesInput').focus();
@@ -1814,9 +1819,12 @@
                 event.preventDefault();
                 const payload = {
                     vivino_url: document.getElementById('notesVivinoUrl').value,
-                    tasting_notes: document.getElementById('tastingNotesInput').value
+                    tasting_notes: document.getElementById('tastingNotesInput').value,
+                    image_url: document.getElementById('imageUrlInput').value
                 };
-
+                if (!isEditMode) {
+                    payload.image_url = document.getElementById('manualImageUrlInput').value;
+                }
                 try {
                     const response = await fetch(`${BASE_URL}api/wine/notes`, {
                         method: 'POST',
