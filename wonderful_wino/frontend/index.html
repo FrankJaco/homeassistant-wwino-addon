@@ -166,7 +166,7 @@
             color: var(--accent-color);
         }
 
-        /* NEW: Styles for the clickable wine image container */
+        /* Styles for the clickable wine image container */
         .wine-image-container {
             cursor: pointer;
             position: relative;
@@ -691,20 +691,29 @@
 
     <div id="notesModal" class="modal-overlay hidden">
         <div class="modal-content">
-            <h3 class="text-xl font-semibold mb-2">Tasting Notes</h3>
+            <h3 class="text-xl font-semibold mb-2">Tasting Notes & Image</h3>
             <p id="notesModalWineName" class="mb-4 text-gray-700"></p>
             <form id="notesForm">
                 <input type="hidden" id="notesVivinoUrl">
+
                 <div class="mb-4">
                     <label for="imageUrlInput" class="block text-sm font-medium mb-1">Image URL</label>
                     <input type="text" id="imageUrlInput" placeholder="Paste new image URL here"
                         class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
                 </div>
-                
+
                 <div>
                     <label for="tastingNotesInput" class="block text-sm font-medium mb-1">Tasting Notes</label>
                     <textarea id="tastingNotesInput" rows="5" placeholder="Enter your notes here..."
                         class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"></textarea>
+                </div>
+
+                <div id="notesMessage" class="mt-4 text-center hidden"></div>
+                <div class="mt-6 flex justify-end gap-4">
+                    <button type="button" onclick="closeNotesModal()"
+                        class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Cancel</button>
+                    <button type="submit" class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Save
+                        Changes</button>
                 </div>
             </form>
         </div>
@@ -1193,9 +1202,12 @@
                 quantity: parseInt(quantityValue, 10),
                 cost_tier: parseInt(document.getElementById('manualCostTierInput').value, 10) || null,
                 personal_rating: parseFloat(document.getElementById('manualTasteRatingInput').value) || null,
-                // MODIFICATION: Read notes from the hidden input to send back to the server
                 tasting_notes: document.getElementById('manualTastingNotesInput').value
             };
+
+            if (!isEditMode) {
+                payload.image_url = document.getElementById('manualImageUrlInput').value;
+            }
 
             if (!payload.name || (!isNv && !payload.vintage) || isNaN(payload.quantity)) {
                 showMessage('entryMessage', 'Please fill in all required fields.', 'error', true);
@@ -1330,7 +1342,6 @@
         function openEditModal(wine) {
             document.getElementById('entryForm').reset();
             document.getElementById('entryVivinoUrl').value = wine.vivino_url;
-            // MODIFICATION: Populate the hidden tasting notes input
             document.getElementById('manualTastingNotesInput').value = wine.tasting_notes || '';
             document.getElementById('manualNameInput').value = wine.name;
 
@@ -1368,7 +1379,9 @@
         function openDuplicateModal(wine) {
             document.getElementById('entryForm').reset();
             document.getElementById('entryVivinoUrl').value = '';
+
             document.getElementById('manualImageUrlInput').value = wine.image_url || '';
+
             document.getElementById('manualNameInput').value = wine.name;
             document.getElementById('manualVarietalInput').value = wine.varietal !== 'Unknown Varietal' ? wine.varietal : '';
             document.getElementById('manualRegionInput').value = wine.region !== 'Unknown Region' ? wine.region : '';
@@ -1822,9 +1835,7 @@
                     tasting_notes: document.getElementById('tastingNotesInput').value,
                     image_url: document.getElementById('imageUrlInput').value
                 };
-                if (!isEditMode) {
-                    payload.image_url = document.getElementById('manualImageUrlInput').value;
-                }
+
                 try {
                     const response = await fetch(`${BASE_URL}api/wine/notes`, {
                         method: 'POST',
@@ -1832,9 +1843,9 @@
                         body: JSON.stringify(payload)
                     });
                     const result = await response.json();
-                    if (!response.ok) throw new Error(result.message || 'Failed to save notes');
+                    if (!response.ok) throw new Error(result.message || 'Failed to save details');
 
-                    showMessage('notesMessage', result.message || 'Notes saved!', 'info', true);
+                    showMessage('notesMessage', result.message || 'Changes saved!', 'info', true);
                     fetchInventory();
                     setTimeout(closeNotesModal, 1500);
                 } catch (error) {
@@ -1848,5 +1859,6 @@
             fetchInventory();
         });
     </script>
+</body>
 
 </html>
