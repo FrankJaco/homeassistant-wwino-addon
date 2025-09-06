@@ -917,8 +917,13 @@
             }
 
             messageEl.textContent = text;
-            messageEl.className = 'mt-3 text-center font-medium';
             messageEl.classList.remove('hidden');
+
+            // ensure base classes exist without overwriting other classes
+            messageEl.classList.add('mt-3', 'text-center', 'font-medium');
+
+            // clear previous type classes, then add the right one
+            messageEl.classList.remove('text-red-600', 'text-green-600', 'text-gray-700');
 
             if (type === 'error') {
                 messageEl.classList.add('text-red-600');
@@ -933,6 +938,7 @@
                 }, 3000);
             }
         }
+
 
         async function handleSyncAllWines(messageElementId) {
             if (!confirm('Sync all wines to your Home Assistant To-Do list?')) return;
@@ -1448,7 +1454,7 @@
         function openNotesModal(wine) {
                 const notesModal = document.getElementById('notesModal');
                 const imageUrlInput = document.getElementById('imageUrlInput');
-                const toggleImageUrlLock = document.getElementById('toggleImageUrlLock');
+                const toggleBtn = document.getElementById('toggleImageUrlLock');
 
                 document.getElementById('notesVivinoUrl').value = wine.vivino_url;
                 document.getElementById('notesModalWineName').textContent = `${wine.name} (${wine.vintage || 'NV'})`;
@@ -1459,39 +1465,44 @@
                 imageUrlInput.value = wine.image_url || '';
                 imageUrlInput.setAttribute('readonly', true);
                 imageUrlInput.classList.add('bg-gray-100', 'text-gray-500');
-                toggleImageUrlLock.textContent = '🔒';
+                toggleBtn.textContent = '🔒';
 
                 notesModal.classList.remove('hidden');
                 document.getElementById('tastingNotesInput').focus();
             }
-
+            // Consolidated closeNotesModal
             function closeNotesModal() {
-                document.getElementById('notesModal').classList.add('hidden');
-                document.getElementById('notesForm').reset();
+                const notesModal = document.getElementById('notesModal');
+                const notesForm = document.getElementById('notesForm');
+                const imageUrlInput = document.getElementById('imageUrlInput');
+                const toggleBtn = document.getElementById('toggleImageUrlLock');
+                const notesMsg = document.getElementById('notesMessage');
+
+                if (notesModal) notesModal.classList.add('hidden');
+
+                if (notesForm) {
+                    notesForm.reset();
+                }
+
+                // Ensure the Image URL input returns to locked, gray state when closing
+                if (imageUrlInput) {
+                    imageUrlInput.setAttribute('readonly', 'true');
+                    imageUrlInput.classList.add('bg-gray-100', 'text-gray-500');
+                    imageUrlInput.blur();
+                }
+                if (toggleBtn) toggleBtn.textContent = '🔒';
+
+                // hide message area (clean)
+                if (notesMsg) {
+                    notesMsg.classList.add('hidden');
+                    notesMsg.textContent = '';
+                }
             }
 
-            // --- Image URL lock toggle ---
-            const toggleImageUrlLock = document.getElementById('toggleImageUrlLock');
-            const imageUrlInput = document.getElementById('imageUrlInput');
 
-            toggleImageUrlLock.addEventListener('click', () => {
-                if (imageUrlInput.hasAttribute('readonly')) {
-                    imageUrlInput.removeAttribute('readonly');
-                    imageUrlInput.classList.remove('bg-gray-100', 'text-gray-500');
-                    toggleImageUrlLock.textContent = '🔓';
-                } else {
-                    imageUrlInput.setAttribute('readonly', true);
-                    imageUrlInput.classList.add('bg-gray-100', 'text-gray-500');
-                    toggleImageUrlLock.textContent = '🔒';
-                }
-            });
+            
 
-        function closeNotesModal() {
-            document.getElementById('notesModal').classList.add('hidden');
-            document.getElementById('notesForm').reset();
-        }
-
-        // --- Shared Star Rating Logic ---
+            // --- Shared Star Rating Logic ---
         function setupStarRating(selectorEl, inputEl, feedbackEl) {
             selectorEl.addEventListener('mousemove', e => {
                 if (!e.target.matches('span')) return;
@@ -1801,6 +1812,25 @@
 
         // --- Page Load ---
         document.addEventListener('DOMContentLoaded', async () => {
+            // Guarded Image URL lock toggle registration
+            (function() {
+                const toggleImageUrlLockBtn = document.getElementById('toggleImageUrlLock');
+                const imageUrlInputEl = document.getElementById('imageUrlInput');
+                if (toggleImageUrlLockBtn && imageUrlInputEl) {
+                    toggleImageUrlLockBtn.addEventListener('click', () => {
+                        if (imageUrlInputEl.hasAttribute('readonly')) {
+                            imageUrlInputEl.removeAttribute('readonly');
+                            imageUrlInputEl.classList.remove('bg-gray-100', 'text-gray-500');
+                            toggleImageUrlLockBtn.textContent = '🔓';
+                        } else {
+                            imageUrlInputEl.setAttribute('readonly', 'true');
+                            imageUrlInputEl.classList.add('bg-gray-100', 'text-gray-500');
+                            toggleImageUrlLockBtn.textContent = '🔒';
+                        }
+                    });
+                }
+            })();
+
             await fetchSettings();
             updateCostTierTooltips();
 
