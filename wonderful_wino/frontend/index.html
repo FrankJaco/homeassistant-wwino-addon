@@ -376,12 +376,6 @@
             transform: scale(1.2);
         }
 
-        .input-locked {
-            background-color: #f3f4f6 !important; /* Tailwind's "bg-gray-100" */
-            color: #6b7280 !important;      /* Tailwind's "text-gray-500" */
-            cursor: not-allowed;
-        }
-
         input[type="text"],
         input[type="number"],
         select,
@@ -1463,7 +1457,11 @@
                 // Always reset Image URL to locked state
                 imageUrlInput.value = wine.image_url || '';
                 imageUrlInput.setAttribute('readonly', true);
-                imageUrlInput.classList.add('input-locked');
+                Object.assign(imageUrlInput.style, {
+                    backgroundColor: '#f3f4f6', // bg-gray-100
+                    color: '#6b7280',           // text-gray-500
+                    cursor: 'not-allowed'
+                });
                 toggleImageUrlLock.textContent = '🔒';
 
                 notesModal.classList.remove('hidden');
@@ -1482,11 +1480,15 @@
             toggleImageUrlLock.addEventListener('click', () => {
                 if (imageUrlInput.hasAttribute('readonly')) {
                     imageUrlInput.removeAttribute('readonly');
-                    imageUrlInput.classList.remove('input-locked');
+                    imageUrlInput.removeAttribute('style');
                     toggleImageUrlLock.textContent = '🔓';
                 } else {
                     imageUrlInput.setAttribute('readonly', true);
-                    imageUrlInput.classList.add('input-locked');
+                    Object.assign(imageUrlInput.style, {
+                        backgroundColor: '#f3f4f6',
+                        color: '#6b7280',
+                        cursor: 'not-allowed'
+                    });
                     toggleImageUrlLock.textContent = '🔒';
                 }
             });
