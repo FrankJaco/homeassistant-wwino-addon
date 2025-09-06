@@ -1458,7 +1458,7 @@
                 // Always reset Image URL to locked state
                 imageUrlInput.value = wine.image_url || '';
                 imageUrlInput.setAttribute('readonly', true);
-                imageUrlInput.classList.add('bg-gray-100', 'text-gray-500');
+                imageUrlInput.classList.add('bg-gray-100', 'text-gray-500', 'cursor-not-allowed');
                 toggleImageUrlLock.textContent = '🔒';
 
                 notesModal.classList.remove('hidden');
