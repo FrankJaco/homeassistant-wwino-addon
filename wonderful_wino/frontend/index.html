@@ -398,6 +398,38 @@
             background-color: var(--button-secondary-hover-bg) !important;
         }
     </style>
+    <style>
+        /* Visual styling for Image URL input */
+        #imageUrlInput[readonly] {
+            color: #6b7280;
+            /* Tailwind gray-500 */
+            background-color: #f3f4f6;
+            /* Tailwind gray-100 */
+            caret-color: transparent;
+            /* hide caret when readonly */
+            opacity: 0.95;
+        }
+    
+        #imageUrlInput:not([readonly]) {
+            color: inherit;
+            background-color: #ffffff;
+            caret-color: auto;
+            opacity: 1;
+        }
+    
+        #imageUrlInput::placeholder {
+            color: #9ca3af;
+            opacity: 1;
+        }
+    
+        /* Dark mode adjustments */
+        .dark #imageUrlInput[readonly] {
+            color: #94a3b8;
+            /* lighter gray */
+            background-color: #1f2937;
+            /* darker bg */
+        }
+    </style>
 </head>
 
 <body class="min-h-screen flex flex-col items-center py-8">
@@ -1816,16 +1848,21 @@
             (function() {
                 const toggleImageUrlLockBtn = document.getElementById('toggleImageUrlLock');
                 const imageUrlInputEl = document.getElementById('imageUrlInput');
-                if (toggleImageUrlLockBtn && imageUrlInputEl) {
-                    toggleImageUrlLockBtn.addEventListener('click', () => {
-                        if (imageUrlInputEl.hasAttribute('readonly')) {
-                            imageUrlInputEl.removeAttribute('readonly');
-                            imageUrlInputEl.classList.remove('bg-gray-100', 'text-gray-500');
-                            toggleImageUrlLockBtn.textContent = '🔓';
+                if (toggleBtn && imageUrlInput) {
+                    toggleBtn.addEventListener('click', () => {
+                        // Toggle readonly attribute only; visual styling is handled by CSS
+                        if (imageUrlInput.hasAttribute('readonly')) {
+                            imageUrlInput.removeAttribute('readonly');
+                            toggleBtn.textContent = '🔓';
+                            // focus and select value for quick editing
+                            try {
+                                imageUrlInput.focus();
+                                if (imageUrlInput.select) imageUrlInput.select();
+                            } catch (e) { /* ignore */ }
                         } else {
-                            imageUrlInputEl.setAttribute('readonly', 'true');
-                            imageUrlInputEl.classList.add('bg-gray-100', 'text-gray-500');
-                            toggleImageUrlLockBtn.textContent = '🔒';
+                            imageUrlInput.setAttribute('readonly', 'true');
+                            toggleBtn.textContent = '🔒';
+                            imageUrlInput.blur();
                         }
                     });
                 }
