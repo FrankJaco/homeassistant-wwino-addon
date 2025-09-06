@@ -376,6 +376,7 @@
             transform: scale(1.2);
         }
 
+
         input[type="text"],
         input[type="number"],
         select,
@@ -1457,11 +1458,7 @@
                 // Always reset Image URL to locked state
                 imageUrlInput.value = wine.image_url || '';
                 imageUrlInput.setAttribute('readonly', true);
-                Object.assign(imageUrlInput.style, {
-                    backgroundColor: '#f3f4f6', // bg-gray-100
-                    color: '#6b7280',           // text-gray-500
-                    cursor: 'not-allowed'
-                });
+                imageUrlInput.classList.add('bg-gray-100', 'text-gray-500');
                 toggleImageUrlLock.textContent = '🔒';
 
                 notesModal.classList.remove('hidden');
@@ -1480,15 +1477,11 @@
             toggleImageUrlLock.addEventListener('click', () => {
                 if (imageUrlInput.hasAttribute('readonly')) {
                     imageUrlInput.removeAttribute('readonly');
-                    imageUrlInput.removeAttribute('style');
+                    imageUrlInput.classList.remove('bg-gray-100', 'text-gray-500');
                     toggleImageUrlLock.textContent = '🔓';
                 } else {
                     imageUrlInput.setAttribute('readonly', true);
-                    Object.assign(imageUrlInput.style, {
-                        backgroundColor: '#f3f4f6',
-                        color: '#6b7280',
-                        cursor: 'not-allowed'
-                    });
+                    imageUrlInput.classList.add('bg-gray-100', 'text-gray-500');
                     toggleImageUrlLock.textContent = '🔒';
                 }
             });
