@@ -1149,7 +1149,7 @@
                 const actionsCell = document.createElement('td');
                 actionsCell.className = 'py-4 sm:p-4 flex flex-row justify-center items-center gap-2 w-full sm:w-auto';
                 const consumeBtn = document.createElement('button');
-                consumeBtn.innerHTML = '🍷'; consumeBtn.title = 'Consume 1 Bottle'; consumeBtn.className = 'text-green-600 hover:text-green-900 text-xl';
+                consumeBtn.innerHTML = '🍷'; consumeBtn.title = 'Consume 1 Bottle'; consumeBtn.className = 'text-green-600 hover:text-green-900 text-xl icon-button';   
                 consumeBtn.onclick = () => consumeWine(item.vivino_url);
                 const qtyInput = document.createElement('input');
                 qtyInput.type = 'number'; qtyInput.value = item.quantity; qtyInput.min = 0;
@@ -1158,13 +1158,13 @@
                 qtyInput.onblur = () => setWineQuantity(item.vivino_url, qtyInput.value);
                 qtyInput.onkeydown = (e) => { if (e.key === 'Enter') qtyInput.blur(); };
                 const editBtn = document.createElement('button');
-                editBtn.innerHTML = '✏️'; editBtn.title = 'Edit Wine Details'; editBtn.className = 'text-yellow-600 hover:text-yellow-900 text-xl';
+                editBtn.innerHTML = '✏️'; editBtn.title = 'Edit Wine Details'; editBtn.className = 'text-yellow-600 hover:text-yellow-900 text-xl icon-button';
                 editBtn.onclick = () => openEditModal(item);
                 const duplicateBtn = document.createElement('button');
                 duplicateBtn.innerHTML = '⧉'; duplicateBtn.title = 'Copy Wine (e.g. for new vintage)'; duplicateBtn.className = 'text-cyan-600 hover:text-cyan-900 text-xl';
                 duplicateBtn.onclick = () => openDuplicateModal(item);
                 const deleteBtn = document.createElement('button');
-                deleteBtn.innerHTML = '🗑️'; deleteBtn.title = 'Delete Wine from Inventory'; deleteBtn.className = 'text-red-600 hover:text-red-900 text-xl';
+                deleteBtn.innerHTML = '🗑️'; deleteBtn.title = 'Delete Wine from Inventory'; deleteBtn.className = 'text-red-600 hover:text-red-900 text-xl icon-button';
                 deleteBtn.onclick = () => deleteWine(item.vivino_url);
                 actionsCell.appendChild(consumeBtn); actionsCell.appendChild(qtyInput);
                 actionsCell.appendChild(editBtn); actionsCell.appendChild(duplicateBtn); actionsCell.appendChild(deleteBtn);
