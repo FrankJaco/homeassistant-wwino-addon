@@ -1095,8 +1095,15 @@ def set_wine_quantity():
 def consume_wine_from_webhook():
     try:
         data = request.get_json()
-        item_text = data["item"]
-        logger.info(f"Webhook received for consumed wine. Raw item_text: '{item_text}'")
+        item_text = data.get("item")
+        # NEW: Get the rating from the payload
+        personal_rating = data.get("rating")
+        
+        if not item_text:
+            logger.error("Webhook received without 'item' text.")
+            return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
+
+        logger.info(f"Webhook received for consumed wine. Raw item_text: '{item_text}', Rating: {personal_rating}")
 
         parsed_name, parsed_vintage = None, None
         if item_text.endswith(')') and item_text[-6:-5] == '(' and item_text[-5:-1].isdigit() and len(item_text) > 6:
@@ -1127,12 +1134,37 @@ def consume_wine_from_webhook():
             if wine_record:
                 wine_data_dict = dict(wine_record)
                 current_db_quantity = wine_data_dict.get('quantity', 0)
+
                 if current_db_quantity > 0:
                     new_quantity = current_db_quantity - 1
-                    cursor.execute("UPDATE wines SET quantity = ? WHERE id = ?", (new_quantity, wine_data_dict['id']))
+                    
+                    # --- REPLACEMENT LOGIC ---
+                    # Build the update query dynamically
+                    update_query = "UPDATE wines SET quantity = ?"
+                    update_params = [new_quantity]
+
+                    if personal_rating is not None:
+                        try:
+                            # Validate that rating is a valid number
+                            rating_val = float(personal_rating)
+                            update_query += ", personal_rating = ?"
+                            update_params.append(rating_val)
+                            wine_data_dict['personal_rating'] = rating_val # Update for sync
+                        except (ValueError, TypeError):
+                            logger.warning(f"Invalid rating value '{personal_rating}' received from webhook. Ignoring rating.")
+
+                    update_query += " WHERE id = ?"
+                    update_params.append(wine_data_dict['id'])
+                    
+                    cursor.execute(update_query, tuple(update_params))
+                    # --- END REPLACEMENT ---
+
                     conn.commit()
                     logger.info(f"Decremented quantity for '{parsed_name} ({parsed_vintage or 'NV'})' to {new_quantity}")
-                    sync_to_ha_todo(wine_data_dict, new_quantity)
+                    
+                    # Sync with the potentially updated rating
+                    sync_to_ha_todo(wine_data_dict, new_quantity) 
+                    
                     return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
                 else:
                     return jsonify({"status": "warning", "message": "Quantity already zero."}), 404
