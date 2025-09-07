@@ -85,9 +85,12 @@
             padding: 0.5rem;
             border-radius: 0.25rem;
             border: 1px solid var(--border-color);
-            transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+            transition: background-color 0.2s, color 0.2s, border-color 0.2s, transform 0.2s ease;
         }
-
+        .cost-tier-selector span:hover {
+            transform: scale(1.2);
+        }
+        
         .cost-tier-selector span.selected {
             background-color: var(--accent-color);
             color: white;
