@@ -759,7 +759,7 @@
                                 <span
                                     class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
                                 <input type="number" id="tier1" class="w-full border rounded-md pl-6 p-1 text-center"
-                                    value="10" oninput="updateTiers()">
+                                    value="10" oninput="updateTiers(); checkCostTierChanges();">
                             </div>
                         </div>
 
@@ -779,7 +779,7 @@
                                     class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
                                 <input type="number" id="tier2Right"
                                     class="w-full border rounded-md pl-6 p-1 text-center" value="20"
-                                    oninput="updateTiers()">
+                                    oninput="updateTiers(); checkCostTierChanges();">
                             </div>
                         </div>
 
@@ -799,7 +799,7 @@
                                     class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
                                 <input type="number" id="tier3Right"
                                     class="w-full border rounded-md pl-6 p-1 text-center" value="35"
-                                    oninput="updateTiers()">
+                                    oninput="updateTiers(); checkCostTierChanges();">
                             </div>
                         </div>
 
@@ -819,7 +819,7 @@
                                     class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
                                 <input type="number" id="tier4Right"
                                     class="w-full border rounded-md pl-6 p-1 text-center" value="50"
-                                    oninput="updateTiers()">
+                                    oninput="updateTiers(); checkCostTierChanges();">
                             </div>
                         </div>
 
@@ -1773,16 +1773,20 @@
         }
 
         function openSettingsModal() {
-            settingsModal.classList.remove('hidden');
-            populateCostTierFieldsFromSettings();
-            initialCostTierValues = {
-                t1: document.getElementById('tier1').value,
-                t2r: document.getElementById('tier2Right').value,
-                t3r: document.getElementById('tier3Right').value,
-                t4r: document.getElementById('tier4Right').value,
-            };
-            document.getElementById('costTierResetBtn').textContent = 'Default';
-        }
+                settingsModal.classList.remove('hidden');
+                populateCostTierFieldsFromSettings();
+
+                // Save initial values for Reset/Default logic
+                initialCostTierValues = {
+                    t1: document.getElementById('tier1').value,
+                    t2r: document.getElementById('tier2Right').value,
+                    t3r: document.getElementById('tier3Right').value,
+                    t4r: document.getElementById('tier4Right').value,
+                };
+
+                const btn = document.getElementById('costTierResetBtn');
+                if (btn) btn.textContent = 'Default';
+            }
 
         function closeSettingsModal() {
             settingsModal.classList.add('hidden');
