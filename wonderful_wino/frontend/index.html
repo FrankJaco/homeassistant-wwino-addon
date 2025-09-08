@@ -742,7 +742,7 @@
                 <section class="mb-6">
                     <div class="flex justify-between items-center pb-2">
                         <h4 class="text-lg font-medium text-gray-700">Cost Tiers</h4>
-                        <button type="button" id="costTierResetBtn" onclick="handleCostTierReset()"
+                        <button type="button" onclick="resetCostTiers()"
                             class="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded hover:bg-gray-300">Reset</button>
                     </div>
                     <p class="text-sm text-gray-600 mb-4">Define the ranges for each cost tier. Left values are
@@ -759,7 +759,7 @@
                                 <span
                                     class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
                                 <input type="number" id="tier1" class="w-full border rounded-md pl-6 p-1 text-center"
-                                    value="10" oninput="updateTiers(); checkCostTierChanges();">
+                                    value="10" oninput="updateTiers()">
                             </div>
                         </div>
 
@@ -779,7 +779,7 @@
                                     class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
                                 <input type="number" id="tier2Right"
                                     class="w-full border rounded-md pl-6 p-1 text-center" value="20"
-                                    oninput="updateTiers(); checkCostTierChanges();">
+                                    oninput="updateTiers()">
                             </div>
                         </div>
 
@@ -799,7 +799,7 @@
                                     class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
                                 <input type="number" id="tier3Right"
                                     class="w-full border rounded-md pl-6 p-1 text-center" value="35"
-                                    oninput="updateTiers(); checkCostTierChanges();">
+                                    oninput="updateTiers()">
                             </div>
                         </div>
 
@@ -819,7 +819,7 @@
                                     class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
                                 <input type="number" id="tier4Right"
                                     class="w-full border rounded-md pl-6 p-1 text-center" value="50"
-                                    oninput="updateTiers(); checkCostTierChanges();">
+                                    oninput="updateTiers()">
                             </div>
                         </div>
 
@@ -911,7 +911,6 @@
         let currentSortDirection = 'asc';
         let currentFilter = 'on_hand';
         let appSettings = {};
-        let initialCostTierValues = {};
 
         function showMessage(elementId, text, type = 'info', isModal = false) {
             const messageEl = document.getElementById(elementId);
@@ -1646,43 +1645,14 @@
             }
         }
 
-        function checkCostTierChanges() {
-                const btn = document.getElementById('costTierResetBtn');
-                const currentValues = {
-                    t1: document.getElementById('tier1').value,
-                    t2r: document.getElementById('tier2Right').value,
-                    t3r: document.getElementById('tier3Right').value,
-                    t4r: document.getElementById('tier4Right').value,
-                };
+        function resetCostTiers() {
+            document.getElementById('tier1').value = 10;
+            document.getElementById('tier2Right').value = 20;
+            document.getElementById('tier3Right').value = 35;
+            document.getElementById('tier4Right').value = 50;
+            updateTiers();
+        }
 
-                const hasChanged = currentValues.t1 != initialCostTierValues.t1 ||
-                    currentValues.t2r != initialCostTierValues.t2r ||
-                    currentValues.t3r != initialCostTierValues.t3r ||
-                    currentValues.t4r != initialCostTierValues.t4r;
-
-                btn.textContent = hasChanged ? 'Reset' : 'Default';
-            }
-        
-        function handleCostTierReset() {
-                const btn = document.getElementById('costTierResetBtn');
-                if (btn.textContent === 'Default') {
-                    // Set fields to hardcoded defaults
-                    document.getElementById('tier1').value = 10;
-                    document.getElementById('tier2Right').value = 20;
-                    document.getElementById('tier3Right').value = 35;
-                    document.getElementById('tier4Right').value = 50;
-                } else { // The button says "Reset"
-                    // Restore fields from the initially saved state
-                    document.getElementById('tier1').value = initialCostTierValues.t1;
-                    document.getElementById('tier2Right').value = initialCostTierValues.t2r;
-                    document.getElementById('tier3Right').value = initialCostTierValues.t3r;
-                    document.getElementById('tier4Right').value = initialCostTierValues.t4r;
-                }
-                // Recalculate derived fields and update the button text
-                updateTiers();
-                checkCostTierChanges();
-            }
-        
         function saveCostTiers() {
             const t1 = parseFloat(document.getElementById('tier1').value) || 0;
             const t2Right = parseFloat(document.getElementById('tier2Right').value) || 0;
@@ -1773,20 +1743,9 @@
         }
 
         function openSettingsModal() {
-                settingsModal.classList.remove('hidden');
-                populateCostTierFieldsFromSettings();
-
-                // Save initial values for Reset/Default logic
-                initialCostTierValues = {
-                    t1: document.getElementById('tier1').value,
-                    t2r: document.getElementById('tier2Right').value,
-                    t3r: document.getElementById('tier3Right').value,
-                    t4r: document.getElementById('tier4Right').value,
-                };
-
-                const btn = document.getElementById('costTierResetBtn');
-                if (btn) btn.textContent = 'Default';
-            }
+            settingsModal.classList.remove('hidden');
+            populateCostTierFieldsFromSettings();
+        }
 
         function closeSettingsModal() {
             settingsModal.classList.add('hidden');
