@@ -87,10 +87,11 @@
             border: 1px solid var(--border-color);
             transition: background-color 0.2s, color 0.2s, border-color 0.2s, transform 0.2s ease;
         }
+
         .cost-tier-selector span:hover {
             transform: scale(1.2);
         }
-        
+
         .cost-tier-selector span.selected {
             background-color: var(--accent-color);
             color: white;
@@ -698,15 +699,13 @@
             <p id="notesModalWineName" class="mb-4 text-gray-700"></p>
             <form id="notesForm">
                 <input type="hidden" id="notesVivinoUrl">
-    
-                <!-- Tasting Notes FIRST -->
+
                 <div class="mb-4">
                     <label for="tastingNotesInput" class="block text-sm font-medium mb-1">Tasting Notes</label>
                     <textarea id="tastingNotesInput" rows="5" placeholder="Enter your notes here..."
                         class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"></textarea>
                 </div>
-    
-                <!-- Image URL SECOND with lock toggle -->
+
                 <div class="mb-4">
                     <div class="flex justify-between items-center">
                         <label for="imageUrlInput" class="block text-sm font-medium mb-1">Image URL</label>
@@ -717,7 +716,7 @@
                         class="w-full p-2 border rounded-md bg-gray-100 text-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
                         readonly>
                 </div>
-    
+
                 <div id="notesMessage" class="mt-4 text-center hidden"></div>
                 <div class="mt-6 flex justify-end gap-4">
                     <button type="button" onclick="closeNotesModal()"
@@ -742,8 +741,8 @@
                 <section class="mb-6">
                     <div class="flex justify-between items-center pb-2">
                         <h4 class="text-lg font-medium text-gray-700">Cost Tiers</h4>
-                        <button type="button" onclick="resetCostTiers()"
-                            class="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded hover:bg-gray-300">Reset</button>
+                        <button type="button" id="costTierResetBtn" onclick="handleCostTierReset()"
+                            class="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded hover:bg-gray-300">Default</button>
                     </div>
                     <p class="text-sm text-gray-600 mb-4">Define the ranges for each cost tier. Left values are
                         auto-filled.
@@ -759,7 +758,7 @@
                                 <span
                                     class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
                                 <input type="number" id="tier1" class="w-full border rounded-md pl-6 p-1 text-center"
-                                    value="10" oninput="updateTiers()">
+                                    value="10" oninput="updateTiers(); checkCostTierChanges();">
                             </div>
                         </div>
 
@@ -779,7 +778,7 @@
                                     class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
                                 <input type="number" id="tier2Right"
                                     class="w-full border rounded-md pl-6 p-1 text-center" value="20"
-                                    oninput="updateTiers()">
+                                    oninput="updateTiers(); checkCostTierChanges();">
                             </div>
                         </div>
 
@@ -799,7 +798,7 @@
                                     class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
                                 <input type="number" id="tier3Right"
                                     class="w-full border rounded-md pl-6 p-1 text-center" value="35"
-                                    oninput="updateTiers()">
+                                    oninput="updateTiers(); checkCostTierChanges();">
                             </div>
                         </div>
 
@@ -819,7 +818,7 @@
                                     class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
                                 <input type="number" id="tier4Right"
                                     class="w-full border rounded-md pl-6 p-1 text-center" value="50"
-                                    oninput="updateTiers()">
+                                    oninput="updateTiers(); checkCostTierChanges();">
                             </div>
                         </div>
 
@@ -911,6 +910,7 @@
         let currentSortDirection = 'asc';
         let currentFilter = 'on_hand';
         let appSettings = {};
+        let initialCostTierValues = {}; // <-- ADDED THIS VARIABLE
 
         function showMessage(elementId, text, type = 'info', isModal = false) {
             const messageEl = document.getElementById(elementId);
@@ -1152,7 +1152,7 @@
                 const actionsCell = document.createElement('td');
                 actionsCell.className = 'py-4 sm:p-4 flex flex-row justify-center items-center gap-2 w-full sm:w-auto';
                 const consumeBtn = document.createElement('button');
-                consumeBtn.innerHTML = '🍷'; consumeBtn.title = 'Consume 1 Bottle'; consumeBtn.className = 'text-green-600 hover:text-green-900 text-xl icon-button';   
+                consumeBtn.innerHTML = '🍷'; consumeBtn.title = 'Consume 1 Bottle'; consumeBtn.className = 'text-green-600 hover:text-green-900 text-xl icon-button';
                 consumeBtn.onclick = () => consumeWine(item.vivino_url);
                 const qtyInput = document.createElement('input');
                 qtyInput.type = 'number'; qtyInput.value = item.quantity; qtyInput.min = 0;
@@ -1455,57 +1455,57 @@
 
         // --- Notes Modal JS ---
         function openNotesModal(wine) {
-                const notesModal = document.getElementById('notesModal');
-                const imageUrlInput = document.getElementById('imageUrlInput');
-                const toggleBtn = document.getElementById('toggleImageUrlLock');
+            const notesModal = document.getElementById('notesModal');
+            const imageUrlInput = document.getElementById('imageUrlInput');
+            const toggleBtn = document.getElementById('toggleImageUrlLock');
 
-                document.getElementById('notesVivinoUrl').value = wine.vivino_url;
-                document.getElementById('notesModalWineName').textContent = `${wine.name} (${wine.vintage || 'NV'})`;
-                document.getElementById('tastingNotesInput').value = wine.tasting_notes || '';
-                document.getElementById('notesMessage').classList.add('hidden');
+            document.getElementById('notesVivinoUrl').value = wine.vivino_url;
+            document.getElementById('notesModalWineName').textContent = `${wine.name} (${wine.vintage || 'NV'})`;
+            document.getElementById('tastingNotesInput').value = wine.tasting_notes || '';
+            document.getElementById('notesMessage').classList.add('hidden');
 
-                // Always reset Image URL to locked state
-                imageUrlInput.value = wine.image_url || '';
-                imageUrlInput.setAttribute('readonly', true);
+            // Always reset Image URL to locked state
+            imageUrlInput.value = wine.image_url || '';
+            imageUrlInput.setAttribute('readonly', true);
+            imageUrlInput.classList.add('bg-gray-100', 'text-gray-500');
+            toggleBtn.textContent = '🔒';
+
+            notesModal.classList.remove('hidden');
+            document.getElementById('tastingNotesInput').focus();
+        }
+        // Consolidated closeNotesModal
+        function closeNotesModal() {
+            const notesModal = document.getElementById('notesModal');
+            const notesForm = document.getElementById('notesForm');
+            const imageUrlInput = document.getElementById('imageUrlInput');
+            const toggleBtn = document.getElementById('toggleImageUrlLock');
+            const notesMsg = document.getElementById('notesMessage');
+
+            if (notesModal) notesModal.classList.add('hidden');
+
+            if (notesForm) {
+                notesForm.reset();
+            }
+
+            // Ensure the Image URL input returns to locked, gray state when closing
+            if (imageUrlInput) {
+                imageUrlInput.setAttribute('readonly', 'true');
                 imageUrlInput.classList.add('bg-gray-100', 'text-gray-500');
-                toggleBtn.textContent = '🔒';
-
-                notesModal.classList.remove('hidden');
-                document.getElementById('tastingNotesInput').focus();
+                imageUrlInput.blur();
             }
-            // Consolidated closeNotesModal
-            function closeNotesModal() {
-                const notesModal = document.getElementById('notesModal');
-                const notesForm = document.getElementById('notesForm');
-                const imageUrlInput = document.getElementById('imageUrlInput');
-                const toggleBtn = document.getElementById('toggleImageUrlLock');
-                const notesMsg = document.getElementById('notesMessage');
+            if (toggleBtn) toggleBtn.textContent = '🔒';
 
-                if (notesModal) notesModal.classList.add('hidden');
-
-                if (notesForm) {
-                    notesForm.reset();
-                }
-
-                // Ensure the Image URL input returns to locked, gray state when closing
-                if (imageUrlInput) {
-                    imageUrlInput.setAttribute('readonly', 'true');
-                    imageUrlInput.classList.add('bg-gray-100', 'text-gray-500');
-                    imageUrlInput.blur();
-                }
-                if (toggleBtn) toggleBtn.textContent = '🔒';
-
-                // hide message area (clean)
-                if (notesMsg) {
-                    notesMsg.classList.add('hidden');
-                    notesMsg.textContent = '';
-                }
+            // hide message area (clean)
+            if (notesMsg) {
+                notesMsg.classList.add('hidden');
+                notesMsg.textContent = '';
             }
+        }
 
 
-            
 
-            // --- Shared Star Rating Logic ---
+
+        // --- Shared Star Rating Logic ---
         function setupStarRating(selectorEl, inputEl, feedbackEl) {
             selectorEl.addEventListener('mousemove', e => {
                 if (!e.target.matches('span')) return;
@@ -1645,13 +1645,52 @@
             }
         }
 
-        function resetCostTiers() {
-            document.getElementById('tier1').value = 10;
-            document.getElementById('tier2Right').value = 20;
-            document.getElementById('tier3Right').value = 35;
-            document.getElementById('tier4Right').value = 50;
-            updateTiers();
+        // --- REPLACEMENT FOR resetCostTiers ---
+        /**
+         * Checks if the cost tier values have changed from their initial state
+         * and updates the reset/default button's text accordingly.
+         */
+        function checkCostTierChanges() {
+            const btn = document.getElementById('costTierResetBtn');
+            const currentValues = {
+                t1: document.getElementById('tier1').value,
+                t2r: document.getElementById('tier2Right').value,
+                t3r: document.getElementById('tier3Right').value,
+                t4r: document.getElementById('tier4Right').value,
+            };
+
+            const hasChanged = currentValues.t1 != initialCostTierValues.t1 ||
+                currentValues.t2r != initialCostTierValues.t2r ||
+                currentValues.t3r != initialCostTierValues.t3r ||
+                currentValues.t4r != initialCostTierValues.t4r;
+
+            btn.textContent = hasChanged ? 'Reset' : 'Default';
         }
+
+        /**
+         * Handles the click event for the cost tier reset/default button.
+         * Sets values to default or resets them to their initial state.
+         */
+        function handleCostTierReset() {
+            const btn = document.getElementById('costTierResetBtn');
+            if (btn.textContent === 'Default') {
+                // Set fields to hardcoded defaults
+                document.getElementById('tier1').value = 10;
+                document.getElementById('tier2Right').value = 20;
+                document.getElementById('tier3Right').value = 35;
+                document.getElementById('tier4Right').value = 50;
+            } else { // The button says "Reset"
+                // Restore fields from the initially saved state
+                document.getElementById('tier1').value = initialCostTierValues.t1;
+                document.getElementById('tier2Right').value = initialCostTierValues.t2r;
+                document.getElementById('tier3Right').value = initialCostTierValues.t3r;
+                document.getElementById('tier4Right').value = initialCostTierValues.t4r;
+            }
+            // Recalculate derived fields and update the button text
+            updateTiers();
+            checkCostTierChanges();
+        }
+
 
         function saveCostTiers() {
             const t1 = parseFloat(document.getElementById('tier1').value) || 0;
@@ -1708,9 +1747,6 @@
             updateTiers();
         }
 
-        // initialize
-        resetCostTiers();
-
         // --- Settings Modal Functions ---
         function openHelpFromSettings() {
             closeSettingsModal();
@@ -1745,6 +1781,15 @@
         function openSettingsModal() {
             settingsModal.classList.remove('hidden');
             populateCostTierFieldsFromSettings();
+
+            // ADDED THIS LOGIC to store initial state and reset the button
+            initialCostTierValues = {
+                t1: document.getElementById('tier1').value,
+                t2r: document.getElementById('tier2Right').value,
+                t3r: document.getElementById('tier3Right').value,
+                t4r: document.getElementById('tier4Right').value,
+            };
+            document.getElementById('costTierResetBtn').textContent = 'Default';
         }
 
         function closeSettingsModal() {
@@ -1816,7 +1861,7 @@
         // --- Page Load ---
         document.addEventListener('DOMContentLoaded', async () => {
             // Guarded Image URL lock toggle registration
-            (function() {
+            (function () {
                 const toggleImageUrlLockBtn = document.getElementById('toggleImageUrlLock');
                 const imageUrlInputEl = document.getElementById('imageUrlInput');
                 if (toggleImageUrlLockBtn && imageUrlInputEl) {
