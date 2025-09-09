@@ -401,6 +401,12 @@
         #sortDirectionToggle:hover {
             background-color: var(--button-secondary-hover-bg) !important;
         }
+
+        /* Style for disabled buttons */
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 
@@ -544,10 +550,10 @@
         <p>&copy; 2025 Wonderful-Wino. All rights reserved.</p>
     </footer>
 
-    <div id="helpModal" class="modal-overlay hidden">
+    <div id="helpModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="helpModalTitle">
         <div class="modal-content">
-            <button class="modal-close-button" onclick="closeHelpModal()">&times;</button>
-            <h3 class="text-xl font-semibold mb-4">Maintenance Help</h3>
+            <button class="modal-close-button" onclick="closeModal(helpModal)">&times;</button>
+            <h3 id="helpModalTitle" class="text-xl font-semibold mb-4">Maintenance Help</h3>
             <p class="text-sm">
                 This section provides tools to manage your wine inventory database and its synchronization with the Home
                 Assistant ToDo list.
@@ -581,15 +587,15 @@
                 </li>
             </ul>
             <div class="mt-6 text-right">
-                <button onclick="closeHelpModal()"
+                <button onclick="closeModal(helpModal)"
                     class="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">Close</button>
             </div>
         </div>
     </div>
 
-    <div id="entryModal" class="modal-overlay hidden">
+    <div id="entryModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="entryModalTitle">
         <div class="modal-content">
-            <button class="modal-close-button" onclick="closeEntryModal()">&times;</button>
+            <button class="modal-close-button" onclick="closeModal(entryModal)">&times;</button>
             <h3 id="entryModalTitle" class="text-xl font-semibold mb-4">Add Wine Manually</h3>
             <form id="entryForm" novalidate>
                 <input type="hidden" id="entryVivinoUrl">
@@ -597,12 +603,12 @@
                 <input type="hidden" id="manualImageUrlInput">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div class="sm:col-span-2">
-                        <label class="block text-sm font-medium">Wine Name *</label>
+                        <label for="manualNameInput" class="block text-sm font-medium">Wine Name *</label>
                         <input type="text" id="manualNameInput" class="mt-1 block w-full border rounded-md p-2"
                             required>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium">Vintage *</label>
+                        <label for="manualVintageInput" class="block text-sm font-medium">Vintage *</label>
                         <div class="flex items-center gap-4 mt-1">
                             <input type="number" id="manualVintageInput" class="block w-28 border rounded-md p-2"
                                 required min="1900">
@@ -614,19 +620,19 @@
                         </div>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium">Varietal</label>
+                        <label for="manualVarietalInput" class="block text-sm font-medium">Varietal</label>
                         <input type="text" id="manualVarietalInput" class="mt-1 block w-full border rounded-md p-2">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium">Region</label>
+                        <label for="manualRegionInput" class="block text-sm font-medium">Region</label>
                         <input type="text" id="manualRegionInput" class="mt-1 block w-full border rounded-md p-2">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium">Country</label>
+                        <label for="manualCountryInput" class="block text-sm font-medium">Country</label>
                         <input type="text" id="manualCountryInput" class="mt-1 block w-full border rounded-md p-2">
                     </div>
                     <div class="sm:col-span-2">
-                        <label class="block text-sm font-medium">Quantity *</label>
+                        <label for="manualQuantityInput" class="block text-sm font-medium">Quantity *</label>
                         <input type="number" id="manualQuantityInput" min="0" value="1"
                             class="mt-1 block w-full border rounded-md p-2" required>
                     </div>
@@ -657,7 +663,7 @@
                 </div>
                 <div id="entryMessage" class="mt-4 text-center hidden"></div>
                 <div class="mt-6 flex justify-end gap-4">
-                    <button type="button" onclick="closeEntryModal()"
+                    <button type="button" onclick="closeModal(entryModal)"
                         class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Cancel</button>
                     <button type="submit" id="entrySubmitBtn"
                         class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Add Wine</button>
@@ -666,7 +672,7 @@
         </div>
     </div>
 
-    <div id="tasteModal" class="modal-overlay hidden">
+    <div id="tasteModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="tasteModalTitle">
         <div class="modal-content">
             <h3 id="tasteModalTitle" class="text-xl font-semibold mb-2">Consume Wine</h3>
             <p id="tasteModalWineName" class="mb-4 text-gray-700"></p>
@@ -684,7 +690,7 @@
                 <p id="tasteRatingFeedback" class="text-sm text-center h-6 mb-4"></p> <input type="hidden"
                     id="tasteRatingInput">
                 <div class="mt-6 flex justify-end gap-4">
-                    <button type="button" onclick="closeTasteModal()"
+                    <button type="button" onclick="closeModal(tasteModal)"
                         class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Cancel</button>
                     <button type="submit" id="tasteSubmitBtn"
                         class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Consume</button>
@@ -693,9 +699,9 @@
         </div>
     </div>
 
-    <div id="notesModal" class="modal-overlay hidden">
+    <div id="notesModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="notesModalTitle">
         <div class="modal-content">
-            <h3 class="text-xl font-semibold mb-2">Tasting Notes & Image</h3>
+            <h3 id="notesModalTitle" class="text-xl font-semibold mb-2">Tasting Notes & Image</h3>
             <p id="notesModalWineName" class="mb-4 text-gray-700"></p>
             <form id="notesForm">
                 <input type="hidden" id="notesVivinoUrl">
@@ -719,20 +725,22 @@
 
                 <div id="notesMessage" class="mt-4 text-center hidden"></div>
                 <div class="mt-6 flex justify-end gap-4">
-                    <button type="button" onclick="closeNotesModal()"
+                    <button type="button" onclick="closeModal(notesModal)"
                         class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Cancel</button>
-                    <button type="submit" class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Save
+                    <button type="submit" id="notesSubmitBtn"
+                        class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Save
                         Changes</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <div id="settingsModal" class="modal-overlay hidden">
+    <div id="settingsModal" class="modal-overlay hidden" role="dialog" aria-modal="true"
+        aria-labelledby="settingsModalTitle">
         <div class="modal-content">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xl font-semibold">Settings</h3>
-                <button type="button" onclick="closeSettingsModal()" title="Cancel"
+                <h3 id="settingsModalTitle" class="text-xl font-semibold">Settings</h3>
+                <button type="button" onclick="closeModal(settingsModal)" title="Cancel"
                     class="text-gray-500 hover:text-gray-700 text-xl">&times;</button>
             </div>
 
@@ -857,11 +865,11 @@
                     <h5 class="text-base font-semibold text-gray-700 mb-2">Database Backup & Recovery</h5>
                     <p class="text-sm text-gray-600 mb-4">Protect and restore your wine inventory data.</p>
                     <div class="flex flex-col sm:flex-row gap-4">
-                        <button type="button" onclick="handleBackupDb('settingsMessage')"
+                        <button id="backupDbBtn" type="button" onclick="handleBackupDb('settingsMessage')"
                             class="w-full sm:flex-grow bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg">
                             Backup Database
                         </button>
-                        <button type="button" onclick="handleRestoreDb('settingsMessage')"
+                        <button id="restoreDbBtn" type="button" onclick="handleRestoreDb('settingsMessage')"
                             class="w-full sm:flex-grow bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-3 px-6 rounded-lg">
                             Restore Database
                         </button>
@@ -872,11 +880,11 @@
                     <h5 class="text-base font-semibold text-gray-700 mb-2">Advanced Operations</h5>
                     <p class="text-sm text-gray-600 mb-4">Tools for synchronization and permanent data deletion.</p>
                     <div class="flex flex-col sm:flex-row gap-4">
-                        <button type="button" onclick="handleSyncAllWines('settingsMessage')"
+                        <button id="syncAllBtn" type="button" onclick="handleSyncAllWines('settingsMessage')"
                             class="w-full sm:flex-grow bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700">
                             Sync DB → ToDo
                         </button>
-                        <button type="button" onclick="handleReinitializeDb('settingsMessage')"
+                        <button id="resetDbBtn" type="button" onclick="handleReinitializeDb('settingsMessage')"
                             class="w-full sm:flex-grow bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg">
                             Reset DB
                         </button>
@@ -887,13 +895,15 @@
                 <div id="settingsMessage" class="mt-4 text-center"></div>
 
                 <div class="mt-4 flex justify-end">
-                    <button type="button" onclick="closeSettingsModal()"
+                    <button type="button" onclick="closeModal(settingsModal)"
                         class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Close</button>
                 </div>
             </form>
         </div>
     </div>
     <script>
+        // This calculates the base URL to accommodate Home Assistant's Ingress feature,
+        // which serves the addon from a subpath.
         let BASE_URL = '';
         if (typeof window !== 'undefined' && typeof window.__ingress_url !== 'undefined' && window.__ingress_url !== '') {
             BASE_URL = window.__ingress_url;
@@ -903,36 +913,27 @@
             BASE_URL = pathParts.join('/');
             if (BASE_URL !== '' && !BASE_URL.endsWith('/')) { BASE_URL += '/'; }
         }
-        console.log('Calculated BASE_URL:', BASE_URL);
+
+        const VIVINO_SEARCH_URL = 'https://www.vivino.com/search/wines?q=';
+        const DEFAULT_COST_TIERS = { t1: 10, t2r: 20, t3r: 35, t4r: 50 };
 
         let currentInventory = [];
         let currentSortBy = 'name';
         let currentSortDirection = 'asc';
         let currentFilter = 'on_hand';
         let appSettings = {};
-        let initialCostTierValues = {}; // <-- ADDED THIS VARIABLE
+        let initialCostTierValues = {};
 
         function showMessage(elementId, text, type = 'info', isModal = false) {
             const messageEl = document.getElementById(elementId);
-            if (!messageEl) {
-                console.error(`Message element with ID '${elementId}' not found.`);
-                return;
-            }
+            if (!messageEl) return;
 
             messageEl.textContent = text;
-            messageEl.classList.remove('hidden');
-
-            // ensure base classes exist without overwriting other classes
+            messageEl.classList.remove('hidden', 'text-red-600', 'text-green-600', 'text-gray-700');
             messageEl.classList.add('mt-3', 'text-center', 'font-medium');
 
-            // clear previous type classes, then add the right one
-            messageEl.classList.remove('text-red-600', 'text-green-600', 'text-gray-700');
-
-            if (type === 'error') {
-                messageEl.classList.add('text-red-600');
-            } else {
-                messageEl.classList.add('text-green-600');
-            }
+            if (type === 'error') messageEl.classList.add('text-red-600');
+            else messageEl.classList.add('text-green-600');
 
             if (!isModal) {
                 setTimeout(() => {
@@ -942,118 +943,90 @@
             }
         }
 
+        /**
+         * A reusable wrapper for fetch API calls that handles errors,
+         * shows messages, and manages button loading states.
+         * @param {string} endpoint - The API endpoint to call.
+         * @param {object} options - Fetch options (method, body, etc.).
+         * @param {string} messageElementId - The ID of the element to display messages in.
+         * @param {HTMLButtonElement} [button] - The button that triggered the call, to manage its disabled state.
+         */
+        async function apiCall(endpoint, options = {}, messageElementId, button) {
+            const originalButtonText = button ? button.textContent : '';
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'Processing...';
+            }
+            try {
+                const response = await fetch(`${BASE_URL}${endpoint}`, {
+                    ...options,
+                    headers: { 'Content-Type': 'application/json', ...options.headers },
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.message || 'An unknown error occurred');
+                showMessage(messageElementId, result.message || 'Success!', 'info', true);
+                return result;
+            } catch (error) {
+                showMessage(messageElementId, `Error: ${error.message}`, 'error', true);
+                throw error; // Re-throw for further handling if needed
+            } finally {
+                if (button) {
+                    button.disabled = false;
+                    button.textContent = originalButtonText;
+                }
+            }
+        }
+
 
         async function handleSyncAllWines(messageElementId) {
             if (!confirm('Sync all wines to your Home Assistant To-Do list?')) return;
-
-            const messageEl = document.getElementById(messageElementId);
-            if (messageEl) messageEl.textContent = 'Syncing...';
-
-            try {
-                const response = await fetch(`${BASE_URL}sync-all-wines`, { method: 'POST' });
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.message);
-                showMessage(messageElementId, data.message, 'info', true);
-            } catch (error) {
-                showMessage(messageElementId, `Error: ${error.message}`, 'error', true);
-            }
+            await apiCall('sync-all-wines', { method: 'POST' }, messageElementId, document.getElementById('syncAllBtn'));
         }
 
         async function handleReinitializeDb(messageElementId) {
             if (!confirm('ARE YOU SURE? This will permanently delete ALL wine data!')) return;
-
-            const messageEl = document.getElementById(messageElementId);
-            if (messageEl) messageEl.textContent = 'Resetting...';
-
-            try {
-                const response = await fetch(`${BASE_URL}reinitialize-database-action`, { method: 'POST' });
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.message);
-                showMessage(messageElementId, data.message, 'info', true);
-                fetchInventory(); // Refresh inventory after reset
-            } catch (error) {
-                showMessage(messageElementId, `Error: ${error.message}`, 'error', true);
-            }
+            await apiCall('reinitialize-database-action', { method: 'POST' }, messageElementId, document.getElementById('resetDbBtn'));
+            fetchInventory();
         }
 
         async function handleBackupDb(messageElementId) {
             if (!confirm('Create a backup of your database? This will overwrite any existing backup file.')) return;
-
-            const messageEl = document.getElementById(messageElementId);
-            if (messageEl) {
-                messageEl.textContent = 'Backing up...';
-                messageEl.className = 'mt-3 text-center font-medium text-gray-700';
-                messageEl.classList.remove('hidden');
-            }
-
-            try {
-                const response = await fetch(`${BASE_URL}backup-database`, { method: 'POST' });
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.message);
-                showMessage(messageElementId, data.message, 'info', true);
-            } catch (error) {
-                showMessage(messageElementId, `Error: ${error.message}`, 'error', true);
-            }
+            await apiCall('backup-database', { method: 'POST' }, messageElementId, document.getElementById('backupDbBtn'));
         }
 
         async function handleRestoreDb(messageElementId) {
             if (!confirm('ARE YOU SURE? This will overwrite your current database with the backup file. Any changes since the last backup will be lost.')) return;
-
-            const messageEl = document.getElementById(messageElementId);
-            if (messageEl) {
-                messageEl.textContent = 'Restoring...';
-                messageEl.className = 'mt-3 text-center font-medium text-gray-700';
-                messageEl.classList.remove('hidden');
-            }
-
-            try {
-                const response = await fetch(`${BASE_URL}restore-database`, { method: 'POST' });
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.message);
-                showMessage(messageElementId, data.message, 'info', true);
-
-                // Refresh the inventory to show the restored data
-                setTimeout(() => {
-                    fetchInventory();
-                }, 1500);
-
-            } catch (error) {
-                showMessage(messageElementId, `Error: ${error.message}`, 'error', true);
-            }
+            await apiCall('restore-database', { method: 'POST' }, messageElementId, document.getElementById('restoreDbBtn'));
+            setTimeout(fetchInventory, 1500);
         }
 
         function sortInventory(inventory, sortBy, sortDirection) {
-            const sortedInventory = [...inventory];
-            sortedInventory.sort((a, b) => {
+            return [...inventory].sort((a, b) => {
                 let comparison = 0;
                 const getValue = (item, prop) => {
                     let value = item[prop];
                     if (value == null) {
-                        if (prop === 'vintage' || prop === 'vivino_rating' || prop === 'quantity') {
-                            return sortDirection === 'asc' ? Infinity : -Infinity;
-                        }
-                        return '';
+                        return prop === 'vintage' || prop === 'vivino_rating' || prop === 'quantity'
+                            ? (sortDirection === 'asc' ? Infinity : -Infinity)
+                            : '';
                     }
                     return typeof value === 'string' ? value.toLowerCase() : value;
                 };
                 const valA = getValue(a, sortBy);
                 const valB = getValue(b, sortBy);
+
                 if (valA < valB) comparison = -1;
                 if (valA > valB) comparison = 1;
-                if (comparison === 0) {
+
+                if (comparison === 0 && sortBy !== 'name') {
                     const nameA = getValue(a, 'name');
                     const nameB = getValue(b, 'name');
-                    if (nameA < nameB) comparison = -1;
-                    if (nameA > nameB) comparison = 1;
-                    if (comparison === 0) {
-                        const vintageA = getValue(a, 'vintage');
-                        const vintageB = getValue(b, 'vintage');
-                        comparison = vintageA - vintageB;
-                    }
+                    if (nameA < nameB) return -1;
+                    if (nameA > nameB) return 1;
                 }
+
                 return sortDirection === 'desc' ? -comparison : comparison;
             });
-            return sortedInventory;
         }
 
         function applySortAndDisplayInventory() {
@@ -1063,15 +1036,13 @@
 
         async function fetchInventory() {
             const inventoryTableBody = document.getElementById('inventoryTableBody');
+            inventoryTableBody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-gray-500">Loading inventory...</td></tr>';
             try {
-                inventoryTableBody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-gray-500">Loading inventory...</td></tr>';
-                const url = `${BASE_URL}inventory?filter=${currentFilter}`;
-                const response = await fetch(url);
-                if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`); }
+                const response = await fetch(`${BASE_URL}inventory?filter=${currentFilter}`);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 currentInventory = await response.json();
                 applySortAndDisplayInventory();
             } catch (error) {
-                console.error('Error fetching inventory:', error);
                 showMessage('inventoryMessage', `Failed to load inventory: ${error.message}`, 'error');
                 inventoryTableBody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-gray-500">Error loading inventory.</td></tr>';
             }
@@ -1085,17 +1056,14 @@
             if (currentFilter === 'on_hand' && inventory.length > 0) {
                 const totalBottles = inventory.reduce((sum, wine) => sum + wine.quantity, 0);
                 const uniqueWines = inventory.length;
-                const bottleText = totalBottles === 1 ? 'bottle' : 'bottles';
-                const wineText = uniqueWines === 1 ? 'wine' : 'wines';
-                summaryEl.textContent = `${uniqueWines} unique ${wineText} / ${totalBottles} total ${bottleText}`;
+                summaryEl.textContent = `${uniqueWines} unique ${uniqueWines === 1 ? 'wine' : 'wines'} / ${totalBottles} total ${totalBottles === 1 ? 'bottle' : 'bottles'}`;
                 summaryEl.classList.remove('hidden');
             } else {
                 summaryEl.classList.add('hidden');
             }
 
             if (inventory.length === 0) {
-                const filterText = currentFilter.replace('_', ' ');
-                container.innerHTML = `<tr><td colspan="3" class="py-4 text-center text-gray-500">No wines found for filter: ${filterText}</td></tr>`;
+                container.innerHTML = `<tr><td colspan="3" class="py-4 text-center text-gray-500">No wines found for filter: ${currentFilter.replace('_', ' ')}</td></tr>`;
                 return;
             }
 
@@ -1107,41 +1075,28 @@
                 imageCell.className = 'py-4 sm:p-4 flex justify-center sm:block';
                 const imageContainer = document.createElement('div');
                 imageContainer.className = 'wine-image-container rounded-md overflow-hidden';
-                imageContainer.onclick = () => openNotesModal(item);
-                const tooltipText = item.tasting_notes ? item.tasting_notes : 'Click to add tasting notes';
-                imageContainer.title = tooltipText;
-
-                imageContainer.innerHTML = item.image_url ?
-                    `<img src="${item.image_url}" class="h-24 w-24 object-cover" alt="Wine Image">` :
-                    '<div class="text-gray-400 text-center w-24 h-24 flex items-center justify-center bg-gray-100">No Image</div>';
-
+                imageContainer.onclick = () => openModal(notesModal, { wine: item });
+                imageContainer.title = item.tasting_notes ? item.tasting_notes : 'Click to add tasting notes';
+                imageContainer.innerHTML = item.image_url
+                    ? `<img src="${item.image_url}" class="h-24 w-24 object-cover" alt="${item.name}">`
+                    : '<div class="text-gray-400 text-center w-24 h-24 flex items-center justify-center bg-gray-100">No Image</div>';
                 imageCell.appendChild(imageContainer);
-
 
                 const detailsCell = document.createElement('td');
                 detailsCell.className = 'py-4 sm:p-4 text-sm text-gray-900 wine-details-cell w-full sm:w-auto text-center sm:text-left';
                 let detailsHtml = `<h4>${item.name || 'N/A'} ${item.vintage ? `(${item.vintage})` : '(NV)'}</h4>`;
-                if (item.varietal && item.varietal !== "Unknown Varietal") { detailsHtml += `<p><strong>Varietal:</strong> ${item.varietal}</p>`; }
-                let location = [];
-                if (item.region && item.region !== "Unknown Region") location.push(item.region);
-                if (item.country && item.country !== "Unknown Country") location.push(item.country);
-                if (location.length > 0) { detailsHtml += `<p><strong>Origin:</strong> ${location.join(', ')}</p>`; }
+                if (item.varietal && item.varietal !== "Unknown Varietal") detailsHtml += `<p><strong>Varietal:</strong> ${item.varietal}</p>`;
+                const location = [item.region, item.country].filter(loc => loc && !loc.startsWith('Unknown')).join(', ');
+                if (location) detailsHtml += `<p><strong>Origin:</strong> ${location}</p>`;
 
-                let display_rating = item.vivino_rating;
-                if (item.personal_rating !== null && item.vivino_rating !== null) {
+                let display_rating = item.personal_rating ?? item.vivino_rating;
+                if (item.personal_rating != null && item.vivino_rating != null) {
                     display_rating = (item.personal_rating + item.vivino_rating) / 2;
-                } else if (item.personal_rating !== null) {
-                    display_rating = item.personal_rating;
                 }
+                if (display_rating != null) detailsHtml += `<p><strong>Quality:</strong> ⭐ ${display_rating.toFixed(1)}</p>`;
+                if (item.cost_tier) detailsHtml += `<p><strong>Cost:</strong> ${'$'.repeat(item.cost_tier)}</p>`;
 
-                if (display_rating !== null) {
-                    detailsHtml += `<p><strong>Quality:</strong> ⭐ ${display_rating.toFixed(1)}</p>`;
-                }
-
-                if (item.cost_tier) {
-                    detailsHtml += `<p><strong>Cost:</strong> ${'$'.repeat(item.cost_tier)}</p>`;
-                }
-                if (item.b4b_score != null) { // Checks for both null and undefined
+                if (item.b4b_score != null) {
                     const b4bValue = Math.round(item.b4b_score);
                     const formatted = (b4bValue > 0 ? `+${b4bValue}` : b4bValue);
                     const colorClass = b4bValue > 0 ? "text-green-600" : b4bValue < 0 ? "text-red-600" : "";
@@ -1151,359 +1106,265 @@
 
                 const actionsCell = document.createElement('td');
                 actionsCell.className = 'py-4 sm:p-4 flex flex-row justify-center items-center gap-2 w-full sm:w-auto';
+
                 const consumeBtn = document.createElement('button');
-                consumeBtn.innerHTML = '🍷'; consumeBtn.title = 'Consume 1 Bottle'; consumeBtn.className = 'text-green-600 hover:text-green-900 text-xl icon-button';
-                consumeBtn.onclick = () => consumeWine(item.vivino_url);
+                consumeBtn.innerHTML = '🍷';
+                consumeBtn.title = 'Consume 1 Bottle';
+                consumeBtn.className = 'text-green-600 hover:text-green-900 text-xl icon-button';
+                consumeBtn.onclick = () => openModal(tasteModal, { wine: item });
+
                 const qtyInput = document.createElement('input');
-                qtyInput.type = 'number'; qtyInput.value = item.quantity; qtyInput.min = 0;
+                qtyInput.type = 'number';
+                qtyInput.value = item.quantity;
+                qtyInput.min = 0;
                 qtyInput.className = 'w-16 text-center border border-gray-300 rounded-md px-2 py-1';
                 qtyInput.title = 'Edit Quantity';
+                qtyInput.oninput = () => {
+                    qtyInput.value = qtyInput.value.replace(/[^0-9]/g, '');
+                    if (parseInt(qtyInput.value, 10) < 0) qtyInput.value = 0;
+                };
                 qtyInput.onblur = () => setWineQuantity(item.vivino_url, qtyInput.value);
                 qtyInput.onkeydown = (e) => { if (e.key === 'Enter') qtyInput.blur(); };
+
                 const editBtn = document.createElement('button');
-                editBtn.innerHTML = '✏️'; editBtn.title = 'Edit Wine Details'; editBtn.className = 'text-yellow-600 hover:text-yellow-900 text-xl icon-button';
-                editBtn.onclick = () => openEditModal(item);
+                editBtn.innerHTML = '✏️';
+                editBtn.title = 'Edit Wine Details';
+                editBtn.className = 'text-yellow-600 hover:text-yellow-900 text-xl icon-button';
+                editBtn.onclick = () => openModal(entryModal, { mode: 'edit', wine: item });
+
                 const duplicateBtn = document.createElement('button');
-                duplicateBtn.innerHTML = '⧉'; duplicateBtn.title = 'Copy Wine (e.g. for new vintage)'; duplicateBtn.className = 'text-cyan-600 hover:text-cyan-900 text-xl';
-                duplicateBtn.onclick = () => openDuplicateModal(item);
+                duplicateBtn.innerHTML = '⧉';
+                duplicateBtn.title = 'Copy Wine (e.g. for new vintage)';
+                duplicateBtn.className = 'text-cyan-600 hover:text-cyan-900 text-xl';
+                duplicateBtn.onclick = () => openModal(entryModal, { mode: 'duplicate', wine: item });
+
                 const deleteBtn = document.createElement('button');
-                deleteBtn.innerHTML = '🗑️'; deleteBtn.title = 'Delete Wine from Inventory'; deleteBtn.className = 'text-red-600 hover:text-red-900 text-xl icon-button';
+                deleteBtn.innerHTML = '🗑️';
+                deleteBtn.title = 'Delete Wine from Inventory';
+                deleteBtn.className = 'text-red-600 hover:text-red-900 text-xl icon-button';
                 deleteBtn.onclick = () => deleteWine(item.vivino_url);
-                actionsCell.appendChild(consumeBtn); actionsCell.appendChild(qtyInput);
-                actionsCell.appendChild(editBtn); actionsCell.appendChild(duplicateBtn); actionsCell.appendChild(deleteBtn);
-                row.appendChild(imageCell); row.appendChild(detailsCell);
-                actionsCell.classList.add('flex', 'justify-center', 'items-center', 'sm:justify-start');
-                row.appendChild(actionsCell);
+
+                actionsCell.append(consumeBtn, qtyInput, editBtn, duplicateBtn, deleteBtn);
+                row.append(imageCell, detailsCell, actionsCell);
                 container.appendChild(row);
             });
         }
 
-        document.getElementById('scanWineForm').addEventListener('submit', async function (event) {
-            event.preventDefault();
-            const payload = {
-                vivino_url: document.getElementById('vivinoUrlInput').value,
-                quantity: parseInt(document.getElementById('quantityInput').value, 10) || 1,
-                cost_tier: parseInt(document.getElementById('mainCostTierInput').value, 10) || null
-            };
-            try {
-                const response = await fetch(`${BASE_URL}scan-wine`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-                });
-                const result = await response.json();
-                if (!response.ok) throw new Error(result.message || 'Failed to scan wine');
-                showMessage('scanMessage', result.message || 'Wine scanned successfully!');
-                document.getElementById('scanWineForm').reset();
-                updateMainCostTierSelector(null); // Clear selector on successful scan
+        async function setWineQuantity(vivinoUrl, newQuantity) {
+            const quantity = parseInt(newQuantity, 10);
+            if (isNaN(quantity) || quantity < 0) {
+                showMessage('inventoryMessage', 'Quantity must be a non-negative number.', 'error');
                 fetchInventory();
-            } catch (error) {
-                showMessage('scanMessage', `Error: ${error.message}`, 'error');
-            }
-        });
-
-        document.getElementById('entryForm').addEventListener('submit', async function (event) {
-            event.preventDefault();
-            const vivinoUrl = document.getElementById('entryVivinoUrl').value;
-            const isEditMode = !!vivinoUrl;
-
-            const isNv = document.getElementById('nvCheckbox').checked;
-            const vintageValue = document.getElementById('manualVintageInput').value;
-            const quantityValue = document.getElementById('manualQuantityInput').value;
-
-            const payload = {
-                name: document.getElementById('manualNameInput').value,
-                vintage: isNv ? null : (parseInt(vintageValue, 10) || null),
-                varietal: document.getElementById('manualVarietalInput').value,
-                region: document.getElementById('manualRegionInput').value,
-                country: document.getElementById('manualCountryInput').value,
-                quantity: parseInt(quantityValue, 10),
-                cost_tier: parseInt(document.getElementById('manualCostTierInput').value, 10) || null,
-                personal_rating: parseFloat(document.getElementById('manualTasteRatingInput').value) || null,
-                tasting_notes: document.getElementById('manualTastingNotesInput').value
-            };
-
-            if (!isEditMode) {
-                payload.image_url = document.getElementById('manualImageUrlInput').value;
-            }
-
-            if (!payload.name || (!isNv && !payload.vintage) || isNaN(payload.quantity)) {
-                showMessage('entryMessage', 'Please fill in all required fields.', 'error', true);
                 return;
             }
-
-            let url = isEditMode ? `${BASE_URL}edit-wine` : `${BASE_URL}add-manual-wine`;
-            if (isEditMode) { payload.vivino_url = vivinoUrl; }
             try {
-                const response = await fetch(url, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-                });
-                const result = await response.json();
-                if (!response.ok) throw new Error(result.message || 'Failed to process request');
-                showMessage('entryMessage', result.message || (isEditMode ? 'Wine updated!' : 'Wine added!'), 'info', true);
+                await apiCall('inventory/wine/set_quantity', {
+                    method: 'POST',
+                    body: JSON.stringify({ vivino_url: vivinoUrl, quantity: quantity })
+                }, 'inventoryMessage');
                 fetchInventory();
-                setTimeout(closeEntryModal, 1500);
-            } catch (error) {
-                showMessage('entryMessage', `Error: ${error.message}`, 'error', true);
-            }
-        });
+            } catch (error) { /* Error already shown by apiCall */ }
+        }
 
-        function consumeWine(vivinoUrl) {
-            const wine = currentInventory.find(w => w.vivino_url === vivinoUrl);
-            if (wine) {
-                openTasteModal(wine);
-            } else {
-                showMessage('inventoryMessage', 'Error: Could not find wine to consume.', 'error');
-            }
-        }
-        async function setWineQuantity(vivinoUrl, newQuantity) {
-            newQuantity = parseInt(newQuantity, 10);
-            if (isNaN(newQuantity) || newQuantity < 0) {
-                showMessage('inventoryMessage', 'Quantity must be a non-negative number.', 'error');
-                fetchInventory(); return;
-            }
-            try {
-                const response = await fetch(`${BASE_URL}inventory/wine/set_quantity`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ vivino_url: vivinoUrl, quantity: newQuantity })
-                });
-                const result = await response.json();
-                if (!response.ok) throw new Error(result.message || 'Failed to set quantity');
-                showMessage('inventoryMessage', result.message || 'Quantity updated!');
-                fetchInventory();
-            } catch (error) {
-                showMessage('inventoryMessage', `Error: ${error.message}`, 'error');
-            }
-        }
         async function deleteWine(vivinoUrl) {
             if (!confirm('Delete this wine from your inventory? This cannot be undone.')) return;
             try {
-                const response = await fetch(`${BASE_URL}inventory/wine`, {
-                    method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+                await apiCall('inventory/wine', {
+                    method: 'DELETE',
                     body: JSON.stringify({ vivino_url: vivinoUrl })
-                });
-                const result = await response.json();
-                if (!response.ok) throw new Error(result.message || 'Failed to delete wine');
-                showMessage('inventoryMessage', result.message || 'Wine deleted!');
+                }, 'inventoryMessage');
                 fetchInventory();
-            } catch (error) {
-                showMessage('inventoryMessage', `Error: ${error.message}`, 'error');
-            }
+            } catch (error) { /* Error already shown by apiCall */ }
         }
 
-        document.getElementById('vivinoSearchForm').addEventListener('submit', function (event) {
-            event.preventDefault();
-            const query = document.getElementById('vivinoSearchInput').value;
-            window.open(`https://www.vivino.com/search/wines?q=${encodeURIComponent(query)}`, '_blank');
-            this.reset();
-        });
-
-        // --- Modal Functionality ---
+        // All Modal Handling Logic
         const helpModal = document.getElementById('helpModal');
         const entryModal = document.getElementById('entryModal');
         const settingsModal = document.getElementById('settingsModal');
+        const tasteModal = document.getElementById('tasteModal');
+        const notesModal = document.getElementById('notesModal');
+        let openModalElement = null;
 
-        document.getElementById('openEntryModalBtn').addEventListener('click', () => openAddModal());
+        function handleModalFocus(modalEl) {
+            const focusableElements = modalEl.querySelectorAll(
+                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+            );
+            const firstElement = focusableElements[0];
+            const lastElement = focusableElements[focusableElements.length - 1];
 
-        function closeHelpModal() {
-            helpModal.classList.add('hidden');
-            if (window.fromSettings) {
-                window.fromSettings = false;
-                openSettingsModal(); // Reopen Settings modal
+            function trapFocus(e) {
+                if (e.key !== 'Tab') return;
+                if (e.shiftKey) { // Shift + Tab
+                    if (document.activeElement === firstElement) {
+                        lastElement.focus();
+                        e.preventDefault();
+                    }
+                } else { // Tab
+                    if (document.activeElement === lastElement) {
+                        firstElement.focus();
+                        e.preventDefault();
+                    }
+                }
+            }
+
+            modalEl.addEventListener('keydown', trapFocus);
+            if (firstElement) firstElement.focus();
+            return trapFocus; // Return the handler to be removed later
+        }
+
+        function openModal(modalEl, options = {}) {
+            // Close any currently open modal first
+            if (openModalElement) closeModal(openModalElement);
+
+            // Prepare the specific modal based on its ID
+            switch (modalEl.id) {
+                case 'entryModal':
+                    prepareEntryModal(options.mode, options.wine);
+                    break;
+                case 'tasteModal':
+                    prepareTasteModal(options.wine);
+                    break;
+                case 'notesModal':
+                    prepareNotesModal(options.wine);
+                    break;
+                case 'settingsModal':
+                    prepareSettingsModal();
+                    break;
+            }
+
+            modalEl.classList.remove('hidden');
+            const focusHandler = handleModalFocus(modalEl);
+
+            modalEl.dataset.focusHandler = focusHandler; // Store reference to remove later
+            openModalElement = modalEl;
+        }
+
+        function closeModal(modalEl) {
+            if (!modalEl) return;
+            modalEl.classList.add('hidden');
+            const focusHandler = modalEl.dataset.focusHandler;
+            if (focusHandler) {
+                modalEl.removeEventListener('keydown', focusHandler);
+            }
+            if (modalEl === openModalElement) {
+                openModalElement = null;
             }
         }
 
-        function closeEntryModal() {
-            entryModal.classList.add('hidden');
-            document.getElementById('entryForm').reset();
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && openModalElement) {
+                closeModal(openModalElement);
+            }
+        });
+
+        // Modal Preparation Functions
+        function prepareEntryModal(mode = 'add', wine = {}) {
+            const form = document.getElementById('entryForm');
+            form.reset();
             document.getElementById('entryMessage').classList.add('hidden');
+            const title = document.getElementById('entryModalTitle');
+            const submitBtn = document.getElementById('entrySubmitBtn');
+            const vintageInput = document.getElementById('manualVintageInput');
+            const nvCheckbox = document.getElementById('nvCheckbox');
+
+            // Common resets
+            vintageInput.disabled = false;
+            vintageInput.required = true;
+            nvCheckbox.checked = false;
+
+            if (mode === 'edit') {
+                title.textContent = 'Edit Wine';
+                submitBtn.textContent = 'Save Changes';
+                document.getElementById('entryVivinoUrl').value = wine.vivino_url;
+                document.getElementById('manualTastingNotesInput').value = wine.tasting_notes || '';
+                document.getElementById('manualNameInput').value = wine.name;
+                if (wine.vintage) {
+                    vintageInput.value = wine.vintage;
+                } else {
+                    vintageInput.value = '';
+                    vintageInput.disabled = true;
+                    vintageInput.required = false;
+                    nvCheckbox.checked = true;
+                }
+                document.getElementById('manualVarietalInput').value = wine.varietal !== 'Unknown Varietal' ? wine.varietal : '';
+                document.getElementById('manualRegionInput').value = wine.region !== 'Unknown Region' ? wine.region : '';
+                document.getElementById('manualCountryInput').value = wine.country !== 'Unknown Country' ? wine.country : '';
+                document.getElementById('manualQuantityInput').value = wine.quantity;
+                updateCostTierSelector(wine.cost_tier);
+                const rating = wine.personal_rating || 0;
+                document.getElementById('manualTasteRatingInput').value = rating;
+                updateStarVisuals(document.getElementById('editTasteRatingSelector'), rating, 'rated');
+                updateFeedbackText(document.getElementById('editTasteRatingFeedback'), rating);
+            } else { // 'add' or 'duplicate'
+                title.textContent = mode === 'duplicate' ? 'Duplicate Wine' : 'Add Wine Manually';
+                submitBtn.textContent = 'Add Wine';
+                document.getElementById('entryVivinoUrl').value = '';
+                document.getElementById('manualQuantityInput').value = 1;
+                updateStarVisuals(document.getElementById('editTasteRatingSelector'), 0, 'rated');
+                updateFeedbackText(document.getElementById('editTasteRatingFeedback'), 0);
+
+                if (mode === 'duplicate') {
+                    document.getElementById('manualImageUrlInput').value = wine.image_url || '';
+                    document.getElementById('manualNameInput').value = wine.name;
+                    document.getElementById('manualVarietalInput').value = wine.varietal !== 'Unknown Varietal' ? wine.varietal : '';
+                    document.getElementById('manualRegionInput').value = wine.region !== 'Unknown Region' ? wine.region : '';
+                    document.getElementById('manualCountryInput').value = wine.country !== 'Unknown Country' ? wine.country : '';
+                    updateCostTierSelector(wine.cost_tier);
+                    vintageInput.value = '';
+                    vintageInput.focus();
+                } else { // 'add'
+                    updateCostTierSelector(null);
+                }
+            }
+        }
+
+        function prepareTasteModal(wine) {
+            document.getElementById('tasteVivinoUrl').value = wine.vivino_url;
+            document.getElementById('tasteModalWineName').textContent = `${wine.name} (${wine.vintage || 'NV'})`;
+            resetTasteStars(
+                document.getElementById('tasteRatingSelector'),
+                document.getElementById('tasteRatingInput'),
+                document.getElementById('tasteRatingFeedback')
+            );
+        }
+
+        function prepareNotesModal(wine) {
+            const imageUrlInput = document.getElementById('imageUrlInput');
+            const toggleBtn = document.getElementById('toggleImageUrlLock');
+            document.getElementById('notesVivinoUrl').value = wine.vivino_url;
+            document.getElementById('notesModalWineName').textContent = `${wine.name} (${wine.vintage || 'NV'})`;
+            document.getElementById('tastingNotesInput').value = wine.tasting_notes || '';
+            document.getElementById('notesMessage').classList.add('hidden');
+            imageUrlInput.value = wine.image_url || '';
+            imageUrlInput.setAttribute('readonly', true);
+            imageUrlInput.classList.add('bg-gray-100', 'text-gray-500');
+            toggleBtn.textContent = '🔒';
+            document.getElementById('tastingNotesInput').focus();
+        }
+
+        function prepareSettingsModal() {
+            populateCostTierFieldsFromSettings();
+            initialCostTierValues = {
+                t1: document.getElementById('tier1').value,
+                t2r: document.getElementById('tier2Right').value,
+                t3r: document.getElementById('tier3Right').value,
+                t4r: document.getElementById('tier4Right').value,
+            };
+            document.getElementById('costTierResetBtn').textContent = 'Default';
+            document.getElementById('settingsMessage').classList.add('hidden');
         }
 
         function setupVintageControls() {
             const vintageInput = document.getElementById('manualVintageInput');
             const nvCheckbox = document.getElementById('nvCheckbox');
-
-            const currentYear = new Date().getFullYear();
-            vintageInput.max = currentYear + 5;
-
+            vintageInput.max = new Date().getFullYear() + 5;
             nvCheckbox.addEventListener('change', () => {
-                if (nvCheckbox.checked) {
-                    vintageInput.disabled = true;
-                    vintageInput.required = false;
-                    vintageInput.value = '';
-                } else {
-                    vintageInput.disabled = false;
-                    vintageInput.required = true;
-                    vintageInput.focus();
-                }
+                vintageInput.disabled = nvCheckbox.checked;
+                vintageInput.required = !nvCheckbox.checked;
+                if (nvCheckbox.checked) vintageInput.value = '';
+                else vintageInput.focus();
             });
         }
-
-        function openAddModal() {
-            document.getElementById('entryForm').reset();
-            document.getElementById('entryVivinoUrl').value = '';
-            document.getElementById('entryModalTitle').textContent = 'Add Wine Manually';
-            document.getElementById('entrySubmitBtn').textContent = 'Add Wine';
-
-            const nvCheckbox = document.getElementById('nvCheckbox');
-            const vintageInput = document.getElementById('manualVintageInput');
-            nvCheckbox.checked = false;
-            vintageInput.disabled = false;
-            vintageInput.required = true;
-
-            updateCostTierSelector(null);
-            updateStarVisuals(document.getElementById('editTasteRatingSelector'), 0, 'rated');
-            updateFeedbackText(document.getElementById('editTasteRatingFeedback'), 0);
-            entryModal.classList.remove('hidden');
-        }
-
-        function openEditModal(wine) {
-            document.getElementById('entryForm').reset();
-            document.getElementById('entryVivinoUrl').value = wine.vivino_url;
-            document.getElementById('manualTastingNotesInput').value = wine.tasting_notes || '';
-            document.getElementById('manualNameInput').value = wine.name;
-
-            const vintageInput = document.getElementById('manualVintageInput');
-            const nvCheckbox = document.getElementById('nvCheckbox');
-
-            if (wine.vintage) {
-                vintageInput.value = wine.vintage;
-                vintageInput.disabled = false;
-                vintageInput.required = true;
-                nvCheckbox.checked = false;
-            } else {
-                vintageInput.value = '';
-                vintageInput.disabled = true;
-                vintageInput.required = false;
-                nvCheckbox.checked = true;
-            }
-
-            document.getElementById('manualVarietalInput').value = wine.varietal !== 'Unknown Varietal' ? wine.varietal : '';
-            document.getElementById('manualRegionInput').value = wine.region !== 'Unknown Region' ? wine.region : '';
-            document.getElementById('manualCountryInput').value = wine.country !== 'Unknown Country' ? wine.country : '';
-            document.getElementById('manualQuantityInput').value = wine.quantity;
-            updateCostTierSelector(wine.cost_tier);
-
-            const rating = wine.personal_rating || 0;
-            document.getElementById('manualTasteRatingInput').value = rating;
-            updateStarVisuals(document.getElementById('editTasteRatingSelector'), rating, 'rated');
-            updateFeedbackText(document.getElementById('editTasteRatingFeedback'), rating);
-
-            document.getElementById('entryModalTitle').textContent = 'Edit Wine';
-            document.getElementById('entrySubmitBtn').textContent = 'Save Changes';
-            entryModal.classList.remove('hidden');
-        }
-
-        function openDuplicateModal(wine) {
-            document.getElementById('entryForm').reset();
-            document.getElementById('entryVivinoUrl').value = '';
-
-            document.getElementById('manualImageUrlInput').value = wine.image_url || '';
-
-            document.getElementById('manualNameInput').value = wine.name;
-            document.getElementById('manualVarietalInput').value = wine.varietal !== 'Unknown Varietal' ? wine.varietal : '';
-            document.getElementById('manualRegionInput').value = wine.region !== 'Unknown Region' ? wine.region : '';
-            document.getElementById('manualCountryInput').value = wine.country !== 'Unknown Country' ? wine.country : '';
-
-            const vintageInput = document.getElementById('manualVintageInput');
-            const nvCheckbox = document.getElementById('nvCheckbox');
-            vintageInput.value = '';
-            vintageInput.disabled = false;
-            vintageInput.required = true;
-            nvCheckbox.checked = false;
-
-            document.getElementById('manualQuantityInput').value = 1;
-            updateCostTierSelector(wine.cost_tier);
-            updateStarVisuals(document.getElementById('editTasteRatingSelector'), 0, 'rated');
-            updateFeedbackText(document.getElementById('editTasteRatingFeedback'), 0);
-            document.getElementById('entryModalTitle').textContent = 'Duplicate Wine';
-            document.getElementById('entrySubmitBtn').textContent = 'Add Wine';
-            entryModal.classList.remove('hidden');
-            document.getElementById('manualVintageInput').focus();
-        }
-
-        // --- Taste Modal JS ---
-        function openTasteModal(wine, mode = 'consume') {
-            const tasteModal = document.getElementById('tasteModal');
-            const tasteVivinoUrlInput = document.getElementById('tasteVivinoUrl');
-            const tasteModalWineName = document.getElementById('tasteModalWineName');
-            const tasteRatingSelector = document.getElementById('tasteRatingSelector');
-            const tasteRatingInput = document.getElementById('tasteRatingInput');
-            const tasteRatingFeedback = document.getElementById('tasteRatingFeedback');
-            const tasteModeInput = document.getElementById('tasteMode');
-            const tasteTitle = document.getElementById('tasteModalTitle');
-            const tasteSubmitBtn = document.getElementById('tasteSubmitBtn');
-
-            tasteVivinoUrlInput.value = wine.vivino_url;
-            tasteModalWineName.textContent = `${wine.name} (${wine.vintage || 'NV'})`;
-            tasteModeInput.value = mode;
-
-            if (mode === 'rate') {
-                if (tasteTitle) tasteTitle.textContent = 'Rate This Wine';
-                if (tasteSubmitBtn) tasteSubmitBtn.textContent = 'Save Rating';
-            } else { // Default to 'consume' mode
-                if (tasteTitle) tasteTitle.textContent = 'Consume Wine';
-                if (tasteSubmitBtn) tasteSubmitBtn.textContent = 'Consume';
-            }
-
-            resetTasteStars(tasteRatingSelector, tasteRatingInput, tasteRatingFeedback);
-            tasteModal.classList.remove('hidden');
-        }
-
-        function closeTasteModal() {
-            document.getElementById('tasteModal').classList.add('hidden');
-            document.getElementById('tasteForm').reset();
-        }
-
-        // --- Notes Modal JS ---
-        function openNotesModal(wine) {
-            const notesModal = document.getElementById('notesModal');
-            const imageUrlInput = document.getElementById('imageUrlInput');
-            const toggleBtn = document.getElementById('toggleImageUrlLock');
-
-            document.getElementById('notesVivinoUrl').value = wine.vivino_url;
-            document.getElementById('notesModalWineName').textContent = `${wine.name} (${wine.vintage || 'NV'})`;
-            document.getElementById('tastingNotesInput').value = wine.tasting_notes || '';
-            document.getElementById('notesMessage').classList.add('hidden');
-
-            // Always reset Image URL to locked state
-            imageUrlInput.value = wine.image_url || '';
-            imageUrlInput.setAttribute('readonly', true);
-            imageUrlInput.classList.add('bg-gray-100', 'text-gray-500');
-            toggleBtn.textContent = '🔒';
-
-            notesModal.classList.remove('hidden');
-            document.getElementById('tastingNotesInput').focus();
-        }
-        // Consolidated closeNotesModal
-        function closeNotesModal() {
-            const notesModal = document.getElementById('notesModal');
-            const notesForm = document.getElementById('notesForm');
-            const imageUrlInput = document.getElementById('imageUrlInput');
-            const toggleBtn = document.getElementById('toggleImageUrlLock');
-            const notesMsg = document.getElementById('notesMessage');
-
-            if (notesModal) notesModal.classList.add('hidden');
-
-            if (notesForm) {
-                notesForm.reset();
-            }
-
-            // Ensure the Image URL input returns to locked, gray state when closing
-            if (imageUrlInput) {
-                imageUrlInput.setAttribute('readonly', 'true');
-                imageUrlInput.classList.add('bg-gray-100', 'text-gray-500');
-                imageUrlInput.blur();
-            }
-            if (toggleBtn) toggleBtn.textContent = '🔒';
-
-            // hide message area (clean)
-            if (notesMsg) {
-                notesMsg.classList.add('hidden');
-                notesMsg.textContent = '';
-            }
-        }
-
-
-
 
         // --- Shared Star Rating Logic ---
         function setupStarRating(selectorEl, inputEl, feedbackEl) {
@@ -1513,29 +1374,23 @@
                 const starRect = star.getBoundingClientRect();
                 const isHalf = (e.clientX - starRect.left) < (starRect.width / 2);
                 const rating = parseInt(star.dataset.value, 10) - (isHalf ? 0.5 : 0);
-
                 updateFeedbackText(feedbackEl, rating);
                 updateStarVisuals(selectorEl, rating, 'hover');
             });
-
             selectorEl.addEventListener('mouseleave', () => {
                 const currentRating = parseFloat(inputEl.value) || 0;
                 updateStarVisuals(selectorEl, currentRating, 'rated');
                 updateFeedbackText(feedbackEl, currentRating);
             });
-
             selectorEl.addEventListener('click', e => {
                 if (!e.target.matches('span')) return;
                 const star = e.target;
                 const starRect = star.getBoundingClientRect();
                 const isHalf = (e.clientX - starRect.left) < (starRect.width / 2);
                 const rating = parseInt(star.dataset.value, 10) - (isHalf ? 0.5 : 0);
-
                 const currentValue = parseFloat(inputEl.value) || 0;
-                // Toggle off if clicking the same rating again
                 inputEl.value = (currentValue === rating) ? '' : rating;
                 const newRating = parseFloat(inputEl.value) || 0;
-
                 updateStarVisuals(selectorEl, newRating, 'rated');
                 updateFeedbackText(feedbackEl, newRating);
             });
@@ -1545,19 +1400,14 @@
             selectorEl.querySelectorAll('span').forEach((star, index) => {
                 const starValue = index + 1;
                 star.className = '';
-                if (rating >= starValue) {
-                    star.classList.add(`${stateClass}`);
-                } else if (rating > index && rating < starValue) {
-                    star.classList.add(`${stateClass}-half`);
-                }
+                if (rating >= starValue) star.classList.add(`${stateClass}`);
+                else if (rating > index && rating < starValue) star.classList.add(`${stateClass}-half`);
             });
         }
 
         function updateFeedbackText(feedbackEl, rating) {
-            if (feedbackEl && rating > 0) {
-                feedbackEl.textContent = `${rating} star${rating !== 1 ? 's' : ''}`;
-            } else if (feedbackEl) {
-                feedbackEl.textContent = '';
+            if (feedbackEl) {
+                feedbackEl.textContent = rating > 0 ? `${rating} star${rating !== 1 ? 's' : ''}` : '';
             }
         }
 
@@ -1568,38 +1418,31 @@
         }
 
         // --- Cost Tier Logic ---
-        const costTierSelector = document.getElementById('costTierSelector');
-        const manualCostTierInput = document.getElementById('manualCostTierInput');
-        costTierSelector.addEventListener('click', (e) => {
-            if (e.target.matches('span')) {
-                const value = e.target.dataset.value;
-                const currentValue = manualCostTierInput.value;
-                const newValue = (currentValue === value) ? '' : value;
-                updateCostTierSelector(newValue);
-            }
-        });
-        function updateCostTierSelector(selectedValue) {
-            manualCostTierInput.value = selectedValue || '';
-            costTierSelector.querySelectorAll('span').forEach(span => {
+        function setupCostTierSelector(selectorId, inputId) {
+            const selector = document.getElementById(selectorId);
+            const input = document.getElementById(inputId);
+            selector.addEventListener('click', (e) => {
+                if (e.target.matches('span')) {
+                    const value = e.target.dataset.value;
+                    const newValue = (input.value === value) ? '' : value;
+                    updateCostTierDisplay(selector, input, newValue);
+                }
+            });
+        }
+
+        function updateCostTierDisplay(selectorEl, inputEl, selectedValue) {
+            inputEl.value = selectedValue || '';
+            selectorEl.querySelectorAll('span').forEach(span => {
                 span.classList.toggle('selected', span.dataset.value == selectedValue);
             });
         }
 
-        const mainCostTierSelector = document.getElementById('mainCostTierSelector');
-        const mainCostTierInput = document.getElementById('mainCostTierInput');
-        mainCostTierSelector.addEventListener('click', (e) => {
-            if (e.target.matches('span')) {
-                const value = e.target.dataset.value;
-                const currentValue = mainCostTierInput.value;
-                mainCostTierInput.value = (currentValue === value) ? '' : value;
-                updateMainCostTierSelector(mainCostTierInput.value);
-            }
-        });
+        function updateCostTierSelector(selectedValue) {
+            updateCostTierDisplay(document.getElementById('costTierSelector'), document.getElementById('manualCostTierInput'), selectedValue);
+        }
+
         function updateMainCostTierSelector(selectedValue) {
-            mainCostTierInput.value = selectedValue || '';
-            mainCostTierSelector.querySelectorAll('span').forEach(span => {
-                span.classList.toggle('selected', span.dataset.value == selectedValue);
-            });
+            updateCostTierDisplay(document.getElementById('mainCostTierSelector'), document.getElementById('mainCostTierInput'), selectedValue);
         }
 
         function updateTiers() {
@@ -1607,49 +1450,23 @@
             const t2Right = parseFloat(document.getElementById('tier2Right').value) || 0;
             const t3Right = parseFloat(document.getElementById('tier3Right').value) || 0;
             const t4Right = parseFloat(document.getElementById('tier4Right').value) || 0;
-
-            // auto-fill left sides
             document.getElementById('tier2Left').value = t1;
             document.getElementById('tier3Left').value = t2Right;
             document.getElementById('tier4Left').value = t3Right;
             document.getElementById('tier5').value = t4Right;
-
-            // validate
             validateTiers([t1, t2Right, t3Right, t4Right]);
         }
 
         function validateTiers(values) {
             const errorEl = document.getElementById('costTierError');
             const saveBtn = document.getElementById('saveCostTiersBtn');
-            let valid = true;
-
-            for (let i = 1; i < values.length; i++) {
-                if (values[i] <= values[i - 1]) {
-                    valid = false;
-                    break;
-                }
-            }
-
-            if (!valid) {
-                errorEl.textContent = "Each tier must be greater than the one before it.";
-                errorEl.classList.remove("hidden");
-                saveBtn.disabled = true;
-                saveBtn.title = "Fix ranges before saving";
-                saveBtn.classList.add("opacity-50", "cursor-not-allowed");
-            } else {
-                errorEl.textContent = "";
-                errorEl.classList.add("hidden");
-                saveBtn.disabled = false;
-                saveBtn.title = "";
-                saveBtn.classList.remove("opacity-50", "cursor-not-allowed");
-            }
+            const valid = values.slice(1).every((value, i) => value > values[i]);
+            saveBtn.disabled = !valid;
+            saveBtn.title = valid ? "" : "Fix ranges before saving";
+            errorEl.classList.toggle("hidden", valid);
+            if (!valid) errorEl.textContent = "Each tier must be greater than the one before it.";
         }
 
-        // --- REPLACEMENT FOR resetCostTiers ---
-        /**
-         * Checks if the cost tier values have changed from their initial state
-         * and updates the reset/default button's text accordingly.
-         */
         function checkCostTierChanges() {
             const btn = document.getElementById('costTierResetBtn');
             const currentValues = {
@@ -1658,100 +1475,58 @@
                 t3r: document.getElementById('tier3Right').value,
                 t4r: document.getElementById('tier4Right').value,
             };
-
-            const hasChanged = currentValues.t1 != initialCostTierValues.t1 ||
-                currentValues.t2r != initialCostTierValues.t2r ||
-                currentValues.t3r != initialCostTierValues.t3r ||
-                currentValues.t4r != initialCostTierValues.t4r;
-
+            const hasChanged = Object.keys(currentValues).some(key => currentValues[key] != initialCostTierValues[key]);
             btn.textContent = hasChanged ? 'Reset' : 'Default';
         }
 
-        /**
-         * Handles the click event for the cost tier reset/default button.
-         * Sets values to default or resets them to their initial state.
-         */
         function handleCostTierReset() {
             const btn = document.getElementById('costTierResetBtn');
-            if (btn.textContent === 'Default') {
-                // Set fields to hardcoded defaults
-                document.getElementById('tier1').value = 10;
-                document.getElementById('tier2Right').value = 20;
-                document.getElementById('tier3Right').value = 35;
-                document.getElementById('tier4Right').value = 50;
-            } else { // The button says "Reset"
-                // Restore fields from the initially saved state
-                document.getElementById('tier1').value = initialCostTierValues.t1;
-                document.getElementById('tier2Right').value = initialCostTierValues.t2r;
-                document.getElementById('tier3Right').value = initialCostTierValues.t3r;
-                document.getElementById('tier4Right').value = initialCostTierValues.t4r;
-            }
-            // Recalculate derived fields and update the button text
+            const valuesToSet = btn.textContent === 'Default' ? DEFAULT_COST_TIERS : initialCostTierValues;
+            document.getElementById('tier1').value = valuesToSet.t1;
+            document.getElementById('tier2Right').value = valuesToSet.t2r;
+            document.getElementById('tier3Right').value = valuesToSet.t3r;
+            document.getElementById('tier4Right').value = valuesToSet.t4r;
             updateTiers();
             checkCostTierChanges();
         }
 
-
-        function saveCostTiers() {
-            const t1 = parseFloat(document.getElementById('tier1').value) || 0;
-            const t2Right = parseFloat(document.getElementById('tier2Right').value) || 0;
-            const t3Right = parseFloat(document.getElementById('tier3Right').value) || 0;
-            const t4Right = parseFloat(document.getElementById('tier4Right').value) || 0;
-            const t5 = parseFloat(document.getElementById('tier5').value) || 0;
-
+        async function saveCostTiers() {
+            const t1 = document.getElementById('tier1').value;
+            const t2r = document.getElementById('tier2Right').value;
+            const t3r = document.getElementById('tier3Right').value;
+            const t4r = document.getElementById('tier4Right').value;
             const payload = {
                 cost_tier_1_label: `Under $${t1}`,
-                cost_tier_2_label: `$${t1} - $${t2Right}`,
-                cost_tier_3_label: `$${t2Right} - $${t3Right}`,
-                cost_tier_4_label: `$${t3Right} - $${t4Right}`,
-                cost_tier_5_label: `Over $${t5}`
+                cost_tier_2_label: `$${t1} - $${t2r}`,
+                cost_tier_3_label: `$${t2r} - $${t3r}`,
+                cost_tier_4_label: `$${t3r} - $${t4r}`,
+                cost_tier_5_label: `Over $${t4r}`
             };
-
-            fetch(`${BASE_URL}api/settings`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            })
-                .then(r => r.json().then(data => ({ ok: r.ok, data })))
-                .then(({ ok, data }) => {
-                    if (!ok) throw new Error(data.error || 'Failed to save settings');
-                    appSettings = payload;
-                    updateCostTierTooltips();
-                    showMessage('settingsMessage', 'Cost tiers saved successfully!', 'info', true);
-                })
-                .catch(err => {
-                    showMessage('settingsMessage', `Error: ${err.message}`, 'error', true);
-                });
+            try {
+                const result = await apiCall('api/settings', { method: 'POST', body: JSON.stringify(payload) }, 'settingsMessage', document.getElementById('saveCostTiersBtn'));
+                appSettings = { ...appSettings, ...payload };
+                updateCostTierTooltips();
+            } catch (error) { /* Error already shown */ }
         }
 
         function populateCostTierFieldsFromSettings() {
-            if (appSettings) {
-                // Parse the labels to get the numeric values
-                // Cost Tier 1: "Under $10" -> 10
-                let val1 = appSettings.cost_tier_1_label ? parseFloat(appSettings.cost_tier_1_label.replace('Under $', '')) : 10;
-                document.getElementById('tier1').value = val1;
+            const parseValue = (label, regex) => {
+                const match = label ? label.match(regex) : null;
+                return match ? parseFloat(match[1]) : null;
+            };
 
-                // Cost Tier 2: "$10 - $20" -> 20
-                let val2 = appSettings.cost_tier_2_label ? parseFloat(appSettings.cost_tier_2_label.split(' - $')[1]) : 20;
-                document.getElementById('tier2Right').value = val2;
-
-                // Cost Tier 3: "$20 - $35" -> 35
-                let val3 = appSettings.cost_tier_3_label ? parseFloat(appSettings.cost_tier_3_label.split(' - $')[1]) : 35;
-                document.getElementById('tier3Right').value = val3;
-
-                // Cost Tier 4: "$35 - $50" -> 50
-                let val4 = appSettings.cost_tier_4_label ? parseFloat(appSettings.cost_tier_4_label.split(' - $')[1]) : 50;
-                document.getElementById('tier4Right').value = val4;
-            }
-            // Update the auto-filled left values and validate
+            document.getElementById('tier1').value = parseValue(appSettings.cost_tier_1_label, /Under \$([\d.]+)/) ?? DEFAULT_COST_TIERS.t1;
+            document.getElementById('tier2Right').value = parseValue(appSettings.cost_tier_2_label, / - \$([\d.]+)/) ?? DEFAULT_COST_TIERS.t2r;
+            document.getElementById('tier3Right').value = parseValue(appSettings.cost_tier_3_label, / - \$([\d.]+)/) ?? DEFAULT_COST_TIERS.t3r;
+            document.getElementById('tier4Right').value = parseValue(appSettings.cost_tier_4_label, / - \$([\d.]+)/) ?? DEFAULT_COST_TIERS.t4r;
             updateTiers();
         }
 
         // --- Settings Modal Functions ---
         function openHelpFromSettings() {
-            closeSettingsModal();
-            window.fromSettings = true;
-            helpModal.classList.remove('hidden');
+            closeModal(settingsModal);
+            window.fromSettings = true; // Track that we came from settings
+            openModal(helpModal);
         }
 
         async function fetchSettings() {
@@ -1760,216 +1535,154 @@
                 if (!response.ok) throw new Error('Failed to fetch settings');
                 appSettings = await response.json();
                 populateCostTierFieldsFromSettings();
-                console.log('Settings loaded:', appSettings);
+                updateCostTierTooltips();
             } catch (error) {
                 console.error('Error fetching settings:', error);
             }
         }
 
         function updateCostTierTooltips() {
-            const tierSelectors = document.querySelectorAll('.cost-tier-selector');
-            tierSelectors.forEach(selector => {
+            document.querySelectorAll('.cost-tier-selector').forEach(selector => {
                 selector.querySelectorAll('span').forEach(span => {
                     const tierValue = span.dataset.value;
-                    const settingKey = `cost_tier_${tierValue}_label`;
-                    const tooltipText = appSettings[settingKey] || `Tier ${tierValue}`;
-                    span.title = tooltipText;
+                    span.title = appSettings[`cost_tier_${tierValue}_label`] || `Tier ${tierValue}`;
                 });
             });
         }
 
-        function openSettingsModal() {
-            settingsModal.classList.remove('hidden');
-            populateCostTierFieldsFromSettings();
-
-            // ADDED THIS LOGIC to store initial state and reset the button
-            initialCostTierValues = {
-                t1: document.getElementById('tier1').value,
-                t2r: document.getElementById('tier2Right').value,
-                t3r: document.getElementById('tier3Right').value,
-                t4r: document.getElementById('tier4Right').value,
-            };
-            document.getElementById('costTierResetBtn').textContent = 'Default';
-        }
-
-        function closeSettingsModal() {
-            settingsModal.classList.add('hidden');
-            const msgEl = document.getElementById('settingsMessage');
-            if (msgEl) {
-                msgEl.classList.add('hidden');
-                msgEl.textContent = '';
-            }
-        }
-
-        // --- Sort Controls ---
-        const sortSelect = document.getElementById('sortSelect');
-        const sortDirectionToggle = document.getElementById('sortDirectionToggle');
-        const sortAscIcon = document.getElementById('sortAscIcon');
-        const sortDescIcon = document.getElementById('sortDescIcon');
-        function updateSortIcons() {
-            sortAscIcon.classList.toggle('hidden', currentSortDirection === 'desc');
-            sortDescIcon.classList.toggle('hidden', currentSortDirection === 'asc');
-        }
-        sortSelect.addEventListener('change', (event) => {
-            currentSortBy = event.target.value;
-            applySortAndDisplayInventory();
-        });
-        sortDirectionToggle.addEventListener('click', () => {
-            currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
-            updateSortIcons();
-            applySortAndDisplayInventory();
-        });
-
-        // --- Theme Toggling Logic ---
-        const themeToggle = document.getElementById('themeToggle');
-        const themeIcon = document.getElementById('themeIcon');
-        function enableDarkMode() {
-            document.body.classList.add('dark-theme');
-            localStorage.setItem('theme', 'dark');
-            themeIcon.textContent = '🌙';
-        }
-        function enableLightMode() {
-            document.body.classList.remove('dark-theme');
-            localStorage.setItem('theme', 'light');
-            themeIcon.textContent = '☀️';
-        }
-
-        themeToggle.addEventListener('click', () => {
-            if (document.body.classList.contains('dark-theme')) {
-                enableLightMode();
-                fetchInventory();
-            } else {
-                enableDarkMode();
-                fetchInventory();
-            }
-        });
-
-        // --- Filter Logic ---
-        const filterContainer = document.getElementById('inventory-filters');
-        const inventoryHeading = document.getElementById('inventory-heading');
-        filterContainer.addEventListener('click', (e) => {
-            if (e.target.matches('.filter-button')) {
-                currentFilter = e.target.dataset.filter;
-                filterContainer.querySelectorAll('.filter-button').forEach(btn => btn.classList.remove('active'));
-                e.target.classList.add('active');
-                const headingText = `Wine ${currentFilter.replace('_', ' ')}`;
-                inventoryHeading.textContent = headingText.charAt(0).toUpperCase() + headingText.slice(1);
-                fetchInventory();
-            }
-        });
-
-        // --- Page Load ---
+        // --- Event Listeners and Initial Page Load ---
         document.addEventListener('DOMContentLoaded', async () => {
-            // Guarded Image URL lock toggle registration
-            (function () {
-                const toggleImageUrlLockBtn = document.getElementById('toggleImageUrlLock');
-                const imageUrlInputEl = document.getElementById('imageUrlInput');
-                if (toggleImageUrlLockBtn && imageUrlInputEl) {
-                    toggleImageUrlLockBtn.addEventListener('click', () => {
-                        if (imageUrlInputEl.hasAttribute('readonly')) {
-                            imageUrlInputEl.removeAttribute('readonly');
-                            imageUrlInputEl.classList.remove('bg-gray-100', 'text-gray-500');
-                            toggleImageUrlLockBtn.textContent = '🔓';
-                        } else {
-                            imageUrlInputEl.setAttribute('readonly', 'true');
-                            imageUrlInputEl.classList.add('bg-gray-100', 'text-gray-500');
-                            toggleImageUrlLockBtn.textContent = '🔒';
-                        }
-                    });
-                }
-            })();
-
-            await fetchSettings();
-            updateCostTierTooltips();
-
-            const tasteForm = document.getElementById('tasteForm');
-            const tasteRatingSelector = document.getElementById('tasteRatingSelector');
-            const tasteRatingInput = document.getElementById('tasteRatingInput');
-            const tasteRatingFeedback = document.getElementById('tasteRatingFeedback');
-            const editTasteRatingSelector = document.getElementById('editTasteRatingSelector');
-            const manualTasteRatingInput = document.getElementById('manualTasteRatingInput');
-            const editTasteRatingFeedback = document.getElementById('editTasteRatingFeedback');
+            // Setup UI components
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') document.body.classList.add('dark-theme');
+            document.getElementById('themeIcon').textContent = savedTheme === 'dark' ? '🌙' : '☀️';
 
             updateSortIcons();
-            const savedTheme = localStorage.getItem('theme');
-            if (savedTheme === 'dark') {
-                enableDarkMode();
-            } else {
-                enableLightMode();
-            }
-
             setupVintageControls();
+            setupCostTierSelector('mainCostTierSelector', 'mainCostTierInput');
+            setupCostTierSelector('costTierSelector', 'manualCostTierInput');
+            setupStarRating(document.getElementById('tasteRatingSelector'), document.getElementById('tasteRatingInput'), document.getElementById('tasteRatingFeedback'));
+            setupStarRating(document.getElementById('editTasteRatingSelector'), document.getElementById('manualTasteRatingInput'), document.getElementById('editTasteRatingFeedback'));
 
-            setupStarRating(tasteRatingSelector, tasteRatingInput, tasteRatingFeedback);
-            setupStarRating(editTasteRatingSelector, manualTasteRatingInput, editTasteRatingFeedback);
-
-            tasteForm.addEventListener('submit', async function (event) {
-                event.preventDefault();
-                const vivinoUrl = document.getElementById('tasteVivinoUrl').value;
-                const ratingVal = document.getElementById('tasteRatingInput').value;
-                const rating = ratingVal ? parseFloat(ratingVal) : null;
-                const mode = document.getElementById('tasteMode').value;
-                let endpoint;
-                let payload;
-                let successMessage;
-
-                if (mode === 'rate') {
-                    if (rating === null) {
-                        closeTasteModal();
-                        return;
-                    }
-                    endpoint = `${BASE_URL}api/rate-wine`;
-                    payload = { vivino_url: vivinoUrl, personal_rating: rating };
-                    successMessage = 'Rating saved!';
-                } else { // 'consume' mode
-                    endpoint = `${BASE_URL}inventory/wine/consume`;
-                    payload = { vivino_url: vivinoUrl, personal_rating: rating };
-                    successMessage = 'Wine consumed successfully!';
-                }
-                try {
-                    const response = await fetch(endpoint, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    const result = await response.json();
-                    if (!response.ok) throw new Error(result.error || result.message || 'An unknown error occurred');
-                    showMessage('inventoryMessage', successMessage);
-                    closeTasteModal();
+            // Attach major event listeners
+            document.getElementById('settingsButton').addEventListener('click', () => openModal(settingsModal));
+            document.getElementById('openEntryModalBtn').addEventListener('click', () => openModal(entryModal, { mode: 'add' }));
+            document.getElementById('themeToggle').addEventListener('click', () => {
+                document.body.classList.toggle('dark-theme');
+                const isDark = document.body.classList.contains('dark-theme');
+                localStorage.setItem('theme', isDark ? 'dark' : 'light');
+                document.getElementById('themeIcon').textContent = isDark ? '🌙' : '☀️';
+            });
+            document.getElementById('sortSelect').addEventListener('change', (e) => {
+                currentSortBy = e.target.value;
+                applySortAndDisplayInventory();
+            });
+            document.getElementById('sortDirectionToggle').addEventListener('click', () => {
+                currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+                updateSortIcons();
+                applySortAndDisplayInventory();
+            });
+            document.getElementById('inventory-filters').addEventListener('click', (e) => {
+                if (e.target.matches('.filter-button')) {
+                    currentFilter = e.target.dataset.filter;
+                    document.querySelectorAll('#inventory-filters .filter-button').forEach(btn => btn.classList.remove('active'));
+                    e.target.classList.add('active');
+                    const headingText = `Wine ${currentFilter.replace('_', ' ')}`;
+                    document.getElementById('inventory-heading').textContent = headingText.charAt(0).toUpperCase() + headingText.slice(1);
                     fetchInventory();
-                } catch (error) {
-                    showMessage('inventoryMessage', `Error: ${error.message}`, 'error');
                 }
             });
 
-            document.getElementById('notesForm').addEventListener('submit', async function (event) {
-                event.preventDefault();
+            // Form submissions
+            document.getElementById('vivinoSearchForm').addEventListener('submit', function (e) {
+                e.preventDefault();
+                const query = document.getElementById('vivinoSearchInput').value;
+                window.open(`${VIVINO_SEARCH_URL}${encodeURIComponent(query)}`, '_blank');
+                const button = this.querySelector('button[type="submit"]');
+                const originalText = button.textContent;
+                button.textContent = 'Opening...';
+                setTimeout(() => { button.textContent = originalText; }, 1500);
+                this.reset();
+            });
+
+            document.getElementById('scanWineForm').addEventListener('submit', async function (e) {
+                e.preventDefault();
+                const payload = {
+                    vivino_url: document.getElementById('vivinoUrlInput').value,
+                    quantity: parseInt(document.getElementById('quantityInput').value, 10) || 1,
+                    cost_tier: parseInt(document.getElementById('mainCostTierInput').value, 10) || null
+                };
+                try {
+                    await apiCall('scan-wine', { method: 'POST', body: JSON.stringify(payload) }, 'scanMessage', this.querySelector('button[type="submit"]'));
+                    this.reset();
+                    updateMainCostTierSelector(null);
+                    fetchInventory();
+                } catch (error) { /* Error shown by apiCall */ }
+            });
+
+            document.getElementById('entryForm').addEventListener('submit', async function (e) {
+                e.preventDefault();
+                const isEditMode = !!document.getElementById('entryVivinoUrl').value;
+                const payload = {
+                    name: document.getElementById('manualNameInput').value,
+                    vintage: document.getElementById('nvCheckbox').checked ? null : parseInt(document.getElementById('manualVintageInput').value, 10),
+                    quantity: parseInt(document.getElementById('manualQuantityInput').value, 10),
+                    varietal: document.getElementById('manualVarietalInput').value,
+                    region: document.getElementById('manualRegionInput').value,
+                    country: document.getElementById('manualCountryInput').value,
+                    cost_tier: parseInt(document.getElementById('manualCostTierInput').value, 10) || null,
+                    personal_rating: parseFloat(document.getElementById('manualTasteRatingInput').value) || null,
+                    tasting_notes: document.getElementById('manualTastingNotesInput').value,
+                    image_url: document.getElementById('manualImageUrlInput').value,
+                };
+                if (isEditMode) payload.vivino_url = document.getElementById('entryVivinoUrl').value;
+
+                try {
+                    await apiCall(isEditMode ? 'edit-wine' : 'add-manual-wine', { method: 'POST', body: JSON.stringify(payload) }, 'entryMessage', this.querySelector('button[type="submit"]'));
+                    fetchInventory();
+                    setTimeout(() => closeModal(entryModal), 1500);
+                } catch (error) { /* Error shown by apiCall */ }
+            });
+
+            document.getElementById('tasteForm').addEventListener('submit', async function (e) {
+                e.preventDefault();
+                const rating = parseFloat(document.getElementById('tasteRatingInput').value) || null;
+                const payload = {
+                    vivino_url: document.getElementById('tasteVivinoUrl').value,
+                    personal_rating: rating
+                };
+                try {
+                    await apiCall('inventory/wine/consume', { method: 'POST', body: JSON.stringify(payload) }, 'inventoryMessage', this.querySelector('button[type="submit"]'));
+                    closeModal(tasteModal);
+                    fetchInventory();
+                } catch (error) { /* Error shown by apiCall */ }
+            });
+
+            document.getElementById('notesForm').addEventListener('submit', async function (e) {
+                e.preventDefault();
                 const payload = {
                     vivino_url: document.getElementById('notesVivinoUrl').value,
                     tasting_notes: document.getElementById('tastingNotesInput').value,
                     image_url: document.getElementById('imageUrlInput').value
                 };
-
                 try {
-                    const response = await fetch(`${BASE_URL}api/wine/notes`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    const result = await response.json();
-                    if (!response.ok) throw new Error(result.message || 'Failed to save details');
-
-                    showMessage('notesMessage', result.message || 'Changes saved!', 'info', true);
+                    await apiCall('api/wine/notes', { method: 'POST', body: JSON.stringify(payload) }, 'notesMessage', this.querySelector('button[type="submit"]'));
                     fetchInventory();
-                    setTimeout(closeNotesModal, 1500);
-                } catch (error) {
-                    showMessage('notesMessage', `Error: ${error.message}`, 'error', true);
-                }
+                    setTimeout(() => closeModal(notesModal), 1500);
+                } catch (error) { /* Error shown by apiCall */ }
             });
 
+            document.getElementById('toggleImageUrlLock').addEventListener('click', (e) => {
+                const imageUrlInput = document.getElementById('imageUrlInput');
+                const isReadonly = imageUrlInput.hasAttribute('readonly');
+                imageUrlInput.toggleAttribute('readonly', !isReadonly);
+                imageUrlInput.classList.toggle('bg-gray-100', !isReadonly);
+                imageUrlInput.classList.toggle('text-gray-500', !isReadonly);
+                e.target.textContent = isReadonly ? '🔓' : '🔒';
+            });
 
-            // Settings button
-            document.getElementById('settingsButton').addEventListener('click', openSettingsModal);
+            // Initial data fetch
+            await fetchSettings();
             fetchInventory();
         });
     </script>
