@@ -357,6 +357,22 @@
             opacity: 0.6;
             cursor: not-allowed;
         }
+
+        /* Style for readonly inputs to ensure they appear disabled/gray */
+        input[readonly] {
+            background-color: #f3f4f6 !important;
+            /* Tailwind gray-100 */
+            color: #6b7280 !important;
+            /* Tailwind gray-500 */
+            cursor: not-allowed;
+        }
+
+        .dark-theme input[readonly] {
+            background-color: #374151 !important;
+            /* Tailwind gray-700 */
+            color: #9ca3af !important;
+            /* Tailwind gray-400 */
+        }
     </style>
 </head>
 
@@ -603,6 +619,7 @@
 
     <div id="tasteModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="tasteModalTitle">
         <div class="modal-content">
+            <button class="modal-close-button" onclick="closeModal()">&times;</button>
             <h3 id="tasteModalTitle" class="text-xl font-semibold mb-2">Consume Wine</h3>
             <p id="tasteModalWineName" class="mb-4 text-gray-700"></p>
             <form id="tasteForm">
@@ -643,7 +660,7 @@
                             class="text-gray-500 hover:text-gray-700 focus:outline-none">🔒</button>
                     </div>
                     <input type="text" id="imageUrlInput" placeholder="Paste new image URL here"
-                        class="w-full p-2 border rounded-md bg-gray-100 text-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
                         readonly>
                 </div>
                 <div id="notesMessage" class="mt-4 text-center hidden"></div>
@@ -689,7 +706,7 @@
                                 <span
                                     class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
                                 <input type="number" id="tier2Left"
-                                    class="w-full border rounded-md pl-6 p-1 text-center bg-gray-100" readonly>
+                                    class="w-full border rounded-md pl-6 p-1 text-center" readonly>
                             </div>
                             <span class="text-sm">to</span>
                             <div class="relative w-20">
@@ -706,7 +723,7 @@
                                 <span
                                     class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
                                 <input type="number" id="tier3Left"
-                                    class="w-full border rounded-md pl-6 p-1 text-center bg-gray-100" readonly>
+                                    class="w-full border rounded-md pl-6 p-1 text-center" readonly>
                             </div>
                             <span class="text-sm">to</span>
                             <div class="relative w-20">
@@ -723,7 +740,7 @@
                                 <span
                                     class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
                                 <input type="number" id="tier4Left"
-                                    class="w-full border rounded-md pl-6 p-1 text-center bg-gray-100" readonly>
+                                    class="w-full border rounded-md pl-6 p-1 text-center" readonly>
                             </div>
                             <span class="text-sm">to</span>
                             <div class="relative w-20">
@@ -741,8 +758,8 @@
                             <div class="relative w-20">
                                 <span
                                     class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-gray-500">$</span>
-                                <input type="number" id="tier5"
-                                    class="w-full border rounded-md pl-6 p-1 text-center bg-gray-100" readonly>
+                                <input type="number" id="tier5" class="w-full border rounded-md pl-6 p-1 text-center"
+                                    readonly>
                             </div>
                         </div>
                     </div>
@@ -1060,7 +1077,7 @@
 
         function openModal(modalId, options = {}) {
             const modalEl = document.getElementById(modalId);
-            if (!modalEl) return;
+            if (!modalEl || !modalEl.classList.contains('hidden')) return;
 
             lastFocusedElement = document.activeElement;
 
@@ -1080,13 +1097,14 @@
 
         function closeModal() {
             if (!openModalElement) return;
-            openModalElement.classList.add('hidden');
-            if (openModalElement.id === 'helpModal' && window.fromSettings) {
+            const modalToClose = openModalElement;
+            openModalElement = null;
+            modalToClose.classList.add('hidden');
+
+            if (modalToClose.id === 'helpModal' && window.fromSettings) {
                 window.fromSettings = false;
                 openModal('settingsModal');
-            }
-            openModalElement = null;
-            if (lastFocusedElement) {
+            } else if (lastFocusedElement) {
                 lastFocusedElement.focus();
                 lastFocusedElement = null;
             }
@@ -1096,15 +1114,16 @@
             if (!openModalElement) return;
             if (e.key === 'Escape') closeModal();
             if (e.key === 'Tab') {
-                const focusableElements = Array.from(openModalElement.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'));
+                const focusableElements = Array.from(openModalElement.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')).filter(el => !el.disabled);
+                if (focusableElements.length === 0) { e.preventDefault(); return; }
                 const firstElement = focusableElements[0];
                 const lastElement = focusableElements[focusableElements.length - 1];
                 const currentIndex = focusableElements.indexOf(document.activeElement);
 
-                if (e.shiftKey && currentIndex === 0) { // Shift+Tab on first element
+                if (e.shiftKey && document.activeElement === firstElement) {
                     lastElement.focus();
                     e.preventDefault();
-                } else if (!e.shiftKey && currentIndex === focusableElements.length - 1) { // Tab on last element
+                } else if (!e.shiftKey && document.activeElement === lastElement) {
                     firstElement.focus();
                     e.preventDefault();
                 }
@@ -1164,7 +1183,7 @@
                     updateCostTierSelector(wine.cost_tier);
                     vintageInput.value = '';
                     vintageInput.focus();
-                } else { // 'add'
+                } else {
                     updateCostTierSelector(null);
                 }
             }
@@ -1185,7 +1204,6 @@
             document.getElementById('notesMessage').classList.add('hidden');
             imageUrlInput.value = wine.image_url || '';
             imageUrlInput.setAttribute('readonly', true);
-            imageUrlInput.classList.add('bg-gray-100', 'text-gray-500');
             toggleBtn.textContent = '🔒';
         }
 
@@ -1531,9 +1549,8 @@
                 const imageUrlInput = document.getElementById('imageUrlInput');
                 const isReadonly = imageUrlInput.hasAttribute('readonly');
                 imageUrlInput.toggleAttribute('readonly', !isReadonly);
-                imageUrlInput.classList.toggle('bg-gray-100', !isReadonly);
-                imageUrlInput.classList.toggle('text-gray-500', !isReadonly);
                 e.target.textContent = isReadonly ? '🔓' : '🔒';
+                if (!isReadonly) imageUrlInput.focus();
             });
 
             await fetchSettings();
