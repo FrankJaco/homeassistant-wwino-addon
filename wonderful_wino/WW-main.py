@@ -1379,10 +1379,10 @@ def restore_db_endpoint():
         return jsonify({"status": "success", "message": "Database restored successfully. The page will now refresh."}), 200
     except sqlite3.Error as e:
         logger.error(f"Database restore failed: {e}")
-        return jsonify({"status": "error", "message": f"Database restore failed: {e}"}), 500
+        return jsonify({"status": "error", "message": "Database restore failed. Please try again later."}), 500
     except Exception as e:
         logger.error(f"An unexpected error occurred during restore: {e}")
-        return jsonify({"status": "error", "message": "An unexpected error occurred during restore."}), 500
+        return jsonify({"status": "error", "message": "An unexpected error occurred. Please contact support."}), 500
 
 @app.route("/")
 def serve_frontend():
