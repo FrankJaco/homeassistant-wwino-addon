@@ -1345,7 +1345,7 @@ def backup_db_endpoint():
         return jsonify({"status": "success", "message": f"Backup successful! File saved in {backup_dir}."}), 200
     except sqlite3.Error as e:
         logger.error(f"Database backup failed: {e}")
-        return jsonify({"status": "error", "message": f"Database backup failed: {e}"}), 500
+        return jsonify({"status": "error", "message": "Database backup failed. Please try again later."}), 500
     except Exception as e:
         logger.error(f"An unexpected error occurred during backup: {e}")
         return jsonify({"status": "error", "message": "An unexpected error occurred during backup."}), 500
