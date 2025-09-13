@@ -810,6 +810,42 @@
         </div>
     </div>
 
+    <div id="nvPromptModal" class="modal-overlay hidden" role="dialog" aria-modal="true"
+        aria-labelledby="nvPromptModalTitle">
+        <div class="modal-content">
+            <h3 id="nvPromptModalTitle" class="text-xl font-semibold mb-4">Vintage Not Found</h3>
+            <p class="mb-6 text-gray-700">This Vivino URL doesn't specify a vintage. Please choose an option:</p>
+
+            <div class="flex flex-col gap-4">
+                <button id="confirmNvBtn"
+                    class="w-full bg-purple-600 text-white px-6 py-3 rounded-md hover:bg-purple-700 font-semibold">
+                    Add as Non-Vintage (NV)
+                </button>
+
+                <div class="relative flex items-center py-2">
+                    <hr class="w-full border-t border-gray-300">
+                    <span class="absolute left-1/2 -translate-x-1/2 bg-white px-2 text-sm text-gray-500"
+                        style="background-color: var(--card-bg);">OR</span>
+                </div>
+
+                <form id="applyVintageForm" class="flex items-center gap-4">
+                    <input type="number" id="nvPromptVintageInput" placeholder="Enter Vintage (e.g., 2022)" min="1900"
+                        class="flex-grow border rounded-md p-2 text-center focus:outline-none focus:ring-2 focus:ring-purple-500">
+                    <button type="submit" id="applyVintageBtn"
+                        class="bg-gray-200 text-gray-600 font-semibold px-6 py-2 rounded-md hover:bg-gray-300">
+                        Apply
+                    </button>
+                </form>
+            </div>
+
+            <div class="mt-8 text-center">
+                <button id="nvPromptCancelBtn"
+                    class="text-sm text-gray-600 hover:text-gray-900 font-medium">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+
     <script>
         // This calculates the base URL to accommodate Home Assistant's Ingress feature,
         // which serves the addon from a subpath.
@@ -1078,7 +1114,7 @@
 
         function openModal(modalId, options = {}) {
             const modalEl = document.getElementById(modalId);
-            if (!modalEl || !modalEl.classList.contains('hidden')) return;
+            if (!modalEl || (openModalElement && openModalElement.id === modalId)) return;
 
             lastFocusedElement = document.activeElement;
 
@@ -1093,7 +1129,11 @@
             openModalElement = modalEl;
 
             const focusableElements = modalEl.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-            if (focusableElements.length > 0) focusableElements[0].focus();
+            if (focusableElements.length > 0) {
+                // For nvPromptModal, focus the input field first
+                const inputToFocus = modalId === 'nvPromptModal' ? modalEl.querySelector('#nvPromptVintageInput') : focusableElements[0];
+                if (inputToFocus) inputToFocus.focus();
+            }
         }
 
         function closeModal() {
@@ -1113,7 +1153,14 @@
 
         document.addEventListener('keydown', (e) => {
             if (!openModalElement) return;
-            if (e.key === 'Escape') closeModal();
+            if (e.key === 'Escape') {
+                // Allow escape to work like the cancel button in the NV prompt
+                if (openModalElement.id === 'nvPromptModal' && window.nvPromptResolver) {
+                    window.nvPromptResolver.reject('cancelled');
+                } else {
+                    closeModal();
+                }
+            }
             if (e.key === 'Tab') {
                 const focusableElements = Array.from(openModalElement.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')).filter(el => !el.disabled);
                 if (focusableElements.length === 0) { e.preventDefault(); return; }
@@ -1421,6 +1468,59 @@
             document.getElementById('sortDescIcon').classList.toggle('hidden', currentSortDirection === 'asc');
         }
 
+        // NEW FUNCTION: Manages the NV prompt modal
+        function promptForVintage() {
+            return new Promise((resolve, reject) => {
+                window.nvPromptResolver = { resolve, reject }; // Store resolver globally to handle Escape key
+                const confirmNvBtn = document.getElementById('confirmNvBtn');
+                const applyVintageForm = document.getElementById('applyVintageForm');
+                const vintageInput = document.getElementById('nvPromptVintageInput');
+                const cancelBtn = document.getElementById('nvPromptCancelBtn');
+
+                vintageInput.value = ''; // Clear previous input
+
+                const cleanup = () => {
+                    confirmNvBtn.removeEventListener('click', handleConfirmNv);
+                    applyVintageForm.removeEventListener('submit', handleApplyVintage);
+                    cancelBtn.removeEventListener('click', handleCancel);
+                    closeModal();
+                    window.nvPromptResolver = null; // Clean up global resolver
+                };
+
+                const handleConfirmNv = () => {
+                    cleanup();
+                    resolve({ isNv: true });
+                };
+
+                const handleApplyVintage = (e) => {
+                    e.preventDefault();
+                    const vintage = vintageInput.value;
+                    const currentYear = new Date().getFullYear();
+                    if (vintage && /^\d{4}$/.test(vintage) && parseInt(vintage) >= 1900 && parseInt(vintage) <= currentYear + 5) {
+                        cleanup();
+                        resolve({ vintage: vintage });
+                    } else {
+                        vintageInput.classList.add('border-red-500');
+                        vintageInput.focus();
+                    }
+                };
+
+                const handleCancel = () => {
+                    cleanup();
+                    reject('cancelled');
+                };
+
+                vintageInput.addEventListener('input', () => vintageInput.classList.remove('border-red-500'));
+
+                confirmNvBtn.addEventListener('click', handleConfirmNv);
+                applyVintageForm.addEventListener('submit', handleApplyVintage);
+                cancelBtn.addEventListener('click', handleCancel);
+
+                openModal('nvPromptModal');
+            });
+        }
+
+
         document.addEventListener('DOMContentLoaded', async () => {
             const vivinoSearchForm = document.getElementById('vivinoSearchForm');
             const scanWineForm = document.getElementById('scanWineForm');
@@ -1483,31 +1583,41 @@
             scanWineForm.addEventListener('submit', async function (e) {
                 e.preventDefault();
                 const vivinoUrlInput = document.getElementById('vivinoUrlInput');
-                const vivinoUrl = vivinoUrlInput.value;
+                let vivinoUrl = vivinoUrlInput.value; // Use let since it can be modified
 
                 // Primary URL validation
                 const isValidVivinoWineUrl = (url) => url && url.includes('vivino.com') && /\/w\/\d+/.test(url);
 
                 if (!isValidVivinoWineUrl(vivinoUrl)) {
                     showMessage('scanMessage', "Invalid URL. Please use a specific Vivino wine page (must contain '/w/').", 'error');
-                    vivinoUrlInput.value = ''; // Clear the input field on error
-                    return; // Stop the submission
+                    vivinoUrlInput.value = '';
+                    return;
                 }
 
-                // NEW: Graceful check for Non-Vintage wines
+                // Check for vintage and prompt if missing
                 const hasYearParam = /year=\d{4}/.test(vivinoUrl);
                 if (!hasYearParam) {
-                    // If the URL has no year, confirm with the user.
-                    const isConfirmedNV = confirm("This URL does not specify a vintage.\n\nDo you want to add it as a Non-Vintage (NV) wine?");
-                    if (!isConfirmedNV) {
-                        showMessage('scanMessage', "Action cancelled. Please find a URL with the correct vintage.", 'info');
-                        vivinoUrlInput.focus(); // Re-focus the input for easy correction
-                        return; // Stop the submission if the user cancels
+                    try {
+                        const result = await promptForVintage(); // This 'await' pauses execution until the promise resolves
+                        if (result.isNv) {
+                            // User chose NV, URL remains unchanged.
+                        } else if (result.vintage) {
+                            // User provided a vintage, so we update the URL.
+                            const url = new URL(vivinoUrl);
+                            url.searchParams.set('year', result.vintage);
+                            vivinoUrl = url.toString();
+                            vivinoUrlInput.value = vivinoUrl; // Also update the input field for the user to see
+                        }
+                    } catch (error) {
+                        // This block runs if the promise is rejected (user cancelled)
+                        showMessage('scanMessage', 'Action cancelled.', 'info');
+                        vivinoUrlInput.focus();
+                        return; // Stop the submission
                     }
                 }
 
                 const payload = {
-                    vivino_url: vivinoUrl,
+                    vivino_url: vivinoUrl, // Use the final, potentially updated URL
                     quantity: parseInt(document.getElementById('quantityInput').value, 10) || 1,
                     cost_tier: parseInt(document.getElementById('mainCostTierInput').value, 10) || null
                 };
@@ -1518,7 +1628,7 @@
                     fetchInventory();
                 } catch (error) { /* Error shown by apiCall */ }
             });
-            
+
             entryForm.addEventListener('submit', async function (e) {
                 e.preventDefault();
                 const isEditMode = !!document.getElementById('entryVivinoUrl').value;
