@@ -1483,8 +1483,17 @@
                     confirmNvBtn.removeEventListener('click', handleConfirmNv);
                     applyVintageForm.removeEventListener('submit', handleApplyVintage);
                     cancelBtn.removeEventListener('click', handleCancel);
+                    vintageInput.removeEventListener('keydown', handleKeyDown); // Cleanup new listener
                     closeModal();
                     window.nvPromptResolver = null; // Clean up global resolver
+                };
+
+                // NEW: Handle keydown to set a default starting vintage
+                const handleKeyDown = (e) => {
+                    if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && vintageInput.value === '') {
+                        e.preventDefault();
+                        vintageInput.value = new Date().getFullYear() - 3;
+                    }
                 };
 
                 const handleConfirmNv = () => {
@@ -1515,6 +1524,7 @@
                 confirmNvBtn.addEventListener('click', handleConfirmNv);
                 applyVintageForm.addEventListener('submit', handleApplyVintage);
                 cancelBtn.addEventListener('click', handleCancel);
+                vintageInput.addEventListener('keydown', handleKeyDown); // Add new listener
 
                 openModal('nvPromptModal');
             });
