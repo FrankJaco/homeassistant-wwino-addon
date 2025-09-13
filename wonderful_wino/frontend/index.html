@@ -1483,12 +1483,10 @@
             scanWineForm.addEventListener('submit', async function (e) {
                 e.preventDefault();
                 const vivinoUrl = document.getElementById('vivinoUrlInput').value;
-
-                // Validation inspired by the Chrome Extension logic
                 const isValidVivinoWineUrl = (url) => url && url.includes('vivino.com') && /\/w\/\d+/.test(url);
-
                 if (!isValidVivinoWineUrl(vivinoUrl)) {
                     showMessage('scanMessage', "Invalid URL. Please use a specific Vivino wine page (must contain '/w/').", 'error');
+                    vivinoUrlInput.value = '';
                     return; // Stop the submission
                 }
 
