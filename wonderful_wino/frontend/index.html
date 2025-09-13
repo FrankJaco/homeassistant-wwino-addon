@@ -1482,12 +1482,28 @@
 
             scanWineForm.addEventListener('submit', async function (e) {
                 e.preventDefault();
-                const vivinoUrl = document.getElementById('vivinoUrlInput').value;
+                const vivinoUrlInput = document.getElementById('vivinoUrlInput');
+                const vivinoUrl = vivinoUrlInput.value;
+
+                // Primary URL validation
                 const isValidVivinoWineUrl = (url) => url && url.includes('vivino.com') && /\/w\/\d+/.test(url);
+
                 if (!isValidVivinoWineUrl(vivinoUrl)) {
                     showMessage('scanMessage', "Invalid URL. Please use a specific Vivino wine page (must contain '/w/').", 'error');
-                    vivinoUrlInput.value = '';
+                    vivinoUrlInput.value = ''; // Clear the input field on error
                     return; // Stop the submission
+                }
+
+                // NEW: Graceful check for Non-Vintage wines
+                const hasYearParam = /year=\d{4}/.test(vivinoUrl);
+                if (!hasYearParam) {
+                    // If the URL has no year, confirm with the user.
+                    const isConfirmedNV = confirm("This URL does not specify a vintage.\n\nDo you want to add it as a Non-Vintage (NV) wine?");
+                    if (!isConfirmedNV) {
+                        showMessage('scanMessage', "Action cancelled. Please find a URL with the correct vintage.", 'info');
+                        vivinoUrlInput.focus(); // Re-focus the input for easy correction
+                        return; // Stop the submission if the user cancels
+                    }
                 }
 
                 const payload = {
@@ -1502,7 +1518,7 @@
                     fetchInventory();
                 } catch (error) { /* Error shown by apiCall */ }
             });
-
+            
             entryForm.addEventListener('submit', async function (e) {
                 e.preventDefault();
                 const isEditMode = !!document.getElementById('entryVivinoUrl').value;
