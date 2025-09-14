@@ -1129,7 +1129,7 @@
                         const defaultVintage = new Date().getFullYear() - 3;
                         vintageInput.value = ''; // keep visually empty
 
-                            // intercept first arrow press when empty
+                        // intercept first arrow press when empty
                         const handler = (e) => {
                             if (!vintageInput.value && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
                                 e.preventDefault();
