@@ -1123,24 +1123,6 @@
                 case 'notesModal': prepareNotesModal(options.wine); break;
                 case 'settingsModal': prepareSettingsModal(); break;
                 case 'helpModal': prepareHelpModal(options.fromSettings); break;
-                case 'nvPromptModal': {
-                    const vintageInput = modalEl.querySelector('#nvPromptVintageInput');
-                    if (vintageInput) {
-                        const defaultVintage = new Date().getFullYear() - 3;
-                        vintageInput.value = ''; // keep visually empty
-
-                        // intercept first arrow press when empty
-                        const handler = (e) => {
-                            if (!vintageInput.value && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
-                                e.preventDefault();
-                                vintageInput.value = defaultVintage + (e.key === "ArrowUp" ? 1 : -1);
-                                vintageInput.removeEventListener("keydown", handler); // one-time setup
-                            }
-                        };
-                        vintageInput.addEventListener("keydown", handler);
-                    }
-                    break;
-                }
             }
 
             modalEl.classList.remove('hidden');
@@ -1490,32 +1472,35 @@
             document.getElementById('sortDescIcon').classList.toggle('hidden', currentSortDirection === 'asc');
         }
 
-        // NEW FUNCTION: Manages the NV prompt modal
         function promptForVintage() {
             return new Promise((resolve, reject) => {
-                window.nvPromptResolver = { resolve, reject }; // Store resolver globally to handle Escape key
+                window.nvPromptResolver = { resolve, reject }; // Store resolver to handle Escape key
                 const confirmNvBtn = document.getElementById('confirmNvBtn');
                 const applyVintageForm = document.getElementById('applyVintageForm');
                 const vintageInput = document.getElementById('nvPromptVintageInput');
                 const cancelBtn = document.getElementById('nvPromptCancelBtn');
 
-                vintageInput.value = ''; // Clear previous input
+                // Clear previous input for a clean slate
+                vintageInput.value = '';
+
+                // One-time handler for the first arrow key press on the empty input
+                const handleFirstArrowPress = (e) => {
+                    if (vintageInput.value === '' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+                        e.preventDefault(); // Prevent default behavior (e.g., going to 0)
+                        // Set the desired starting vintage
+                        vintageInput.value = new Date().getFullYear() - 3;
+                        // The browser will handle subsequent increments/decrements correctly
+                        vintageInput.removeEventListener('keydown', handleFirstArrowPress); // Remove listener
+                    }
+                };
 
                 const cleanup = () => {
                     confirmNvBtn.removeEventListener('click', handleConfirmNv);
                     applyVintageForm.removeEventListener('submit', handleApplyVintage);
                     cancelBtn.removeEventListener('click', handleCancel);
-                    vintageInput.removeEventListener('keydown', handleKeyDown); // Cleanup new listener
+                    vintageInput.removeEventListener('keydown', handleFirstArrowPress); // Ensure listener is removed
                     closeModal();
-                    window.nvPromptResolver = null; // Clean up global resolver
-                };
-
-                // NEW: Handle keydown to set a default starting vintage
-                const handleKeyDown = (e) => {
-                    if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && vintageInput.value === '') {
-                        e.preventDefault();
-                        vintageInput.value = new Date().getFullYear() - 3;
-                    }
+                    window.nvPromptResolver = null;
                 };
 
                 const handleConfirmNv = () => {
@@ -1527,7 +1512,8 @@
                     e.preventDefault();
                     const vintage = vintageInput.value;
                     const currentYear = new Date().getFullYear();
-                    if (vintage && /^\d{4}$/.test(vintage) && parseInt(vintage) >= 1900 && parseInt(vintage) <= currentYear + 5) {
+                    // CORRECTED VALIDATION: Checks from 1900 to the current year
+                    if (vintage && /^\d{4}$/.test(vintage) && parseInt(vintage) >= 1900 && parseInt(vintage) <= currentYear) {
                         cleanup();
                         resolve({ vintage: vintage });
                     } else {
@@ -1541,18 +1527,19 @@
                     reject('cancelled');
                 };
 
+                // Clear red border on new input
                 vintageInput.addEventListener('input', () => vintageInput.classList.remove('border-red-500'));
 
+                // Add all event listeners
                 confirmNvBtn.addEventListener('click', handleConfirmNv);
                 applyVintageForm.addEventListener('submit', handleApplyVintage);
                 cancelBtn.addEventListener('click', handleCancel);
-                vintageInput.addEventListener('keydown', handleKeyDown); // Add new listener
+                vintageInput.addEventListener('keydown', handleFirstArrowPress);
 
                 openModal('nvPromptModal');
             });
         }
-
-
+        
         document.addEventListener('DOMContentLoaded', async () => {
             const vivinoSearchForm = document.getElementById('vivinoSearchForm');
             const scanWineForm = document.getElementById('scanWineForm');
