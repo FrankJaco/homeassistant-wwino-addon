@@ -1124,6 +1124,14 @@
                 case 'notesModal': prepareNotesModal(options.wine); break;
                 case 'settingsModal': prepareSettingsModal(); break;
                 case 'helpModal': prepareHelpModal(options.fromSettings); break;
+                case 'nvPromptModal':
+                    const defaultVintage = new Date().getFullYear() - 3;
+                    const vintageInput = modalEl.querySelector('#nvPromptVintageInput');
+                    if (vintageInput) {
+                        vintageInput.value = defaultVintage;
+                        vintageInput.max = new Date().getFullYear() + 5; // keep your future-safe upper bound
+                    }
+                    break;
             }
             modalEl.classList.remove('hidden');
             openModalElement = modalEl;
