@@ -1116,6 +1116,7 @@
             const modalEl = document.getElementById(modalId);
             if (!modalEl || (openModalElement && openModalElement.id === modalId)) return;
             lastFocusedElement = document.activeElement;
+
             switch (modalId) {
                 case 'entryModal': prepareEntryModal(options.mode, options.wine); break;
                 case 'tasteModal': prepareTasteModal(options.wine); break;
@@ -1123,25 +1124,39 @@
                 case 'settingsModal': prepareSettingsModal(); break;
                 case 'helpModal': prepareHelpModal(options.fromSettings); break;
                 case 'nvPromptModal': {
-                    const defaultVintage = new Date().getFullYear() - 3;
                     const vintageInput = modalEl.querySelector('#nvPromptVintageInput');
                     if (vintageInput) {
-                        vintageInput.defaultValue = defaultVintage; // ← baseline for arrows
-                        vintageInput.value = '';                     // ← keep visually empty
+                        const defaultVintage = new Date().getFullYear() - 3;
+                        vintageInput.value = ''; // keep visually empty
+
+                            // intercept first arrow press when empty
+                        const handler = (e) => {
+                            if (!vintageInput.value && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+                                e.preventDefault();
+                                vintageInput.value = defaultVintage + (e.key === "ArrowUp" ? 1 : -1);
+                                vintageInput.removeEventListener("keydown", handler); // one-time setup
+                            }
+                        };
+                        vintageInput.addEventListener("keydown", handler);
                     }
                     break;
                 }
             }
+
             modalEl.classList.remove('hidden');
             openModalElement = modalEl;
-            const focusableElements = modalEl.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-            if (focusableElements.length > 0) {
 
-                const inputToFocus = modalId === 'nvPromptModal' ? modalEl.querySelector('#nvPromptVintageInput') : focusableElements[0];
+            const focusableElements = modalEl.querySelectorAll(
+                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+            );
+            if (focusableElements.length > 0) {
+                const inputToFocus = modalId === 'nvPromptModal'
+                    ? modalEl.querySelector('#nvPromptVintageInput')
+                    : focusableElements[0];
                 if (inputToFocus) inputToFocus.focus();
             }
         }
-        
+
         function closeModal() {
             if (!openModalElement) return;
             const modalToClose = openModalElement;
