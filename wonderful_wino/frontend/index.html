@@ -1161,8 +1161,9 @@
             if (!openModalElement) return;
             const modalToClose = openModalElement;
             openModalElement = null;
+            document.getElementById('manualVintageInput').value = '';
             modalToClose.classList.add('hidden');
-
+            
             if (modalToClose.id === 'helpModal' && window.fromSettings) {
                 window.fromSettings = false;
                 openModal('settingsModal');
@@ -1573,7 +1574,12 @@
             setupStarRating(document.getElementById('editTasteRatingSelector'), document.getElementById('manualTasteRatingInput'), document.getElementById('editTasteRatingFeedback'));
 
             document.getElementById('settingsButton').addEventListener('click', () => openModal('settingsModal'));
-            document.getElementById('openEntryModalBtn').addEventListener('click', () => openModal('entryModal', { mode: 'add' }));
+            document.getElementById('openEntryModalBtn').addEventListener('click', () => {
+                openModal('entryModal');
+                const manualVintageInput = document.getElementById('manualVintageInput');
+                const currentYear = new Date().getFullYear();
+                manualVintageInput.value = currentYear - 3;
+            });
             document.getElementById('themeToggle').addEventListener('click', () => {
                 document.body.classList.toggle('dark-theme');
                 const isDark = document.body.classList.contains('dark-theme');
