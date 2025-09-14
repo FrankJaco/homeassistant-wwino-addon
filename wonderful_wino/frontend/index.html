@@ -1471,7 +1471,6 @@
             document.getElementById('sortAscIcon').classList.toggle('hidden', currentSortDirection === 'desc');
             document.getElementById('sortDescIcon').classList.toggle('hidden', currentSortDirection === 'asc');
         }
-
         function promptForVintage() {
             return new Promise((resolve, reject) => {
                 window.nvPromptResolver = { resolve, reject };
@@ -1480,35 +1479,28 @@
                 const vintageInput = document.getElementById('nvPromptVintageInput');
                 const cancelBtn = document.getElementById('nvPromptCancelBtn');
                 const currentYear = new Date().getFullYear();
-
                 vintageInput.min = "1900";
                 vintageInput.max = currentYear;
-
                 vintageInput.value = '';
-
-                const handleFirstArrowPress = (e) => {
-                    if (vintageInput.value === '' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
-                        e.preventDefault();
+                const handleFirstInput = () => {
+                    if (vintageInput.value === vintageInput.min) {
                         vintageInput.value = currentYear - 3;
-                        vintageInput.removeEventListener('keydown', handleFirstArrowPress);
                     }
+                    vintageInput.removeEventListener('input', handleFirstInput);
                 };
-
                 const cleanup = () => {
                     confirmNvBtn.removeEventListener('click', handleConfirmNv);
                     applyVintageForm.removeEventListener('submit', handleApplyVintage);
                     cancelBtn.removeEventListener('click', handleCancel);
-                    vintageInput.removeEventListener('keydown', handleFirstArrowPress);
-                    vintageInput.classList.remove('border-red-500'); 
+                    vintageInput.removeEventListener('input', handleFirstInput);
+                    vintageInput.classList.remove('border-red-500');
                     closeModal();
                     window.nvPromptResolver = null;
                 };
-
                 const handleConfirmNv = () => {
                     cleanup();
                     resolve({ isNv: true });
                 };
-
                 const handleApplyVintage = (e) => {
                     e.preventDefault();
                     const vintage = vintageInput.value;
@@ -1520,22 +1512,18 @@
                         vintageInput.focus();
                     }
                 };
-
                 const handleCancel = () => {
                     cleanup();
                     reject('cancelled');
                 };
-
+                vintageInput.addEventListener('input', handleFirstInput);
                 vintageInput.addEventListener('input', () => vintageInput.classList.remove('border-red-500'));
                 confirmNvBtn.addEventListener('click', handleConfirmNv);
                 applyVintageForm.addEventListener('submit', handleApplyVintage);
                 cancelBtn.addEventListener('click', handleCancel);
-                vintageInput.addEventListener('keydown', handleFirstArrowPress);
-
                 openModal('nvPromptModal');
             });
         }
-        
         document.addEventListener('DOMContentLoaded', async () => {
             const vivinoSearchForm = document.getElementById('vivinoSearchForm');
             const scanWineForm = document.getElementById('scanWineForm');
@@ -1544,11 +1532,9 @@
             const notesForm = document.getElementById('notesForm');
             const sortSelect = document.getElementById('sortSelect');
             const sortDirectionToggle = document.getElementById('sortDirectionToggle');
-
             const savedTheme = localStorage.getItem('theme');
             if (savedTheme === 'dark') document.body.classList.add('dark-theme');
             document.getElementById('themeIcon').textContent = savedTheme === 'dark' ? '🌙' : '☀️';
-
             updateSortIcons();
             setupVintageControls();
             setupCostTierSelector('mainCostTierSelector', 'mainCostTierInput');
