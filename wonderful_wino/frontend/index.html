@@ -1013,32 +1013,64 @@
                 imageContainer.className = 'wine-image-container rounded-md overflow-hidden';
                 imageContainer.onclick = () => openModal('notesModal', { wine: item });
                 imageContainer.title = item.tasting_notes ? item.tasting_notes : 'Click to add tasting notes';
-                imageContainer.innerHTML = item.image_url
-                    ? `<img src="${item.image_url}" class="h-24 w-24 object-cover" alt="${escapeAttr(item.name)}">`
-                    : '<div class="text-gray-400 text-center w-24 h-24 flex items-center justify-center bg-gray-100">No Image</div>';
+                if (item.image_url) {
+                    const img = document.createElement('img');
+                    img.src = item.image_url;
+                    img.className = 'h-24 w-24 object-cover';
+                    img.alt = escapeAttr(item.name);
+                    imageContainer.appendChild(img);
+                } else {
+                    const noImgDiv = document.createElement('div');
+                    noImgDiv.className = 'text-gray-400 text-center w-24 h-24 flex items-center justify-center bg-gray-100';
+                    noImgDiv.textContent = 'No Image';
+                    imageContainer.appendChild(noImgDiv);
+                }
                 imageCell.appendChild(imageContainer);
 
+                // --- FIX: SECURELY BUILD DETAILS CELL ---
                 const detailsCell = document.createElement('td');
                 detailsCell.className = 'py-4 sm:p-4 text-sm text-gray-900 wine-details-cell w-full sm:w-auto text-center sm:text-left';
-                let detailsHtml = `<h4>${item.name || 'N/A'} ${item.vintage ? `(${item.vintage})` : '(NV)'}</h4>`;
-                if (item.varietal && item.varietal !== "Unknown Varietal") detailsHtml += `<p><strong>Varietal:</strong> ${item.varietal}</p>`;
-                const location = [item.region, item.country].filter(loc => loc && !loc.startsWith('Unknown')).join(', ');
-                if (location) detailsHtml += `<p><strong>Origin:</strong> ${location}</p>`;
 
+                const createDetailLine = (label, value) => {
+                    const p = document.createElement('p');
+                    const strong = document.createElement('strong');
+                    strong.textContent = `${label}: `;
+                    p.appendChild(strong);
+                    p.appendChild(document.createTextNode(value));
+                    return p;
+                };
+
+                const h4 = document.createElement('h4');
+                h4.textContent = `${item.name || 'N/A'} ${item.vintage ? `(${item.vintage})` : '(NV)'}`;
+                detailsCell.appendChild(h4);
+
+                if (item.varietal && item.varietal !== "Unknown Varietal") {
+                    detailsCell.appendChild(createDetailLine('Varietal', item.varietal));
+                }
+                const location = [item.region, item.country].filter(loc => loc && !loc.startsWith('Unknown')).join(', ');
+                if (location) {
+                    detailsCell.appendChild(createDetailLine('Origin', location));
+                }
                 let display_rating = item.personal_rating ?? item.vivino_rating;
                 if (item.personal_rating != null && item.vivino_rating != null) {
                     display_rating = (item.personal_rating + item.vivino_rating) / 2;
                 }
-                if (display_rating != null) detailsHtml += `<p><strong>Quality:</strong> ⭐ ${display_rating.toFixed(1)}</p>`;
-                if (item.cost_tier) detailsHtml += `<p><strong>Cost:</strong> ${'$'.repeat(item.cost_tier)}</p>`;
-
+                if (display_rating != null) {
+                    detailsCell.appendChild(createDetailLine('Quality', `⭐ ${display_rating.toFixed(1)}`));
+                }
+                if (item.cost_tier) {
+                    detailsCell.appendChild(createDetailLine('Cost', '$'.repeat(item.cost_tier)));
+                }
                 if (item.b4b_score != null) {
                     const b4bValue = Math.round(item.b4b_score);
                     const formatted = (b4bValue > 0 ? `+${b4bValue}` : b4bValue);
                     const colorClass = b4bValue > 0 ? "text-green-600" : b4bValue < 0 ? "text-red-600" : "";
-                    detailsHtml += `<p><strong>B4B:</strong> 🎯 <span class="${colorClass}">${formatted}</span></p>`;
+                    const p = document.createElement('p');
+                    // This innerHTML is safe as we control all its content parts.
+                    p.innerHTML = `<strong>B4B:</strong> 🎯 <span class="${colorClass}">${formatted}</span>`;
+                    detailsCell.appendChild(p);
                 }
-                detailsCell.innerHTML = detailsHtml;
+                // --- END FIX ---
 
                 const actionsCell = document.createElement('td');
                 actionsCell.className = 'py-4 sm:p-4 flex flex-row justify-center items-center gap-2 w-full sm:w-auto';
@@ -1055,9 +1087,8 @@
                 qtyInput.min = 0;
                 qtyInput.className = 'w-16 text-center border border-gray-300 rounded-md px-2 py-1';
                 qtyInput.title = 'Edit Quantity';
-                qtyInput.oninput = () => {
+                qtyInput.oninput = () => { // --- FIX: SIMPLIFIED HANDLER ---
                     qtyInput.value = qtyInput.value.replace(/[^0-9]/g, '');
-                    if (parseInt(qtyInput.value, 10) < 0) qtyInput.value = 0;
                 };
                 qtyInput.onblur = () => setWineQuantity(item.vivino_url, qtyInput.value);
                 qtyInput.onkeydown = (e) => { if (e.key === 'Enter') qtyInput.blur(); };
@@ -1145,7 +1176,7 @@
             openModalElement = null;
             document.getElementById('manualVintageInput').value = '';
             modalToClose.classList.add('hidden');
-            
+
             if (modalToClose.id === 'helpModal' && window.fromSettings) {
                 window.fromSettings = false;
                 openModal('settingsModal');
@@ -1158,7 +1189,6 @@
         document.addEventListener('keydown', (e) => {
             if (!openModalElement) return;
             if (e.key === 'Escape') {
-                // Allow escape to work like the cancel button in the NV prompt
                 if (openModalElement.id === 'nvPromptModal' && window.nvPromptResolver) {
                     window.nvPromptResolver.reject('cancelled');
                 } else {
@@ -1200,6 +1230,7 @@
                 submitBtn.textContent = 'Save Changes';
                 document.getElementById('entryVivinoUrl').value = wine.vivino_url;
                 document.getElementById('manualTastingNotesInput').value = wine.tasting_notes || '';
+                document.getElementById('manualImageUrlInput').value = wine.image_url || '';
                 document.getElementById('manualNameInput').value = wine.name;
                 if (wine.vintage) {
                     vintageInput.value = wine.vintage;
@@ -1471,6 +1502,7 @@
             document.getElementById('sortAscIcon').classList.toggle('hidden', currentSortDirection === 'desc');
             document.getElementById('sortDescIcon').classList.toggle('hidden', currentSortDirection === 'asc');
         }
+
         function promptForVintage() {
             return new Promise((resolve, reject) => {
                 window.nvPromptResolver = { resolve, reject };
@@ -1482,12 +1514,14 @@
                 vintageInput.min = "1900";
                 vintageInput.max = currentYear;
                 vintageInput.value = '';
+
                 const handleFirstInput = () => {
                     if (vintageInput.value === vintageInput.min) {
                         vintageInput.value = currentYear - 3;
                     }
                     vintageInput.removeEventListener('input', handleFirstInput);
                 };
+
                 const cleanup = () => {
                     confirmNvBtn.removeEventListener('click', handleConfirmNv);
                     applyVintageForm.removeEventListener('submit', handleApplyVintage);
@@ -1497,10 +1531,12 @@
                     closeModal();
                     window.nvPromptResolver = null;
                 };
+
                 const handleConfirmNv = () => {
                     cleanup();
                     resolve({ isNv: true });
                 };
+
                 const handleApplyVintage = (e) => {
                     e.preventDefault();
                     const vintage = vintageInput.value;
@@ -1512,18 +1548,21 @@
                         vintageInput.focus();
                     }
                 };
+
                 const handleCancel = () => {
                     cleanup();
                     reject('cancelled');
                 };
+
                 vintageInput.addEventListener('input', handleFirstInput);
-                vintageInput.addEventListener('input', () => vintageInput.classList.remove('border-red-500'));
                 confirmNvBtn.addEventListener('click', handleConfirmNv);
                 applyVintageForm.addEventListener('submit', handleApplyVintage);
                 cancelBtn.addEventListener('click', handleCancel);
+
                 openModal('nvPromptModal');
             });
         }
+
         document.addEventListener('DOMContentLoaded', async () => {
             const vivinoSearchForm = document.getElementById('vivinoSearchForm');
             const scanWineForm = document.getElementById('scanWineForm');
@@ -1533,14 +1572,19 @@
             const sortSelect = document.getElementById('sortSelect');
             const sortDirectionToggle = document.getElementById('sortDirectionToggle');
             const savedTheme = localStorage.getItem('theme');
+
             if (savedTheme === 'dark') document.body.classList.add('dark-theme');
             document.getElementById('themeIcon').textContent = savedTheme === 'dark' ? '🌙' : '☀️';
+
             updateSortIcons();
             setupVintageControls();
             setupCostTierSelector('mainCostTierSelector', 'mainCostTierInput');
             setupCostTierSelector('costTierSelector', 'manualCostTierInput');
             setupStarRating(document.getElementById('tasteRatingSelector'), document.getElementById('tasteRatingInput'), document.getElementById('tasteRatingFeedback'));
             setupStarRating(document.getElementById('editTasteRatingSelector'), document.getElementById('manualTasteRatingInput'), document.getElementById('editTasteRatingFeedback'));
+
+            // --- FIX: SET UP PERSISTENT LISTENER ---
+            document.getElementById('nvPromptVintageInput').addEventListener('input', (e) => e.target.classList.remove('border-red-500'));
 
             document.getElementById('settingsButton').addEventListener('click', () => openModal('settingsModal'));
             document.getElementById('openEntryModalBtn').addEventListener('click', () => {
@@ -1578,6 +1622,7 @@
             vivinoSearchForm.addEventListener('submit', function (e) {
                 e.preventDefault();
                 const query = document.getElementById('vivinoSearchInput').value;
+                if (!query) return;
                 window.open(`${VIVINO_SEARCH_URL}${encodeURIComponent(query)}`, '_blank');
                 const button = this.querySelector('button[type="submit"]');
                 const originalText = button.textContent;
@@ -1589,41 +1634,37 @@
             scanWineForm.addEventListener('submit', async function (e) {
                 e.preventDefault();
                 const vivinoUrlInput = document.getElementById('vivinoUrlInput');
-                let vivinoUrl = vivinoUrlInput.value; // Use let since it can be modified
+                let vivinoUrl = vivinoUrlInput.value.trim(); // Use let and trim whitespace
 
-                // Primary URL validation
                 const isValidVivinoWineUrl = (url) => url && url.includes('vivino.com') && /\/w\/\d+/.test(url);
-
                 if (!isValidVivinoWineUrl(vivinoUrl)) {
                     showMessage('scanMessage', "Invalid URL. Please use a specific Vivino wine page (must contain '/w/').", 'error');
                     vivinoUrlInput.value = '';
                     return;
                 }
 
-                // Check for vintage and prompt if missing
                 const hasYearParam = /year=\d{4}/.test(vivinoUrl);
                 if (!hasYearParam) {
                     try {
-                        const result = await promptForVintage(); // This 'await' pauses execution until the promise resolves
+                        const result = await promptForVintage();
                         if (result.isNv) {
                             // User chose NV, URL remains unchanged.
                         } else if (result.vintage) {
-                            // User provided a vintage, so we update the URL.
                             const url = new URL(vivinoUrl);
                             url.searchParams.set('year', result.vintage);
                             vivinoUrl = url.toString();
-                            vivinoUrlInput.value = vivinoUrl; // Also update the input field for the user to see
+                            vivinoUrlInput.value = vivinoUrl;
                         }
                     } catch (error) {
-                        // This block runs if the promise is rejected (user cancelled)
+                        if (error !== 'cancelled') console.error(error);
                         showMessage('scanMessage', 'Action cancelled.', 'info');
                         vivinoUrlInput.focus();
-                        return; // Stop the submission
+                        return;
                     }
                 }
 
                 const payload = {
-                    vivino_url: vivinoUrl, // Use the final, potentially updated URL
+                    vivino_url: vivinoUrl,
                     quantity: parseInt(document.getElementById('quantityInput').value, 10) || 1,
                     cost_tier: parseInt(document.getElementById('mainCostTierInput').value, 10) || null
                 };
@@ -1637,6 +1678,10 @@
 
             entryForm.addEventListener('submit', async function (e) {
                 e.preventDefault();
+                if (!this.checkValidity()) {
+                    showMessage('entryMessage', 'Please fill out all required fields.', 'error', true);
+                    return;
+                }
                 const isEditMode = !!document.getElementById('entryVivinoUrl').value;
                 const payload = {
                     name: document.getElementById('manualNameInput').value,
@@ -1691,7 +1736,7 @@
                 const isReadonly = imageUrlInput.hasAttribute('readonly');
                 imageUrlInput.toggleAttribute('readonly', !isReadonly);
                 e.target.textContent = isReadonly ? '🔓' : '🔒';
-                if (!isReadonly) imageUrlInput.focus();
+                if (isReadonly) imageUrlInput.focus(); // Focus only when unlocking
             });
 
             await fetchSettings();
