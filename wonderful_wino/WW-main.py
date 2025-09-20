@@ -790,6 +790,44 @@ def scan_wine():
     else:
         return jsonify({"status": "error", "message": "Failed to store/update wine data in database."}), 500
 
+def sync_to_ha_todo(wine_dict, quantity):
+    """
+    Syncs the given wine (dict) and its quantity to the Home Assistant To-Do list.
+    Creates or updates the item accordingly.
+    """
+    if not (HOME_ASSISTANT_URL and HA_LONG_LIVED_TOKEN and TODO_LIST_ENTITY_ID):
+        logger.warning("Home Assistant integration not configured; skipping sync to To-Do list.")
+        return
+
+    try:
+        headers = {
+            "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+            "Content-Type": "application/json",
+        }
+
+        item_summary = format_wine_for_todo(wine_dict)
+        item_description = build_markdown_description(wine_dict, quantity, is_for_todo=True)
+
+        payload = {
+            "entity_id": TODO_LIST_ENTITY_ID,
+            "item": {
+                "summary": item_summary,
+                "description": item_description,
+                "status": "needs_action",
+            }
+        }
+
+        resp = requests.post(f"{HOME_ASSISTANT_URL}/api/services/todo/add_item",
+                             headers=headers, json=payload, timeout=10)
+
+        if resp.status_code == 200:
+            logger.info(f"Synced '{item_summary}' to Home Assistant To-Do list.")
+        else:
+            logger.error(f"Failed to sync To-Do list item: {resp.status_code} - {resp.text}")
+
+    except Exception as e:
+        logger.error(f"Unexpected error syncing To-Do list: {e}")
+
 @app.route('/add-manual-wine', methods=['POST'])
 def add_manual_wine():
     data = request.get_json()
