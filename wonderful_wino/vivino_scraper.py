@@ -190,10 +190,73 @@ def _parse_dl_facts(soup, wine_data, grape_accumulator):
                 grape_accumulator.append(value.strip())
 
 def _process_grapes_and_heuristics(all_grape_names_collected, wine_data):
-    # (same logic you had before: dedup, Bordeaux heuristics, Syrah/Shiraz rename)
-    # ... omitted here for brevity, keep identical to my last refactor ...
-    # just copy the block from earlier `_process_grapes_and_heuristics`
-    pass
+    if all_grape_names_collected:
+        filtered_grapes = [
+            g for g in all_grape_names_collected
+            if g.lower() not in [
+                'red wine', 'white wine', 'sparkling wine', 'rosé wine',
+                'dessert wine', 'fortified wine', 'blend'
+            ]
+        ]
+
+        if filtered_grapes:
+            seen_grapes = set()
+            ordered_unique_grapes = []
+            for grape in all_grape_names_collected:
+                cleaned_grape = grape.strip()
+                if (cleaned_grape.lower() not in [
+                        'red wine', 'white wine', 'sparkling wine',
+                        'rosé wine', 'dessert wine', 'fortified wine', 'blend']
+                    and cleaned_grape not in seen_grapes):
+                    ordered_unique_grapes.append(cleaned_grape)
+                    seen_grapes.add(cleaned_grape)
+
+            # --- Bordeaux heuristics ---
+            region_str = wine_data.get('region', '')
+            if isinstance(region_str, str):
+                region_lower = region_str.lower()
+
+                # Right Bank: Merlot → Cab Franc → Cab Sauv
+                if any(rb in region_lower for rb in [
+                    'saint-émilion', 'pomerol', 'fronsac', 'canon-fronsac'
+                ]):
+                    preferred_order = ['Merlot', 'Cabernet Franc', 'Cabernet Sauvignon']
+                    reordered = [g for pref in preferred_order
+                                   for g in ordered_unique_grapes if pref.lower() == g.lower()]
+                    reordered.extend([g for g in ordered_unique_grapes if g not in reordered])
+                    ordered_unique_grapes = reordered
+
+                # Left Bank: Cab Sauv → Merlot → Cab Franc
+                elif any(lb in region_lower for lb in [
+                    'médoc', 'pauillac', 'margaux', 'haut-médoc',
+                    'saint-estèphe', 'saint-julien', 'listrac', 'moulis', 'graves'
+                ]):
+                    preferred_order = ['Cabernet Sauvignon', 'Merlot', 'Cabernet Franc']
+                    reordered = [g for pref in preferred_order
+                                   for g in ordered_unique_grapes if pref.lower() == g.lower()]
+                    reordered.extend([g for g in ordered_unique_grapes if g not in reordered])
+                    ordered_unique_grapes = reordered
+
+            # --- Syrah / Shiraz heuristics ---
+            country = wine_data.get('country', '').strip().lower()
+            is_australia_sa = country in ['australia', 'south africa']
+            transformed_grapes = []
+            for grape in ordered_unique_grapes:
+                if 'syrah' in grape.lower():
+                    transformed_grapes.append('Shiraz' if is_australia_sa else 'Syrah')
+                elif 'shiraz' in grape.lower():
+                    transformed_grapes.append('Shiraz' if is_australia_sa else 'Syrah')
+                else:
+                    transformed_grapes.append(grape)
+
+            wine_data['varietal'] = ", ".join(transformed_grapes)
+
+        elif 'blend' in [g.lower() for g in all_grape_names_collected]:
+            wine_data['varietal'] = 'Blend'
+        else:
+            wine_data['varietal'] = 'Unknown Varietal'
+    else:
+        wine_data['varietal'] = 'Unknown Varietal'
 
 def _rating_from_html(soup):
     rating_tags = soup.find_all('div', class_=re.compile(r'vivinoRating_averageValue|average-value|community-score__score|rating-value'))
