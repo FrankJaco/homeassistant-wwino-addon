@@ -265,129 +265,212 @@ def build_markdown_description(wine: dict, current_quantity: int, is_for_todo: b
         # The frontend will now construct its display from individual fields directly.
         return "  \n".join(description_parts)
 
-# --- DB Manager (small OOP refactor, backwards-compatible wrappers below) ---
-class DBManager:
-    def __init__(self, db_path):
-        self.db_path = db_path
-
-    def get_conn(self):
-        return sqlite3.connect(self.db_path)
-
-    def init_db(self):
-        """Initializes the SQLite database, creating the 'wines' and 'settings' table if they don't exist."""
-        conn = self.get_conn()
-        cursor = conn.cursor()
-        try:
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS wines (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    vivino_url TEXT UNIQUE NOT NULL,
-                    name TEXT NOT NULL,
-                    vintage INTEGER,
-                    varietal TEXT,
-                    region TEXT,
-                    country TEXT,
-                    vivino_rating REAL,
-                    image_url TEXT,
-                    quantity INTEGER DEFAULT 1,
-                    cost_tier INTEGER,
-                    personal_rating REAL,
-                    tasting_notes TEXT,
-                    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            ''')
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS settings (
-                    key TEXT PRIMARY KEY,
-                    value TEXT
-                )
-            ''')
-            conn.commit()
-            logger.info(f"SQLite database initialized at {self.db_path}")
-        finally:
-            conn.close()
-
-    def reinitialize_database(self):
-        """
-        Drops all existing tables and then recreates them by calling init_db(). Useful for a clean start.
-        """
-        conn = None
-        try:
-            conn = self.get_conn()
-            cursor = conn.cursor()
-
-            logger.warning("Attempting to reinitialize the database: Dropping existing 'wines' and 'settings' tables.")
-            cursor.execute("DROP TABLE IF EXISTS wines")
-            cursor.execute("DROP TABLE IF EXISTS settings")
-            conn.commit()
-
-            # Recreate tables
-            self.init_db()
-            logger.info("Successfully re-created database tables using init_db().")
-        except sqlite3.Error as e:
-            logger.error(f"Database error during reinitialization: {e}")
-            if conn:
-                conn.rollback()
-        finally:
-            if conn:
-                conn.close()
-
-    def insert_wine_data(self, wine_data, quantity=1, cost_tier=None):
-        """
-        Inserts new wine data into the SQLite database or updates the quantity
-        and other details if a wine with the same Vivino URL already exists.
-        """
-        conn = self.get_conn()
-        cursor = conn.cursor()
-        try:
-            cursor.execute("SELECT id, quantity FROM wines WHERE vivino_url = ?", (wine_data['vivino_url'],))
-            existing_wine = cursor.fetchone()
-
-            if existing_wine:
-                wine_id, current_quantity = existing_wine
-                new_quantity = current_quantity + quantity
-                cursor.execute('''
-                    UPDATE wines SET quantity = ?, name = ?, vintage = ?, varietal = ?, region = ?,
-                    country = ?, vivino_rating = ?, image_url = ?, cost_tier = ?, added_at = CURRENT_TIMESTAMP
-                    WHERE id = ?
-                ''', (
-                    new_quantity, wine_data['name'], wine_data['vintage'], wine_data['varietal'],
-                    wine_data['region'], wine_data['country'], wine_data['vivino_rating'],
-                    wine_data['image_url'], cost_tier, wine_id
-                ))
-                logger.info(f"Updated quantity for '{wine_data['name']}' to {new_quantity}.")
-            else:
-                cursor.execute('''
-                    INSERT INTO wines (vivino_url, name, vintage, varietal, region, country, vivino_rating, image_url, quantity, cost_tier, personal_rating, tasting_notes)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (
-                    wine_data['vivino_url'], wine_data['name'], wine_data['vintage'], wine_data['varietal'],
-                    wine_data['region'], wine_data['country'], wine_data['vivino_rating'],
-                    wine_data['image_url'], quantity, cost_tier, None, None
-                ))
-                logger.info(f"New wine '{wine_data['name']}' inserted with quantity {quantity}.")
-
-            conn.commit()
-            return True
-        except sqlite3.Error as e:
-            logger.error(f"Database error inserting/updating wine data for {wine_data.get('name', 'N/A')}: {e}")
-            conn.rollback()
-            return False
-        finally:
-            conn.close()
-
-# Instantiate the DBManager singleton used by wrapper functions below
-_db_manager = DBManager(DB_PATH)
-
-# Backwards-compatible wrappers (so existing calls in the file remain unchanged)
+# --- Database Initialization ---
 def init_db():
-    return _db_manager.init_db()
+    """Initializes the SQLite database, creating the 'wines' table if it doesn't exist."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    # MODIFICATION: Added tasting_notes column
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS wines (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            vivino_url TEXT UNIQUE NOT NULL,
+            name TEXT NOT NULL,
+            vintage INTEGER,
+            varietal TEXT,
+            region TEXT,
+            country TEXT,
+            vivino_rating REAL,
+            image_url TEXT,
+            quantity INTEGER DEFAULT 1,
+            cost_tier INTEGER,
+            personal_rating REAL,
+            tasting_notes TEXT,
+            added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        )
+    ''')
+    
+    conn.commit()
+    conn.close()
+    logger.info(f"SQLite database initialized at {DB_PATH}")
 
 def reinitialize_database():
-    return _db_manager.reinitialize_database()
+    """
+    Drops all existing tables and then recreates them by calling init_db().
+    Useful for a clean start of the database.
+    """
+    conn = None
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
 
-def insert_wine_data(wine_data, quantity=1, cost_tier=None):
-    return _db_manager.insert_wine_data(wine_data, quantity, cost_tier)
+        logger.warning("Attempting to reinitialize the database: Dropping existing 'wines' table.")
+        cursor.execute("DROP TABLE IF EXISTS wines")
+        cursor.execute("DROP TABLE IF EXISTS settings")
+        conn.commit()
+        logger.info("Successfully dropped 'wines' table (if it existed).")
+
+        # Call your existing database initialization function to recreate tables
+        init_db()
+        logger.info("Successfully re-created database tables using init_db().")
+
+    except sqlite3.Error as e:
+        logger.error(f"Database error during reinitialization: {e}")
+        if conn:
+            conn.rollback()
+    finally:
+        if conn:
+            conn.close()
+
+
+def sync_to_ha_todo(wine: dict, current_quantity: int) -> None:
+    """
+    Synchronizes a single wine item with the Home Assistant To-Do list.
+    It first attempts to remove the item (in case of updates or deletion),
+    then re-adds it if the quantity is greater than 0.
+    """
+    item_text = format_wine_for_todo(wine) # Formats as "Name (Vintage)"
+    description = build_markdown_description(wine, current_quantity, is_for_todo=True) # Includes quantity in description
+    entity_id = TODO_LIST_ENTITY_ID
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+    # Create a redacted headers dictionary for logging to avoid exposing token
+    redacted_headers = headers.copy()
+    if "Authorization" in redacted_headers:
+        redacted_headers["Authorization"] = "Bearer [REDACTED]"
+
+    # Always attempt to remove the old item first to ensure updates are reflected
+    remove_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_item"
+    remove_payload = {
+        "entity_id": entity_id,
+        "item": item_text
+    }
+    logger.debug(f"HA To-Do remove_item request: URL={remove_url}, Headers={redacted_headers}, Payload={remove_payload}")
+    try:
+        resp = requests.post(remove_url, json=remove_payload, headers=headers, timeout=5)
+        resp.raise_for_status()
+        logger.info(f"HA To-Do removed (or attempted to remove) for update/deletion: {item_text}")
+    except requests.exceptions.HTTPError as http_e:
+        # Check for specific ServiceValidationError related to item not found
+        if http_e.response.status_code == 500 and "Unable to find to-do list item" in http_e.response.text:
+            logger.warning(
+                f"HA To-Do remove attempt failed (Item Not Found) for '{item_text}'. "
+                f"This can be ignored if adding a new wine for the first time or item was already removed. "
+                f"Status: {http_e.response.status_code}, Response: {http_e.response.text}"
+            )
+        else:
+            logger.error(
+                f"HA To-Do remove attempt failed (HTTP Error) for '{item_text}'. "
+                f"Status: {http_e.response.status_code}, Response: {http_e.response.text}"
+            )
+    except Exception as e:
+        logger.warning(
+            f"HA To-Do remove attempt failed for '{item_text}'. "
+            f"This can be ignored if adding a new wine for the first time. "
+            f"Check Home Assistant logs if this persists for existing items or indicates a network problem: {e}"
+        )
+
+    if current_quantity > 0:
+        # If quantity > 0, re-add the item with the updated description
+        add_url = f"{HOME_ASSISTANT_URL}/api/services/todo/add_item"
+        add_payload = {
+            "entity_id": entity_id,
+            "item": item_text, # This now does NOT include quantity in the summary
+            "description": description # This DOES include quantity in the detailed description
+        }
+        logger.debug(f"HA To-Do add_item request: URL={add_url}, Headers={redacted_headers}, Payload={add_payload}")
+        try:
+            resp = requests.post(add_url, json=add_payload, headers=headers, timeout=5)
+            resp.raise_for_status()
+            logger.info(f"HA To-Do synchronized (re-added/updated) for: {item_text} with quantity {current_quantity}")
+        except requests.exceptions.HTTPError as http_e:
+            logger.error(
+                f"HA To-Do sync failed for add/update (HTTP Error): {item_text}. "
+                f"Status: {http_e.response.status_code}, Response: {http_e.response.text}"
+            )
+        except Exception as e:
+            logger.error(f"HA To-Do sync failed for add/update: {e}")
+    else:
+        logger.info(f"Wine quantity is 0. Item not re-added to HA To-Do: {item_text}")
+
+def clear_ha_todo_list() -> None:
+    """
+    Attempts to clear all items from the configured Home Assistant To-Do list.
+    Note: This function might be unreliable with some To-Do list integrations
+    due to API limitations or the need for specific item UIDs for removal.
+    It is currently commented out in the full sync process.
+    """
+    entity_id = TODO_LIST_ENTITY_ID
+    headers = {
+        "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
+        "Content-Type": "application/json",
+    }
+    redacted_headers = headers.copy()
+    if "Authorization" in redacted_headers:
+        redacted_headers["Authorization"] = "Bearer [REDACTED]"
+
+    clear_url = f"{HOME_ASSISTANT_URL}/api/services/todo/remove_all"
+    payload = {
+        "entity_id": entity_id
+    }
+
+    logger.debug(f"HA To-Do remove_all request: URL={clear_url}, Headers={redacted_headers}, Payload={payload}")
+    resp = None
+    try:
+        resp = requests.post(clear_url, json=payload, headers=headers, timeout=10)
+        resp.raise_for_status()
+        logger.info(f"Successfully sent request to clear all items from HA To-Do list: {entity_id}")
+    except requests.exceptions.HTTPError as http_e:
+        logger.error(
+            f"Failed to clear all items from HA To-Do list '{entity_id}' (HTTP Error). "
+            f"Status: {http_e.response.status_code}, Response: {http_e.response.text}"
+        )
+    except Exception as e:
+        logger.error(
+            f"Failed to clear all items from HA To-Do list '{entity_id}': {e}"
+        )
+
+def sync_db_to_ha_todo() -> None:
+    """
+    Performs a full synchronization of all wines from the local database
+    to the Home Assistant To-Do list. It iterates through each wine and
+    calls sync_to_ha_todo to ensure each item is correctly represented.
+    """
+    logger.info("Starting full synchronization from database to HA To-Do list.")
+    conn = None
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT * FROM wines")
+        wines = cursor.fetchall()
+
+        if not wines:
+            logger.info("No wines found in database for synchronization. HA To-Do list will remain as is (unless database was just reinitialized).")
+            return
+
+        for wine in wines:
+            wine_dict = dict(wine)
+            sync_to_ha_todo(wine_dict, wine_dict.get('quantity', 0))
+
+        logger.info(f"Completed synchronization of {len(wines)} wines from database to HA To-Do list.")
+    except sqlite3.Error as e:
+        logger.error(f"Database error during full sync to HA To-Do list: {e}")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred during full sync to HA To-Do list: {e}")
+    finally:
+        if conn:
+            conn.close()
 
 
 # --- Vivino Scraping Logic ---
@@ -691,6 +774,51 @@ def scrape_vivino_data(vivino_url):
     logger.info(f"Successfully scraped Vivino data for {wine_data.get('name', 'Unknown')} ({wine_data.get('vintage', 'NV')})")
     return wine_data
 
+def insert_wine_data(wine_data, quantity=1, cost_tier=None):
+    """
+    Inserts new wine data into the SQLite database or updates the quantity
+    and other details if a wine with the same Vivino URL already exists.
+    """
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT id, quantity FROM wines WHERE vivino_url = ?", (wine_data['vivino_url'],))
+        existing_wine = cursor.fetchone()
+
+        if existing_wine:
+            wine_id, current_quantity = existing_wine
+            new_quantity = current_quantity + quantity
+            cursor.execute('''
+                UPDATE wines SET quantity = ?, name = ?, vintage = ?, varietal = ?, region = ?,
+                country = ?, vivino_rating = ?, image_url = ?, cost_tier = ?, added_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            ''', (
+                new_quantity, wine_data['name'], wine_data['vintage'], wine_data['varietal'],
+                wine_data['region'], wine_data['country'], wine_data['vivino_rating'],
+                wine_data['image_url'], cost_tier, wine_id
+            ))
+            logger.info(f"Updated quantity for '{wine_data['name']}' to {new_quantity}.")
+        else:
+            # MODIFICATION: Added tasting_notes to insert statement
+            cursor.execute('''
+                INSERT INTO wines (vivino_url, name, vintage, varietal, region, country, vivino_rating, image_url, quantity, cost_tier, personal_rating, tasting_notes)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                wine_data['vivino_url'], wine_data['name'], wine_data['vintage'], wine_data['varietal'],
+                wine_data['region'], wine_data['country'], wine_data['vivino_rating'],
+                wine_data['image_url'], quantity, cost_tier, None, None
+            ))
+            logger.info(f"New wine '{wine_data['name']}' inserted with quantity {quantity}.")
+
+        conn.commit()
+        return True
+    except sqlite3.Error as e:
+        logger.error(f"Database error inserting/updating wine data for {wine_data.get('name', 'N/A')}: {e}")
+        conn.rollback()
+        return False
+    finally:
+        conn.close()
+
 @app.route('/api/settings', methods=['GET'])
 def get_settings():
     """Endpoint to retrieve all settings."""
@@ -789,44 +917,6 @@ def scan_wine():
             return jsonify({"status": "error", "message": "Failed to retrieve wine after update."}), 500
     else:
         return jsonify({"status": "error", "message": "Failed to store/update wine data in database."}), 500
-
-def sync_to_ha_todo(wine_dict, quantity):
-    """
-    Syncs the given wine (dict) and its quantity to the Home Assistant To-Do list.
-    Creates or updates the item accordingly.
-    """
-    if not (HOME_ASSISTANT_URL and HA_LONG_LIVED_TOKEN and TODO_LIST_ENTITY_ID):
-        logger.warning("Home Assistant integration not configured; skipping sync to To-Do list.")
-        return
-
-    try:
-        headers = {
-            "Authorization": f"Bearer {HA_LONG_LIVED_TOKEN}",
-            "Content-Type": "application/json",
-        }
-
-        item_summary = format_wine_for_todo(wine_dict)
-        item_description = build_markdown_description(wine_dict, quantity, is_for_todo=True)
-
-        payload = {
-            "entity_id": TODO_LIST_ENTITY_ID,
-            "item": {
-                "summary": item_summary,
-                "description": item_description,
-                "status": "needs_action",
-            }
-        }
-
-        resp = requests.post(f"{HOME_ASSISTANT_URL}/api/services/todo/add_item",
-                             headers=headers, json=payload, timeout=10)
-
-        if resp.status_code == 200:
-            logger.info(f"Synced '{item_summary}' to Home Assistant To-Do list.")
-        else:
-            logger.error(f"Failed to sync To-Do list item: {resp.status_code} - {resp.text}")
-
-    except Exception as e:
-        logger.error(f"Unexpected error syncing To-Do list: {e}")
 
 @app.route('/add-manual-wine', methods=['POST'])
 def add_manual_wine():
