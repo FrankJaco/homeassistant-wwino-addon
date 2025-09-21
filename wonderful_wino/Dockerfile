@@ -17,7 +17,7 @@ RUN apk add --no-cache \
 WORKDIR /app
 COPY requirements.txt .
 RUN pip3 install --break-system-packages --no-cache-dir -r requirements.txt
-COPY WW-main.py .
+COPY app/ /app/app/ 
 
 # --- Frontend Setup ---
 COPY frontend/ /app/frontend/
