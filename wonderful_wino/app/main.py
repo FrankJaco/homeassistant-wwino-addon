@@ -131,7 +131,7 @@ def edit_wine():
 @app.route('/inventory', methods=['GET'])
 def get_inventory():
     status_filter = request.args.get('filter', 'on_hand')
-    wines = db.get_wines(status_filter)
+    wines = db.get_all_wines(status_filter)
     
     # Add B4B score to each wine
     for wine in wines:
@@ -236,7 +236,7 @@ def save_wine_notes():
 
 @app.route("/sync-all-wines", methods=["POST"])
 def sync_all_wines():
-    wines = db.get_wines(status_filter='all')
+    wines = db.get_all_wines(status_filter='all')
     ha_service.sync_all_wines_to_ha(wines)
     return jsonify({"status": "success", "message": "All wines synchronized."}), 200
 
@@ -258,7 +258,7 @@ def restore_db_route():
     success, message = db.restore_database()
     if success:
         # After a restore, it's a good idea to re-sync everything to HA
-        wines = db.get_wines(status_filter='on_hand')
+        wines = db.get_all_wines(status_filter='on_hand')
         ha_service.sync_all_wines_to_ha(wines)
         return jsonify({"status": "success", "message": message}), 200
     else:
@@ -294,4 +294,3 @@ if __name__ == '__main__':
     db.init_db() # Initialize the database on startup
     logger.info(f"Starting Wonderful Wino on port 5000 with log level {config.LOG_LEVEL}")
     app.run(host='0.0.0.0', port=5000)
-
