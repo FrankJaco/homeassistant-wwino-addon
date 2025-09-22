@@ -13,6 +13,9 @@ We know many "WWinos" out there are already familiar with the fantastic [Vivino]
 
 Please see the documentation tab for more information and configuration details. 
 
+There are currently two additional tools to help make adding your wine to your inventory a breeze after a visit to your favorite wine merchant: For those users of the Chrome Browser, the [Wonderful Wino Chrome Extension] (https://github.com/FrankJaco/wwino-chrome-extension). And for Anddroid phone users who utilize the Vivino App there is the [Wonderful Wino Helper App] (https://github.com/FrankJaco/wwino-android-helper). More info regarding these additional tools can be found on their respective Github repository pages.
+
+
 Cheers!
 
 [aarch64-shield]: https://img.shields.io/badge/aarch64-yes-green.svg
