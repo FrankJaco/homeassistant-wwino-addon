@@ -8,8 +8,8 @@ from . import config, db, scraper, ha_service, formatting
 logger = logging.getLogger(__name__)
 
 # --- Flask App Setup ---
-# The static folder is set to ../../frontend because this file is in app/
-app = Flask(__name__, static_folder="../../frontend", static_url_path="")
+# The static folder is set to ../frontend because this file is in app/
+app = Flask(__name__, static_folder="../frontend", static_url_path="")
 CORS(app)
 
 # --- Flask WSGI Middleware for Home Assistant Ingress ---
