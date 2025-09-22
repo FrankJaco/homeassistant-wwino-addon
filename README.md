@@ -13,9 +13,6 @@ We know many "WWinos" out there are already familiar with the fantastic [Vivino]
 
 Please see the documentation tab for more information and configuration details. 
 
-[In addition to the Wonderfu](https://github.com/FrankJaco/wwino-chrome-extension)l Wino addon, the [Wonderful Wino Helper](https://github.com/FrankJaco/wwino-android-helper) companion app makes [the task of adding new bott](https://github.com/FrankJaco/wwino-chrome-extension)les after a trip to your favorite wine merchant a breeze. Note at this time, the helper app is only available for [Android phones and tablets.](https://github.com/FrankJaco/wwino-chrome-extension)
-
-
 Cheers!
 
 [aarch64-shield]: https://img.shields.io/badge/aarch64-yes-green.svg
