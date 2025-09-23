@@ -277,7 +277,10 @@ def delete_wine_by_url(vivino_url):
             conn.close()
 
 def update_wine_quantity_and_rating(vivino_url, new_quantity, personal_rating):
-    """Updates both the quantity and personal rating of a wine."""
+    """
+    Updates both the quantity and personal rating of a wine.
+    Returns the updated wine record as a dictionary or None on failure.
+    """
     conn = None
     try:
         conn = get_db_connection()
@@ -289,12 +292,18 @@ def update_wine_quantity_and_rating(vivino_url, new_quantity, personal_rating):
             cursor.execute("UPDATE wines SET quantity = ? WHERE vivino_url = ?", (new_quantity, vivino_url))
             logger.info(f"Updated quantity to {new_quantity} for {vivino_url}")
         conn.commit()
-        return True
+        
+        # Re-fetch the updated row to return
+        cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url,))
+        updated_wine = cursor.fetchone()
+        
+        return dict(updated_wine) if updated_wine else None
+        
     except sqlite3.Error as e:
         logger.error(f"Database error updating quantity and rating: {e}")
         if conn:
             conn.rollback()
-        return False
+        return None
     finally:
         if conn:
             conn.close()
