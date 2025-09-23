@@ -1,11 +1,10 @@
-# main.py
-
 import os
 import logging
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from . import config, db, ha_service, scraper, formatting
 import re
+from urllib.parse import urlparse, urlunparse # Import urlunparse
 
 # Get the logger from the config file
 logger = logging.getLogger(__name__)
@@ -35,16 +34,13 @@ app.wsgi_app = ReverseProxied(app.wsgi_app)
 
 # --- Flask Routes ---
 
-# **FIX:** Added the missing /api/settings routes
 @app.route('/api/settings', methods=['GET'])
 def get_settings():
-    """Endpoint to retrieve all settings."""
     settings_dict = db.get_settings()
     return jsonify(settings_dict), 200
 
 @app.route('/api/settings', methods=['POST'])
 def update_settings():
-    """Endpoint to save or update settings."""
     data = request.get_json()
     if not isinstance(data, dict):
         return jsonify({"error": "Invalid data format"}), 400
@@ -54,6 +50,7 @@ def update_settings():
     else:
         return jsonify({"error": "Database error"}), 500
 
+
 @app.route('/scan-wine', methods=['POST'])
 def scan_wine():
     data = request.get_json()
@@ -61,31 +58,40 @@ def scan_wine():
         return jsonify({"status": "error", "message": "Missing 'vivino_url' in request body"}), 400
 
     vivino_url = data['vivino_url']
+    
+    # --- NEW: URL SANITIZATION LOGIC ---
+    # This logic is ported from the Chrome Extension to ensure all URLs are consistent.
+    try:
+        parsed_url = urlparse(vivino_url)
+        # Rebuild the URL with only the scheme, netloc, and path, stripping all query params.
+        # This creates the clean base URL.
+        clean_url_parts = (parsed_url.scheme, parsed_url.netloc, parsed_url.path, '', '', '')
+        sanitized_url = urlunparse(clean_url_parts)
+        logger.debug(f"Sanitized URL from '{vivino_url}' to '{sanitized_url}'")
+        vivino_url = sanitized_url # Use the clean URL for the rest of the process
+    except Exception as e:
+        logger.error(f"Failed to sanitize URL {vivino_url}: {e}")
+        # Proceed with the original URL if sanitization fails for any reason
+    # --- END NEW LOGIC ---
+    
     quantity = data.get('quantity', 1)
     cost_tier = data.get('cost_tier')
 
     if not isinstance(quantity, int) or quantity < 1:
         quantity = 1
 
-    # FIX: The scraper now returns two values: the data and the final URL.
     wine_data, canonical_url = scraper.scrape_vivino_data(vivino_url)
     
-    # FIX: Handle the stricter failure modes from the scraper.
     if not wine_data or not canonical_url:
-        # Point 4 of our plan: Better error reporting.
         return jsonify({"status": "error", "message": "Scraping failed: Could not identify valid wine details on the page."}), 500
 
-    # FIX: Use the canonical_url for all subsequent database operations.
     wine_data['vivino_url'] = canonical_url
 
-    # Check for existing wine using the canonical URL first.
     existing_wine_row = db.get_wine_by_url(canonical_url)
     if not existing_wine_row:
-        # Fallback to name/vintage check for potential duplicates missed by URL.
         existing_wine_row = db.get_wine_by_name_and_vintage(wine_data['name'], wine_data['vintage'])
     
     if existing_wine_row:
-        # If a match was found, ensure we use its existing URL to correctly update the quantity.
         wine_data['vivino_url'] = existing_wine_row['vivino_url']
 
     if db.add_or_update_wine(wine_data, quantity, cost_tier):
@@ -104,6 +110,7 @@ def scan_wine():
     else:
         return jsonify({"status": "error", "message": "Failed to store/update wine data in database."}), 500
 
+# ... (all other routes remain the same, no changes needed below this line) ...
 
 @app.route('/add-manual-wine', methods=['POST'])
 def add_manual_wine():
@@ -332,7 +339,9 @@ def rate_wine():
     updated_wine_row = db.get_wine_by_url(vivino_url)
     if updated_wine_row and updated_wine_row['quantity'] > 0:
         ha_service.sync_wine_to_todo(updated_wine_row, updated_wine_row['quantity'])
+    
     return jsonify({"status": "success"}), 200
+
 
 @app.route('/api/wine/notes', methods=['POST'])
 def save_tasting_notes_and_image():
@@ -353,21 +362,22 @@ def save_tasting_notes_and_image():
     else:
         return jsonify({"status": "error", "message": "Wine not found or DB error."}), 404
 
+
 @app.route("/sync-all-wines", methods=["POST"])
 def sync_all_wines_to_ha_endpoint():
     try:
-        wines = db.get_all_wines(status_filter='all') # Get all wines to sync
-        # **FIX:** Changed function name to match ha_service.py
-        ha_service.sync_all_wines_to_ha(wines)
+        wines = db.get_all_wines(status_filter='all')
+        ha_service.force_clear_ha_list() # First clear
+        ha_service.sync_all_wines_to_ha(wines) # Then add back
         return jsonify({"status": "success", "message": "All wines synchronized."}), 200
     except Exception as e:
-        logger.error(f"Error during full sync: {e}", exc_info=True) # Added exc_info for better logging
+        logger.error(f"Error during full sync: {e}", exc_info=True)
         return jsonify({"status": "error", "message": "Internal error during sync."}), 500
+
 
 @app.route("/reinitialize-database-action", methods=["POST"])
 def reinitialize_db_endpoint():
     try:
-        # **FIX:** Force clear the HA list using our DB history BEFORE wiping the DB.
         ha_service.force_clear_ha_list()
         db.reinitialize_database()
         return jsonify({"status": "success", "message": "Database reinitialized."}), 200
@@ -375,21 +385,7 @@ def reinitialize_db_endpoint():
         logger.error(f"Error reinitializing database: {e}", exc_info=True)
         return jsonify({"status": "error", "message": "Internal error during reinitialization."}), 500
 
-@app.route("/restore-database", methods=["POST"])
-def restore_db_endpoint():
-    try:
-        success, message = db.restore_database()
-        if success:
-            # **FIX:** Get ALL wines (including qty 0) for a full sync after restore.
-            wines = db.get_all_wines(status_filter='all')
-            ha_service.sync_all_wines_to_ha(wines)
-            return jsonify({"status": "success", "message": message}), 200
-        else:
-            return jsonify({"status": "error", "message": message}), 500
-    except Exception as e:
-        logger.error(f"Error during restore: {e}", exc_info=True)
-        return jsonify({"status": "error", "message": "Restore failed."}), 50
-    
+
 @app.route("/backup-database", methods=["POST"])
 def backup_db_endpoint():
     try:
@@ -401,6 +397,23 @@ def backup_db_endpoint():
     except Exception as e:
         logger.error(f"Error during backup: {e}", exc_info=True)
         return jsonify({"status": "error", "message": "Backup failed."}), 500
+
+
+@app.route("/restore-database", methods=["POST"])
+def restore_db_endpoint():
+    try:
+        success, message = db.restore_database()
+        if success:
+            wines = db.get_all_wines(status_filter='all')
+            ha_service.force_clear_ha_list() # First clear
+            ha_service.sync_all_wines_to_ha(wines) # Then add back
+            return jsonify({"status": "success", "message": message}), 200
+        else:
+            return jsonify({"status": "error", "message": message}), 500
+    except Exception as e:
+        logger.error(f"Error during restore: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": "Restore failed."}), 500
+
 
 @app.route("/")
 def serve_frontend():
