@@ -8,7 +8,7 @@ from . import config, db, ha_service, scraper, formatting
 logger = logging.getLogger(__name__)
 
 # --- Flask App Setup ---
-app = Flask(__name__, static_folder="../../frontend", static_url_path="")
+app = Flask(__name__, static_folder="../frontend", static_url_path="")
 CORS(app)
 
 # --- Flask WSGI Middleware for Home Assistant Ingress ---
@@ -355,11 +355,11 @@ def restore_db_endpoint():
 
 @app.route("/")
 def serve_frontend():
-    return send_from_directory("../../frontend", "index.html")
+    return send_from_directory("../frontend", "index.html")
 
 @app.route("/<path:path>")
 def serve_static(path):
-    return send_from_directory("../../frontend", path)
+    return send_from_directory("../frontend", path)
 
 # --- Main Execution ---
 if __name__ == '__main__':
