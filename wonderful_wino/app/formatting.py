@@ -42,9 +42,9 @@ def format_wine_for_todo(wine: dict) -> str:
     vintage = wine.get("vintage")
 
     if vintage:
-        return f"{name} ({vintage})"
+        return f"{name.strip()} ({vintage})"
     else:
-        return name
+        return name.strip()
 
 def build_markdown_description(wine: dict, current_quantity: int, is_for_todo: bool = True) -> str:
     """
