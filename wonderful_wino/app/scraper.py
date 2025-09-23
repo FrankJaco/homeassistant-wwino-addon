@@ -28,10 +28,13 @@ def scrape_vivino_data(vivino_url):
         canonical_url = response.url
         logger.debug(f"Request sent. Initial URL: {vivino_url}, Final (Canonical) URL: {canonical_url}")
 
-        if response.status_code != 200:
-            logger.error(f"Vivino returned non-200 status code: {response.status_code} for URL {canonical_url}")
+        # FIX: Relax the status code check to allow 202 Accepted, which Vivino sometimes sends for valid pages.
+        # The final check for a real wine name will prevent bad data from getting through.
+        if response.status_code not in [200, 202]:
+            logger.error(f"Vivino returned unacceptable status code: {response.status_code} for URL {canonical_url}")
             return None, None
 
+        # Raise an exception for actual client/server errors (4xx or 5xx)
         response.raise_for_status()
 
         soup = BeautifulSoup(response.text, 'lxml')
@@ -48,6 +51,7 @@ def scrape_vivino_data(vivino_url):
 
         all_grape_names_collected = []
 
+        # --- (Full parsing logic as before) ---
         script_tags = soup.find_all('script', type='application/ld+json')
         for script in script_tags:
             try:
@@ -303,7 +307,7 @@ def scrape_vivino_data(vivino_url):
                     wine_data['vintage'] = int(query_params['year'][0])
             except (ValueError, IndexError):
                 pass
-
+        
         if wine_data['name'] == 'Unknown Wine':
             logger.warning(f"Scraping succeeded but no wine name was found on page {canonical_url}. Discarding results.")
             return None, None
