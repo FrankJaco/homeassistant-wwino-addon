@@ -13,19 +13,29 @@ def _parse_url_for_fallback_data(url: str):
     """
     Parses a Vivino URL to get a fallback name and vintage.
     This is the final safety net if all scraping fails.
+    It now handles both long (web) and short (Android) URL formats.
     """
     try:
         parsed_url = urlparse(url)
         query_params = parse_qs(parsed_url.query)
         vintage = int(query_params['year'][0]) if 'year' in query_params else None
 
-        path_name = None
+        # Try to parse the long (web) format first
         match = re.search(r'/(?:[a-zA-Z]{2}/)?([^/]+)/w/', parsed_url.path)
         if match:
             path_name = match.group(1).replace('-', ' ').title()
-
-        if path_name:
+            logger.debug(f"Fallback parser matched long URL format for name: {path_name}")
             return {'name': path_name, 'vintage': vintage}
+        
+        # NEW: If that fails, try to parse the short (Android) format
+        match = re.search(r'/wines/(\d+)', parsed_url.path)
+        if match:
+            wine_id = match.group(1)
+            # We can't get a real name, so we create a useful placeholder.
+            path_name = f"Vivino Wine ID {wine_id}"
+            logger.debug(f"Fallback parser matched short URL format, created placeholder name: {path_name}")
+            return {'name': path_name, 'vintage': vintage}
+
     except (ValueError, IndexError, TypeError) as e:
         logger.error(f"Could not parse fallback data from URL {url}: {e}")
     
