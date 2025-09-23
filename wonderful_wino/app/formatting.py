@@ -22,14 +22,14 @@ def calculate_b4b_score(wine: dict):
     cost_tier = wine.get('cost_tier')
     
     # Check if all required values are present and valid
-    if not all([display_rating is not None, cost_tier is not None, isinstance(cost_tier, int), cost_tier > 0]):
+    if not (display_rating is not None and cost_tier is not None and isinstance(cost_tier, int) and cost_tier > 0):
         return None
 
     try:
         raw_score = (23.76 * display_rating) - (19.8 * cost_tier)
         return round(raw_score)
     except (TypeError, ValueError) as e:
-        logger.warning(f"Failed to calculate B4B score for wine {wine.get('name')}: {e}")
+        logger.warning(f"Failed to calculate B4b score for wine {wine.get('name')}: {e}")
         return None
 
 
