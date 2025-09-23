@@ -35,6 +35,26 @@ app.wsgi_app = ReverseProxied(app.wsgi_app)
 
 # --- Flask Routes ---
 
+# **FIX:** Added the missing /api/settings routes
+@app.route('/api/settings', methods=['GET'])
+def get_settings():
+    """Endpoint to retrieve all settings."""
+    settings_dict = db.get_settings()
+    return jsonify(settings_dict), 200
+
+@app.route('/api/settings', methods=['POST'])
+def update_settings():
+    """Endpoint to save or update settings."""
+    data = request.get_json()
+    if not isinstance(data, dict):
+        return jsonify({"error": "Invalid data format"}), 400
+    
+    if db.update_settings(data):
+        return jsonify({"status": "success", "message": "Settings updated successfully."}), 200
+    else:
+        return jsonify({"error": "Database error"}), 500
+
+
 @app.route('/scan-wine', methods=['POST'])
 def scan_wine():
     data = request.get_json()
@@ -52,19 +72,14 @@ def scan_wine():
     if not wine_data:
         return jsonify({"status": "error", "message": "Failed to scrape data from Vivino URL."}), 500
 
-    # **FIX:** Restore original logic to prevent duplicates.
-    # First, try to find a wine by the exact URL.
-    # If not found, fall back to checking by name and vintage.
     existing_wine_row = db.get_wine_by_url(vivino_url)
     if not existing_wine_row:
         existing_wine_row = db.get_wine_by_name_and_vintage(wine_data['name'], wine_data['vintage'])
     
-    # If an existing wine was found by either method, use its URL as the canonical one.
     if existing_wine_row:
         wine_data['vivino_url'] = existing_wine_row['vivino_url']
 
     if db.add_or_update_wine(wine_data, quantity, cost_tier):
-        # Use the canonical URL to fetch the final, updated record.
         updated_wine_row = db.get_wine_by_url(wine_data['vivino_url'])
         if updated_wine_row:
             current_total_quantity = updated_wine_row.get('quantity', 0)
@@ -95,7 +110,6 @@ def add_manual_wine():
     safe_name = re.sub(r'[^a-zA-Z0-9_]', '', data['name'].replace(' ', '_')).lower()
     synthetic_url = f"manual:{safe_name}:{data['vintage']}"
     
-    # **FIX:** When manually adding, check if it already exists to avoid overwriting.
     existing_wine = db.get_wine_by_url(synthetic_url)
     if not existing_wine:
         existing_wine = db.get_wine_by_name_and_vintage(data['name'], data['vintage'])
@@ -140,13 +154,10 @@ def edit_wine():
     vivino_url = data['vivino_url']
     old_wine_row = db.get_wine_by_url(vivino_url)
     if not old_wine_row:
-        # **FIX:** Added error handling for when the wine to edit doesn't exist.
         return jsonify({"status": "error", "message": "Wine to edit not found."}), 404
 
-    # First, remove the old item from the To-Do list to prevent duplicates
     ha_service.sync_wine_to_todo(old_wine_row, 0)
         
-    # Update the wine in the database
     success = db.update_wine_details(
         vivino_url,
         data['name'],
@@ -161,12 +172,9 @@ def edit_wine():
     )
     
     if not success:
-        # **FIX:** Added error handling in case the database update fails.
-        # Re-sync the old data to avoid leaving the to-do list in a bad state.
         ha_service.sync_wine_to_todo(old_wine_row, old_wine_row['quantity'])
         return jsonify({"status": "error", "message": "Database error while editing wine."}), 500
     
-    # Re-sync the updated wine to the To-Do list
     updated_wine_row = db.get_wine_by_url(vivino_url)
     if updated_wine_row:
         ha_service.sync_wine_to_todo(updated_wine_row, updated_wine_row['quantity'])
@@ -179,7 +187,6 @@ def get_inventory():
     status_filter = request.args.get('filter', 'on_hand')
     wines = db.get_all_wines(status_filter)
     
-    # Calculate B4B score for each wine on the fly
     for wine in wines:
         wine['b4b_score'] = formatting.calculate_b4b_score(wine)
         
@@ -275,7 +282,6 @@ def consume_wine():
         else:
             return jsonify({'error': 'Failed to update wine in database'}), 500
     
-    # If quantity was already 0, just return the current state
     return jsonify({'status': 'success', 'new_quantity': new_quantity})
 
 
@@ -338,18 +344,18 @@ def save_tasting_notes_and_image():
     if db.update_wine_notes_and_image(vivino_url, tasting_notes, image_url):
         return jsonify({"status": "success", "message": "Details saved."}), 200
     else:
-        # The function returns False if the wine wasn't found or an error occurred.
         return jsonify({"status": "error", "message": "Wine not found or DB error."}), 404
 
 
 @app.route("/sync-all-wines", methods=["POST"])
-def sync_all_wines_to_ha_endpoint(): # Renamed to avoid conflict
+def sync_all_wines_to_ha_endpoint():
     try:
-        wines = db.get_all_wines()
-        ha_service.sync_all_wines(wines)
+        wines = db.get_all_wines(status_filter='all') # Get all wines to sync
+        # **FIX:** Changed function name to match ha_service.py
+        ha_service.sync_all_wines_to_ha(wines)
         return jsonify({"status": "success", "message": "All wines synchronized."}), 200
     except Exception as e:
-        logger.error(f"Error during full sync: {e}")
+        logger.error(f"Error during full sync: {e}", exc_info=True) # Added exc_info for better logging
         return jsonify({"status": "error", "message": "Internal error during sync."}), 500
 
 
@@ -357,10 +363,10 @@ def sync_all_wines_to_ha_endpoint(): # Renamed to avoid conflict
 def reinitialize_db_endpoint():
     try:
         db.reinitialize_database()
-        ha_service.sync_all_wines([]) # Clear HA to-do list
+        ha_service.sync_all_wines_to_ha([])
         return jsonify({"status": "success", "message": "Database reinitialized."}), 200
     except Exception as e:
-        logger.error(f"Error reinitializing database: {e}")
+        logger.error(f"Error reinitializing database: {e}", exc_info=True)
         return jsonify({"status": "error", "message": "Internal error during reinitialization."}), 500
 
 
@@ -373,7 +379,7 @@ def backup_db_endpoint():
         else:
             return jsonify({"status": "error", "message": message}), 500
     except Exception as e:
-        logger.error(f"Error during backup: {e}")
+        logger.error(f"Error during backup: {e}", exc_info=True)
         return jsonify({"status": "error", "message": "Backup failed."}), 500
 
 
@@ -382,13 +388,13 @@ def restore_db_endpoint():
     try:
         success, message = db.restore_database()
         if success:
-            wines = db.get_all_wines()
-            ha_service.sync_all_wines(wines)
+            wines = db.get_all_wines(status_filter='all')
+            ha_service.sync_all_wines_to_ha(wines)
             return jsonify({"status": "success", "message": message}), 200
         else:
             return jsonify({"status": "error", "message": message}), 500
     except Exception as e:
-        logger.error(f"Error during restore: {e}")
+        logger.error(f"Error during restore: {e}", exc_info=True)
         return jsonify({"status": "error", "message": "Restore failed."}), 500
 
 
