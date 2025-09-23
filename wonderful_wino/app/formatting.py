@@ -1,5 +1,3 @@
-# formatting.py
-
 import logging
 from .config import COUNTRY_ABBREVIATIONS
 
@@ -8,7 +6,6 @@ logger = logging.getLogger(__name__)
 def _get_display_rating(wine: dict):
     """
     Helper to determine the display rating, averaging if both personal and vivino ratings exist.
-    This restores the original logic from WW-main.py.
     """
     personal_rating = wine.get('personal_rating')
     vivino_rating = wine.get('vivino_rating')
@@ -29,8 +26,6 @@ def _get_display_rating(wine: dict):
 def calculate_b4b_score(wine: dict):
     """
     Calculates the Best-for-Budget (B4B) score based on rating and cost tier.
-    Formula: (23.76 * Rating) - (19.8 * Cost Tier)
-    Returns a rounded integer score or None if data is missing.
     """
     display_rating = _get_display_rating(wine)
     cost_tier = wine.get('cost_tier')
@@ -47,26 +42,36 @@ def calculate_b4b_score(wine: dict):
 
 def format_wine_for_todo(wine: dict) -> str:
     """
-    Formats the wine name and vintage for display in the Home Assistant To-Do list item summary.
-    This format is also used for matching items for removal/update.
-    Example: "Wine Name (2020)"
+    Formats the wine name and vintage for the HA To-Do list item summary.
+    Truncates the wine name if the total string would exceed 255 characters.
     """
     name = wine.get("name") or "n/a"
     vintage = wine.get("vintage")
-    
+
+    # FIX: Implement truncation logic to respect Home Assistant's 255 character limit.
     if vintage:
-        return f"{name} ({vintage})"
+        # The suffix " (YYYY)" takes 7 characters. Max name length is 255 - 7 = 248.
+        max_name_length = 248
+        suffix = f" ({vintage})"
     else:
-        return name
+        # If there's no vintage, the name can take the full space.
+        max_name_length = 255
+        suffix = ""
+    
+    # Truncate if necessary, leaving room for an ellipsis.
+    if len(name) > max_name_length:
+        name = name[:max_name_length - 3] + "..."
+    
+    return f"{name}{suffix}"
+
 
 def build_markdown_description(wine: dict, current_quantity: int) -> str:
     """
     Builds a Markdown-formatted description for the wine, used in the To-Do list item's description.
-    Includes varietal, region, country, quantity, and rating with proper truncation.
     """
     description_parts = []
     
-    # **This is the original, correct truncation logic for varietals**
+    # This complex truncation logic for the description is fine as-is.
     varietal_str = wine.get("varietal")
     rendered_varietal_line_markdown = []
     current_visual_length = 0
@@ -109,7 +114,6 @@ def build_markdown_description(wine: dict, current_quantity: int) -> str:
 
     description_parts.append("".join(rendered_varietal_line_markdown) if rendered_varietal_line_markdown else "Unknown Varietal")
 
-    # **This is the original, correct truncation logic for region/country**
     region_str = wine.get("region")
     country_str = wine.get("country")
     region_country_display = []
@@ -145,11 +149,9 @@ def build_markdown_description(wine: dict, current_quantity: int) -> str:
     else:
         description_parts.append("Unknown Region/Country")
 
-    # Line 3: Qty, Ratings, B4B, and Cost Tier
     cost_tier = wine.get('cost_tier')
     line3 = f"Qty: [ **{current_quantity}** ]"
     
-    # **FIX:** Use the corrected display rating logic.
     display_rating = _get_display_rating(wine)
         
     if display_rating is not None:
@@ -158,7 +160,6 @@ def build_markdown_description(wine: dict, current_quantity: int) -> str:
     b4b_score = calculate_b4b_score(wine)
     if b4b_score is not None:
         score_str = f"+{b4b_score}" if b4b_score > 0 else str(b4b_score)
-        # Add a zero-width space for better alignment in HA
         if score_str.startswith("-") or score_str.startswith("+"):
              score_str = f"\u200B{score_str}"
         line3 += f" | 🎯&nbsp;**{score_str}**"
