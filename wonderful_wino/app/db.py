@@ -1,6 +1,7 @@
 import sqlite3
 import logging
 from .config import DB_PATH
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -349,14 +350,14 @@ def backup_database():
     """Creates a safe backup of the database."""
     conn = None
     try:
-        backup_path = "/data/wonderful_wino_backup.db"
+        backup_path = os.path.join(os.path.dirname(DB_PATH), "wonderful_wino_backup.db")
         source_conn = get_db_connection()
         backup_conn = sqlite3.connect(backup_path)
         with backup_conn:
             source_conn.backup(backup_conn)
         source_conn.close()
         backup_conn.close()
-        return True, "Backup successful!"
+        return True, f"Backup successful! File saved in {os.path.dirname(DB_PATH)}."
     except sqlite3.Error as e:
         logger.error(f"Database backup failed: {e}")
         return False, "Database backup failed. Please try again later."
@@ -368,7 +369,7 @@ def restore_database():
     """Restores the database from a backup file."""
     conn = None
     try:
-        backup_path = "/data/wonderful_wino_backup.db"
+        backup_path = os.path.join(os.path.dirname(DB_PATH), "wonderful_wino_backup.db")
         if not os.path.exists(backup_path):
             return False, "Backup file not found."
         
@@ -418,6 +419,3 @@ def save_settings(data: dict):
         return False
     finally:
         if conn: conn.close()
-
-# Note: The `os` import is needed for the backup/restore functions.
-import os
