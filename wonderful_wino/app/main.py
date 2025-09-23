@@ -3,6 +3,7 @@ import logging
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from . import config, db, ha_service, scraper, formatting
+import re
 
 # Get the logger from the config file
 logger = logging.getLogger(__name__)
@@ -213,8 +214,9 @@ def consume_wine_from_webhook():
         
         if current_db_quantity > 0:
             new_quantity = current_db_quantity - 1
-            db.update_wine_quantity_and_rating(wine_record['vivino_url'], new_quantity, personal_rating)
-            ha_service.sync_wine_to_todo(wine_record, new_quantity) 
+            updated_wine = db.update_wine_quantity_and_rating(wine_record['vivino_url'], new_quantity, personal_rating)
+            if updated_wine:
+                ha_service.sync_wine_to_todo(updated_wine, new_quantity) 
             return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
         else:
             return jsonify({"status": "warning", "message": "Quantity already zero."}), 404
@@ -241,8 +243,9 @@ def consume_wine():
     
     if current_quantity > 0:
         new_quantity = current_quantity - 1
-        db.update_wine_quantity_and_rating(vivino_url, new_quantity, personal_rating)
-        ha_service.sync_wine_to_todo(wine_data, new_quantity)
+        updated_wine = db.update_wine_quantity_and_rating(vivino_url, new_quantity, personal_rating)
+        if updated_wine:
+            ha_service.sync_wine_to_todo(updated_wine, new_quantity)
         
     return jsonify({'status': 'success', 'new_quantity': new_quantity})
 
@@ -309,7 +312,8 @@ def save_tasting_notes_and_image():
 @app.route("/sync-all-wines", methods=["POST"])
 def sync_all_wines_to_ha():
     try:
-        ha_service.sync_all_wines()
+        wines = db.get_all_wines()
+        ha_service.sync_all_wines(wines)
         return jsonify({"status": "success", "message": "All wines synchronized."}), 200
     except Exception as e:
         logger.error(f"Error during full sync: {e}")
@@ -324,7 +328,7 @@ def reinitialize_db_endpoint():
         
         # Now, synchronize with HA to clear the to-do list
         # Since the database is empty, this will remove all items
-        ha_service.sync_all_wines()
+        ha_service.sync_all_wines([])
 
         return jsonify({"status": "success", "message": "Database reinitialized."}), 200
     except Exception as e:
@@ -335,8 +339,11 @@ def reinitialize_db_endpoint():
 @app.route("/backup-database", methods=["POST"])
 def backup_db_endpoint():
     try:
-        db.backup_database()
-        return jsonify({"status": "success", "message": "Backup successful!"}), 200
+        success, message = db.backup_database()
+        if success:
+            return jsonify({"status": "success", "message": message}), 200
+        else:
+            return jsonify({"status": "error", "message": message}), 500
     except Exception as e:
         logger.error(f"Error during backup: {e}")
         return jsonify({"status": "error", "message": "Backup failed."}), 500
@@ -345,9 +352,13 @@ def backup_db_endpoint():
 @app.route("/restore-database", methods=["POST"])
 def restore_db_endpoint():
     try:
-        db.restore_database()
-        ha_service.sync_all_wines()
-        return jsonify({"status": "success", "message": "Database restored successfully. The page will now refresh."}), 200
+        success, message = db.restore_database()
+        if success:
+            wines = db.get_all_wines()
+            ha_service.sync_all_wines(wines)
+            return jsonify({"status": "success", "message": message}), 200
+        else:
+            return jsonify({"status": "error", "message": message}), 500
     except Exception as e:
         logger.error(f"Error during restore: {e}")
         return jsonify({"status": "error", "message": "Restore failed."}), 500
