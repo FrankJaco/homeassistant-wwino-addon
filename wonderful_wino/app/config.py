@@ -5,11 +5,10 @@ import logging
 HOME_ASSISTANT_URL = os.environ.get("HOME_ASSISTANT_URL")
 HA_LONG_LIVED_TOKEN = os.environ.get("HA_LONG_LIVED_TOKEN")
 TODO_LIST_ENTITY_ID = os.environ.get("TODO_LIST_ENTITY_ID")
-DB_PATH = os.environ.get("DB_PATH", "/data/wine_inventory.db") # Changed default path for HA addons
+DB_PATH = os.environ.get("DB_PATH", "/share/wwino/wine_inventory.db")
 LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
 
 # --- Create Database Directory ---
-# Ensures the directory for the database exists before the app tries to use it.
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
 # --- Logging Setup ---
@@ -45,7 +44,3 @@ COUNTRY_ABBREVIATIONS = {
     "Turkey": "TR",
     "Uruguay": "UY",
 }
-
-
-
-
