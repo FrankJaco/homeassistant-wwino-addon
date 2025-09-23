@@ -8,33 +8,48 @@ from urllib.parse import urlparse, parse_qs
 # Set up a logger specific to this module
 logger = logging.getLogger(__name__)
 
-# This is the original scraping function, moved directly from WW-main.py
 def scrape_vivino_data(vivino_url):
     """
     Scrapes detailed wine information from a given Vivino URL.
-    Prioritizes JSON-LD data, falls back to enhanced HTML parsing.
-    Returns a dictionary of wine data or None if scraping fails.
+    Handles redirects and uses stricter success criteria.
+    Returns a tuple: (dictionary of wine data, canonical_url) or (None, None) if scraping fails.
     """
     logger.debug(f"Starting Vivino data scrape for URL: {vivino_url}")
     user_agents = [
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36', # Desktop user agent (seems more reliable for Vivino)
-        'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
     ]
     headers = {
-        'User-Agent': user_agents[0] # Use a desktop user agent by default
+        'User-Agent': user_agents[0]
     }
 
-    wine_data = {
-        'vivino_url': vivino_url,
-        'name': 'Unknown Wine',
-        'vintage': None,
-        'varietal': 'Unknown Varietal',
-        'region': 'Unknown Region',
-        'country': 'Unknown Country',
-        'vivino_rating': None,
-        'image_url': None,
-    }
+    try:
+        response = requests.get(vivino_url, headers=headers, timeout=10)
+        
+        # FIX: Capture the final URL after any redirects. This is the canonical URL.
+        canonical_url = response.url
+        logger.debug(f"Request sent. Initial URL: {vivino_url}, Final (Canonical) URL: {canonical_url}")
 
+        # FIX: Redefine success. The status code MUST be 200 OK.
+        # This will reject 202, 301, 302, etc., preventing "Unknown Wine" entries from those pages.
+        if response.status_code != 200:
+            logger.error(f"Vivino returned non-200 status code: {response.status_code} for URL {canonical_url}")
+            return None, None
+
+        # Raise an exception for actual client/server errors (4xx or 5xx)
+        response.raise_for_status()
+
+        soup = BeautifulSoup(response.text, 'lxml')
+        
+        wine_data = {
+            'name': 'Unknown Wine', # We will check against this default value later
+            'vintage': None,
+            'varietal': 'Unknown Varietal',
+            'region': 'Unknown Region',
+            'country': 'Unknown Country',
+            'vivino_rating': None,
+            'image_url': None,
+        }
+        
     all_grape_names_collected = []
 
     try:
@@ -299,12 +314,20 @@ def scrape_vivino_data(vivino_url):
             except (ValueError, IndexError):
                 pass
 
+        # FIX 1: Add the final check for "Unknown Wine" to enforce stricter success.
+        if wine_data['name'] == 'Unknown Wine':
+            logger.warning(f"Scraping succeeded but no wine name was found on page {canonical_url}. Discarding results.")
+            return None, None
+
+        logger.info(f"Successfully scraped Vivino data for {wine_data.get('name')} ({wine_data.get('vintage', 'NV')})")
+        # FIX 2: The success return value is now a tuple containing the data and the canonical URL.
+        return wine_data, canonical_url
+
     except requests.exceptions.RequestException as e:
         logger.error(f"HTTP/Network error during Vivino scrape for {vivino_url}: {e}")
-        return None
+        # FIX 3: The failure return value is now a tuple of (None, None).
+        return None, None
     except Exception as e:
         logger.error(f"An unexpected error occurred during Vivino scrape for {vivino_url}: {e}")
-        return None
-
-    logger.info(f"Successfully scraped Vivino data for {wine_data.get('name', 'Unknown')} ({wine_data.get('vintage', 'NV')})")
-    return wine_data
+        # FIX 3: The failure return value is now a tuple of (None, None).
+        return None, None

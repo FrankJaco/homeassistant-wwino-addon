@@ -54,7 +54,6 @@ def update_settings():
     else:
         return jsonify({"error": "Database error"}), 500
 
-
 @app.route('/scan-wine', methods=['POST'])
 def scan_wine():
     data = request.get_json()
@@ -68,15 +67,25 @@ def scan_wine():
     if not isinstance(quantity, int) or quantity < 1:
         quantity = 1
 
-    wine_data = scraper.scrape_vivino_data(vivino_url)
-    if not wine_data:
-        return jsonify({"status": "error", "message": "Failed to scrape data from Vivino URL."}), 500
+    # FIX: The scraper now returns two values: the data and the final URL.
+    wine_data, canonical_url = scraper.scrape_vivino_data(vivino_url)
+    
+    # FIX: Handle the stricter failure modes from the scraper.
+    if not wine_data or not canonical_url:
+        # Point 4 of our plan: Better error reporting.
+        return jsonify({"status": "error", "message": "Scraping failed: Could not identify valid wine details on the page."}), 500
 
-    existing_wine_row = db.get_wine_by_url(vivino_url)
+    # FIX: Use the canonical_url for all subsequent database operations.
+    wine_data['vivino_url'] = canonical_url
+
+    # Check for existing wine using the canonical URL first.
+    existing_wine_row = db.get_wine_by_url(canonical_url)
     if not existing_wine_row:
+        # Fallback to name/vintage check for potential duplicates missed by URL.
         existing_wine_row = db.get_wine_by_name_and_vintage(wine_data['name'], wine_data['vintage'])
     
     if existing_wine_row:
+        # If a match was found, ensure we use its existing URL to correctly update the quantity.
         wine_data['vivino_url'] = existing_wine_row['vivino_url']
 
     if db.add_or_update_wine(wine_data, quantity, cost_tier):
@@ -323,9 +332,7 @@ def rate_wine():
     updated_wine_row = db.get_wine_by_url(vivino_url)
     if updated_wine_row and updated_wine_row['quantity'] > 0:
         ha_service.sync_wine_to_todo(updated_wine_row, updated_wine_row['quantity'])
-    
     return jsonify({"status": "success"}), 200
-
 
 @app.route('/api/wine/notes', methods=['POST'])
 def save_tasting_notes_and_image():
@@ -345,7 +352,6 @@ def save_tasting_notes_and_image():
         return jsonify({"status": "success", "message": "Details saved."}), 200
     else:
         return jsonify({"status": "error", "message": "Wine not found or DB error."}), 404
-
 
 @app.route("/sync-all-wines", methods=["POST"])
 def sync_all_wines_to_ha_endpoint():
@@ -368,7 +374,6 @@ def reinitialize_db_endpoint():
     except Exception as e:
         logger.error(f"Error reinitializing database: {e}", exc_info=True)
         return jsonify({"status": "error", "message": "Internal error during reinitialization."}), 500
-
 
 @app.route("/restore-database", methods=["POST"])
 def restore_db_endpoint():
