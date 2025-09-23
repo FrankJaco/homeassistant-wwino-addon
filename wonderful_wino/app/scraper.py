@@ -25,23 +25,19 @@ def scrape_vivino_data(vivino_url):
     try:
         response = requests.get(vivino_url, headers=headers, timeout=10)
         
-        # FIX: Capture the final URL after any redirects. This is the canonical URL.
         canonical_url = response.url
         logger.debug(f"Request sent. Initial URL: {vivino_url}, Final (Canonical) URL: {canonical_url}")
 
-        # FIX: Redefine success. The status code MUST be 200 OK.
-        # This will reject 202, 301, 302, etc., preventing "Unknown Wine" entries from those pages.
         if response.status_code != 200:
             logger.error(f"Vivino returned non-200 status code: {response.status_code} for URL {canonical_url}")
             return None, None
 
-        # Raise an exception for actual client/server errors (4xx or 5xx)
         response.raise_for_status()
 
         soup = BeautifulSoup(response.text, 'lxml')
         
         wine_data = {
-            'name': 'Unknown Wine', # We will check against this default value later
+            'name': 'Unknown Wine',
             'vintage': None,
             'varietal': 'Unknown Varietal',
             'region': 'Unknown Region',
@@ -49,14 +45,8 @@ def scrape_vivino_data(vivino_url):
             'vivino_rating': None,
             'image_url': None,
         }
-        
-    all_grape_names_collected = []
 
-    try:
-        response = requests.get(vivino_url, headers=headers, timeout=10)
-        response.raise_for_status()
-
-        soup = BeautifulSoup(response.text, 'lxml')
+        all_grape_names_collected = []
 
         script_tags = soup.find_all('script', type='application/ld+json')
         for script in script_tags:
@@ -307,27 +297,23 @@ def scrape_vivino_data(vivino_url):
                 except ValueError: pass
         if wine_data['vintage'] is None:
             try:
-                parsed_url = urlparse(vivino_url)
+                parsed_url = urlparse(canonical_url)
                 query_params = parse_qs(parsed_url.query)
                 if 'year' in query_params:
                     wine_data['vintage'] = int(query_params['year'][0])
             except (ValueError, IndexError):
                 pass
 
-        # FIX 1: Add the final check for "Unknown Wine" to enforce stricter success.
         if wine_data['name'] == 'Unknown Wine':
             logger.warning(f"Scraping succeeded but no wine name was found on page {canonical_url}. Discarding results.")
             return None, None
 
         logger.info(f"Successfully scraped Vivino data for {wine_data.get('name')} ({wine_data.get('vintage', 'NV')})")
-        # FIX 2: The success return value is now a tuple containing the data and the canonical URL.
         return wine_data, canonical_url
 
     except requests.exceptions.RequestException as e:
         logger.error(f"HTTP/Network error during Vivino scrape for {vivino_url}: {e}")
-        # FIX 3: The failure return value is now a tuple of (None, None).
         return None, None
     except Exception as e:
         logger.error(f"An unexpected error occurred during Vivino scrape for {vivino_url}: {e}")
-        # FIX 3: The failure return value is now a tuple of (None, None).
         return None, None
