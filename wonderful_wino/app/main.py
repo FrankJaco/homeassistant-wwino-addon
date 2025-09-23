@@ -358,18 +358,33 @@ def sync_all_wines_to_ha_endpoint():
         logger.error(f"Error during full sync: {e}", exc_info=True) # Added exc_info for better logging
         return jsonify({"status": "error", "message": "Internal error during sync."}), 500
 
-
 @app.route("/reinitialize-database-action", methods=["POST"])
 def reinitialize_db_endpoint():
     try:
+        # **FIX:** Force clear the HA list using our DB history BEFORE wiping the DB.
+        ha_service.force_clear_ha_list()
         db.reinitialize_database()
-        ha_service.sync_all_wines_to_ha([])
         return jsonify({"status": "success", "message": "Database reinitialized."}), 200
     except Exception as e:
         logger.error(f"Error reinitializing database: {e}", exc_info=True)
         return jsonify({"status": "error", "message": "Internal error during reinitialization."}), 500
 
 
+@app.route("/restore-database", methods=["POST"])
+def restore_db_endpoint():
+    try:
+        success, message = db.restore_database()
+        if success:
+            # **FIX:** Get ALL wines (including qty 0) for a full sync after restore.
+            wines = db.get_all_wines(status_filter='all')
+            ha_service.sync_all_wines_to_ha(wines)
+            return jsonify({"status": "success", "message": message}), 200
+        else:
+            return jsonify({"status": "error", "message": message}), 500
+    except Exception as e:
+        logger.error(f"Error during restore: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": "Restore failed."}), 50
+    
 @app.route("/backup-database", methods=["POST"])
 def backup_db_endpoint():
     try:
@@ -381,22 +396,6 @@ def backup_db_endpoint():
     except Exception as e:
         logger.error(f"Error during backup: {e}", exc_info=True)
         return jsonify({"status": "error", "message": "Backup failed."}), 500
-
-
-@app.route("/restore-database", methods=["POST"])
-def restore_db_endpoint():
-    try:
-        success, message = db.restore_database()
-        if success:
-            wines = db.get_all_wines(status_filter='all')
-            ha_service.sync_all_wines_to_ha(wines)
-            return jsonify({"status": "success", "message": message}), 200
-        else:
-            return jsonify({"status": "error", "message": message}), 500
-    except Exception as e:
-        logger.error(f"Error during restore: {e}", exc_info=True)
-        return jsonify({"status": "error", "message": "Restore failed."}), 500
-
 
 @app.route("/")
 def serve_frontend():

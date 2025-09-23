@@ -140,6 +140,26 @@ def get_all_wines(status_filter: str = 'on_hand'):
         if conn:
             conn.close()
 
+def get_all_historical_wines():
+    """
+    Fetches all unique wine records that have ever been in the database,
+    regardless of quantity. Used for the force-clear operation.
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        query = "SELECT * FROM wines"
+        cursor.execute(query)
+        wines = cursor.fetchall()
+        return [dict(wine) for wine in wines]
+    except sqlite3.Error as e:
+        logger.error(f"Database error getting historical wines: {e}")
+        return []
+    finally:
+        if conn:
+            conn.close()
+
 def get_wine_by_url(vivino_url: str):
     """Fetches a single wine record by vivino URL. Returns a dictionary or None."""
     conn = None
