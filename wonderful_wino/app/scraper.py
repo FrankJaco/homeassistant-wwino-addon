@@ -8,34 +8,56 @@ from urllib.parse import urlparse, parse_qs
 # Set up a logger specific to this module
 logger = logging.getLogger(__name__)
 
+
+def _parse_url_for_fallback_data(url: str):
+    """
+    Parses a Vivino URL to get a fallback name and vintage.
+    This is triggered when a full scrape fails.
+    """
+    try:
+        # Parse vintage from the ?year=XXXX parameter
+        parsed_url = urlparse(url)
+        query_params = parse_qs(parsed_url.query)
+        vintage = int(query_params['year'][0]) if 'year' in query_params else None
+
+        # Parse name from the URL path (e.g., /en/some-wine-name/w/12345)
+        path_name = None
+        match = re.search(r'/(?:[a-zA-Z]{2}/)?([^/]+)/w/', parsed_url.path)
+        if match:
+            # Convert slug (some-wine-name) to Title Case "Some Wine Name"
+            path_name = match.group(1).replace('-', ' ').title()
+
+        if path_name:
+            return {'name': path_name, 'vintage': vintage}
+    except (ValueError, IndexError, TypeError) as e:
+        logger.error(f"Could not parse fallback data from URL {url}: {e}")
+    
+    return None
+
+
 def scrape_vivino_data(vivino_url):
     """
     Scrapes detailed wine information from a given Vivino URL.
-    Handles redirects and uses stricter success criteria.
-    Returns a tuple: (dictionary of wine data, canonical_url) or (None, None) if scraping fails.
+    Includes a fallback method to parse the URL if the scrape fails.
     """
     logger.debug(f"Starting Vivino data scrape for URL: {vivino_url}")
+    # ... (user_agents and headers setup remains the same) ...
     user_agents = [
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
     ]
-    headers = {
-        'User-Agent': user_agents[0]
-    }
+    headers = { 'User-Agent': user_agents[0] }
 
     try:
         response = requests.get(vivino_url, headers=headers, timeout=10)
-        
         canonical_url = response.url
         logger.debug(f"Request sent. Initial URL: {vivino_url}, Final (Canonical) URL: {canonical_url}")
 
-        # FIX: Relax the status code check to allow 202 Accepted, which Vivino sometimes sends for valid pages.
-        # The final check for a real wine name will prevent bad data from getting through.
-        if response.status_code not in [200, 202]:
-            logger.error(f"Vivino returned unacceptable status code: {response.status_code} for URL {canonical_url}")
-            return None, None
-
-        # Raise an exception for actual client/server errors (4xx or 5xx)
+        # If the page is a definite error (like 404), fail completely.
         response.raise_for_status()
+
+        # If the page is not a clean 200 OK, we will proceed but rely on the final name check.
+        if response.status_code != 200:
+            logger.warning(f"Vivino returned non-200 status code: {response.status_code}. Proceeding with parsing, but will validate results.")
 
         soup = BeautifulSoup(response.text, 'lxml')
         
@@ -48,7 +70,6 @@ def scrape_vivino_data(vivino_url):
             'vivino_rating': None,
             'image_url': None,
         }
-
         all_grape_names_collected = []
 
         # --- (Full parsing logic as before) ---
@@ -308,16 +329,40 @@ def scrape_vivino_data(vivino_url):
             except (ValueError, IndexError):
                 pass
         
-        if wine_data['name'] == 'Unknown Wine':
-            logger.warning(f"Scraping succeeded but no wine name was found on page {canonical_url}. Discarding results.")
-            return None, None
+        if wine_data['name'] != 'Unknown Wine':
+            logger.info(f"Successfully scraped full Vivino data for {wine_data.get('name')}")
+            return wine_data, canonical_url
 
-        logger.info(f"Successfully scraped Vivino data for {wine_data.get('name')} ({wine_data.get('vintage', 'NV')})")
-        return wine_data, canonical_url
+        # --- FALLBACK LOGIC ---
+        # If the full scrape failed, we now try to parse the URL itself.
+        logger.warning(f"Full scrape failed for {canonical_url}. Attempting to parse URL for fallback data.")
+        fallback_data = _parse_url_for_fallback_data(canonical_url)
+
+        if fallback_data:
+            logger.info(f"Successfully parsed fallback data for {fallback_data.get('name')}")
+            # We are intentionally returning a minimal record.
+            wine_data.update(fallback_data)
+            return wine_data, canonical_url
+        else:
+            logger.error(f"Full scrape and fallback parsing both failed for {vivino_url}.")
+            return None, None
 
     except requests.exceptions.RequestException as e:
         logger.error(f"HTTP/Network error during Vivino scrape for {vivino_url}: {e}")
-        return None, None
+        # --- FALLBACK LOGIC ---
+        # Also attempt fallback on network errors, as the URL itself might be valid.
+        logger.warning(f"Attempting to parse URL for fallback data after network error.")
+        fallback_data = _parse_url_for_fallback_data(vivino_url) # Use original URL here
+        if fallback_data:
+             logger.info(f"Successfully parsed fallback data for {fallback_data.get('name')}")
+             minimal_data = {
+                'name': 'Unknown Wine', 'vintage': None, 'varietal': 'Unknown Varietal',
+                'region': 'Unknown Region', 'country': 'Unknown Country', 'vivino_rating': None, 'image_url': None
+             }
+             minimal_data.update(fallback_data)
+             return minimal_data, vivino_url
+        else:
+            return None, None
     except Exception as e:
         logger.error(f"An unexpected error occurred during Vivino scrape for {vivino_url}: {e}")
         return None, None
