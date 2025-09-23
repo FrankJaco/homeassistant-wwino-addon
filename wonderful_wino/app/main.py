@@ -4,20 +4,18 @@ from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from . import config, db, ha_service, scraper, formatting
 import re
-from urllib.parse import urlparse, urlunparse # Import urlunparse
+from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 
 # Get the logger from the config file
 logger = logging.getLogger(__name__)
 
-# --- Flask App Setup ---
+# --- Flask App Setup & Middleware (No changes here) ---
 app = Flask(__name__, static_folder="../frontend", static_url_path="")
 CORS(app)
 
-# --- Flask WSGI Middleware for Home Assistant Ingress ---
 class ReverseProxied:
     def __init__(self, app):
         self.app = app
-
     def __call__(self, environ, start_response):
         script_name = environ.get('HTTP_X_FORWARDED_PREFIX', '')
         if script_name:
@@ -29,11 +27,9 @@ class ReverseProxied:
         if scheme:
             environ['wsgi.url_scheme'] = scheme
         return self.app(environ, start_response)
-
 app.wsgi_app = ReverseProxied(app.wsgi_app)
 
 # --- Flask Routes ---
-
 @app.route('/api/settings', methods=['GET'])
 def get_settings():
     settings_dict = db.get_settings()
@@ -44,12 +40,10 @@ def update_settings():
     data = request.get_json()
     if not isinstance(data, dict):
         return jsonify({"error": "Invalid data format"}), 400
-    
     if db.update_settings(data):
         return jsonify({"status": "success", "message": "Settings updated successfully."}), 200
     else:
         return jsonify({"error": "Database error"}), 500
-
 
 @app.route('/scan-wine', methods=['POST'])
 def scan_wine():
@@ -57,33 +51,47 @@ def scan_wine():
     if not data or 'vivino_url' not in data:
         return jsonify({"status": "error", "message": "Missing 'vivino_url' in request body"}), 400
 
-    vivino_url = data['vivino_url']
+    original_vivino_url = data['vivino_url']
     
-    # --- NEW: URL SANITIZATION LOGIC ---
-    # This logic is ported from the Chrome Extension to ensure all URLs are consistent.
+    # --- CORRECTED URL SANITIZATION LOGIC ---
     try:
-        parsed_url = urlparse(vivino_url)
-        # Rebuild the URL with only the scheme, netloc, and path, stripping all query params.
-        # This creates the clean base URL.
-        clean_url_parts = (parsed_url.scheme, parsed_url.netloc, parsed_url.path, '', '', '')
-        sanitized_url = urlunparse(clean_url_parts)
-        logger.debug(f"Sanitized URL from '{vivino_url}' to '{sanitized_url}'")
-        vivino_url = sanitized_url # Use the clean URL for the rest of the process
+        parsed_url = urlparse(original_vivino_url)
+        query_params = parse_qs(parsed_url.query)
+
+        # Create a new dictionary that ONLY contains the 'year' parameter, if it exists.
+        final_query_params = {}
+        if 'year' in query_params:
+            final_query_params['year'] = query_params['year']
+        
+        # Rebuild the URL with the clean path and only the 'year' parameter.
+        sanitized_url_parts = list(parsed_url)
+        sanitized_url_parts[4] = urlencode(final_query_params, doseq=True)
+        sanitized_url = urlunparse(sanitized_url_parts)
+        
+        logger.debug(f"Sanitized URL from '{original_vivino_url}' to '{sanitized_url}'")
     except Exception as e:
-        logger.error(f"Failed to sanitize URL {vivino_url}: {e}")
-        # Proceed with the original URL if sanitization fails for any reason
-    # --- END NEW LOGIC ---
+        logger.error(f"Failed to sanitize URL {original_vivino_url}: {e}")
+        sanitized_url = original_vivino_url
+    # --- END CORRECTION ---
     
     quantity = data.get('quantity', 1)
     cost_tier = data.get('cost_tier')
+    # The manually specified vintage from the clients is now part of the sanitized_url
+    manual_vintage = data.get('vintage') 
 
     if not isinstance(quantity, int) or quantity < 1:
         quantity = 1
 
-    wine_data, canonical_url = scraper.scrape_vivino_data(vivino_url)
+    wine_data, canonical_url = scraper.scrape_vivino_data(sanitized_url)
     
     if not wine_data or not canonical_url:
         return jsonify({"status": "error", "message": "Scraping failed: Could not identify valid wine details on the page."}), 500
+
+    # The scraper now determines the vintage based on the final URL and page content.
+    # If a manual vintage was passed for some reason, we can give it highest priority here.
+    if manual_vintage:
+        wine_data['vintage'] = int(manual_vintage)
+        logger.info(f"Overriding vintage with manually provided value: {manual_vintage}")
 
     wine_data['vivino_url'] = canonical_url
 
@@ -110,8 +118,7 @@ def scan_wine():
     else:
         return jsonify({"status": "error", "message": "Failed to store/update wine data in database."}), 500
 
-# ... (all other routes remain the same, no changes needed below this line) ...
-
+# ... (all other routes remain the same) ...
 @app.route('/add-manual-wine', methods=['POST'])
 def add_manual_wine():
     data = request.get_json()
@@ -367,8 +374,8 @@ def save_tasting_notes_and_image():
 def sync_all_wines_to_ha_endpoint():
     try:
         wines = db.get_all_wines(status_filter='all')
-        ha_service.force_clear_ha_list() # First clear
-        ha_service.sync_all_wines_to_ha(wines) # Then add back
+        ha_service.force_clear_ha_list()
+        ha_service.sync_all_wines_to_ha(wines)
         return jsonify({"status": "success", "message": "All wines synchronized."}), 200
     except Exception as e:
         logger.error(f"Error during full sync: {e}", exc_info=True)
@@ -405,8 +412,8 @@ def restore_db_endpoint():
         success, message = db.restore_database()
         if success:
             wines = db.get_all_wines(status_filter='all')
-            ha_service.force_clear_ha_list() # First clear
-            ha_service.sync_all_wines_to_ha(wines) # Then add back
+            ha_service.force_clear_ha_list()
+            ha_service.sync_all_wines_to_ha(wines)
             return jsonify({"status": "success", "message": message}), 200
         else:
             return jsonify({"status": "error", "message": message}), 500
