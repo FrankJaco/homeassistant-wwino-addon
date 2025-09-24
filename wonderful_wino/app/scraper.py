@@ -4,7 +4,7 @@ import re
 import json
 import logging
 from urllib.parse import urlparse, parse_qs, urlunparse, urlencode
-import time # NEW: Import the time module for delays
+import time 
 
 # Set up a logger specific to this module
 logger = logging.getLogger(__name__)
@@ -28,7 +28,7 @@ def _parse_url_for_fallback_data(url: str):
             logger.debug(f"Fallback parser matched long URL format for name: {path_name}")
             return {'name': path_name, 'vintage': vintage}
         
-        # NEW: If that fails, try to parse the short (Android) format
+        # If that fails, try to parse the short (Android) format
         match = re.search(r'/wines/(\d+)', parsed_url.path)
         if match:
             wine_id = match.group(1)
@@ -55,31 +55,33 @@ def _perform_scrape_attempt(url: str):
     headers = { 'User-Agent': user_agents[0] }
 
     try:
-        # --- MODIFIED SECTION: ADDED RETRY LOGIC ---
+        # --- IMPROVEMENT 1: Exponential Backoff Retry Logic ---
         response = None
         canonical_url = url
-        for attempt in range(3): # Try up to 3 times
+        # Try up to 4 times with increasing delays: 1, 2, 4 seconds
+        for attempt in range(4): 
+            if attempt > 0:
+                delay = 2**(attempt - 1) # 1, 2, 4 seconds
+                logger.warning(f"Scrape attempt {attempt} for {url} received status 202 (Accepted). Retrying after a {delay}s delay...")
+                time.sleep(delay)
+
             response = requests.get(url, headers=headers, timeout=10)
             canonical_url = response.url # Keep track of the final URL after redirects
 
             if response.status_code == 200:
                 logger.debug(f"Scrape attempt {attempt + 1} for {url} successful with status 200.")
-                break # Success, exit the loop
+                break 
             
-            if response.status_code == 202:
-                logger.warning(f"Scrape attempt {attempt + 1} for {url} received status 202 (Accepted). Retrying after a delay...")
-                time.sleep(2) # Wait 2 seconds before retrying
-                continue # Go to the next attempt
-
-            # For any other non-200/202 status, fail immediately
-            logger.warning(f"Scrape attempt failed for {url}. Status: {response.status_code}")
-            return None, canonical_url
+            if response.status_code != 202:
+                # For any other non-200/202 status, fail immediately
+                logger.warning(f"Scrape attempt failed for {url}. Status: {response.status_code}")
+                return None, canonical_url
         
         # If the loop finishes without a 200, it's a failure
         if response.status_code != 200:
              logger.error(f"All scrape attempts for {url} failed to get a 200 response. Last status: {response.status_code}")
              return None, canonical_url
-        # --- END OF MODIFIED SECTION ---
+        # --- END OF IMPROVEMENT 1 ---
 
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'lxml')
@@ -90,7 +92,7 @@ def _perform_scrape_attempt(url: str):
             'vivino_rating': None, 'image_url': None
         }
 
-        # --- THE FULL, DETAILED PARSING LOGIC IS NOW RESTORED HERE ---
+        # --- (The extensive parsing logic remains the same as before) ---
         all_grape_names_collected = []
 
         script_tags = soup.find_all('script', type='application/ld+json')
@@ -407,9 +409,12 @@ def scrape_vivino_data(vivino_url):
                 }
                 return borrowed_data, canonical_url
 
+    # --- IMPROVEMENT 2: Quality Gate to prevent saving placeholder data ---
     logger.warning("All scrape attempts failed. Attempting to parse URL for final fallback data.")
     fallback_data = _parse_url_for_fallback_data(vivino_url)
-    if fallback_data:
+    
+    # Only accept the fallback if it produces a real name, not a placeholder.
+    if fallback_data and 'Vivino Wine ID' not in fallback_data.get('name', ''):
         logger.info(f"Successfully parsed fallback data for {fallback_data.get('name')}")
         minimal_data = {
             'name': 'Unknown Wine', 'vintage': None, 'varietal': 'Unknown Varietal',
@@ -419,5 +424,6 @@ def scrape_vivino_data(vivino_url):
         minimal_data.update(fallback_data)
         return minimal_data, vivino_url
 
-    logger.error(f"All scrape and fallback attempts failed for {vivino_url}.")
+    # If all real scraping fails and the fallback is a placeholder, signal a total failure.
+    logger.error(f"All scrape and fallback attempts failed to find a valid wine name for {vivino_url}.")
     return None, None
