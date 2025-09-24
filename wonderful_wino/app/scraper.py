@@ -5,6 +5,7 @@ import json
 import logging
 from urllib.parse import urlparse, parse_qs, urlunparse, urlencode
 import time 
+import random # NEW: Import the random module to pick a user-agent
 
 # Set up a logger specific to this module
 logger = logging.getLogger(__name__)
@@ -49,13 +50,19 @@ def _perform_scrape_attempt(url: str):
     Returns (wine_data, canonical_url) on success, or (None, canonical_url) on failure.
     """
     logger.debug(f"Executing scrape attempt for URL: {url}")
+    # --- MODIFIED SECTION: Added a list of modern User-Agents ---
     user_agents = [
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0'
     ]
-    headers = { 'User-Agent': user_agents[0] }
+    headers = { 'User-Agent': random.choice(user_agents) }
+    # --- END MODIFIED SECTION ---
 
     try:
-        # --- IMPROVEMENT 1: Exponential Backoff Retry Logic ---
+        # Exponential Backoff Retry Logic
         response = None
         canonical_url = url
         # Try up to 4 times with increasing delays: 1, 2, 4 seconds
@@ -64,6 +71,8 @@ def _perform_scrape_attempt(url: str):
                 delay = 2**(attempt - 1) # 1, 2, 4 seconds
                 logger.warning(f"Scrape attempt {attempt} for {url} received status 202 (Accepted). Retrying after a {delay}s delay...")
                 time.sleep(delay)
+                # Pick a new user-agent for the retry attempt
+                headers['User-Agent'] = random.choice(user_agents)
 
             response = requests.get(url, headers=headers, timeout=10)
             canonical_url = response.url # Keep track of the final URL after redirects
@@ -81,7 +90,6 @@ def _perform_scrape_attempt(url: str):
         if response.status_code != 200:
              logger.error(f"All scrape attempts for {url} failed to get a 200 response. Last status: {response.status_code}")
              return None, canonical_url
-        # --- END OF IMPROVEMENT 1 ---
 
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'lxml')
@@ -409,7 +417,7 @@ def scrape_vivino_data(vivino_url):
                 }
                 return borrowed_data, canonical_url
 
-    # --- IMPROVEMENT 2: Quality Gate to prevent saving placeholder data ---
+    # Quality Gate to prevent saving placeholder data
     logger.warning("All scrape attempts failed. Attempting to parse URL for final fallback data.")
     fallback_data = _parse_url_for_fallback_data(vivino_url)
     
