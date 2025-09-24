@@ -9,7 +9,7 @@ from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 # Get the logger from the config file
 logger = logging.getLogger(__name__)
 
-# --- Flask App Setup & Middleware (No changes here) ---
+# --- Flask App Setup & Middleware ---
 app = Flask(__name__, static_folder="../frontend", static_url_path="")
 CORS(app)
 
@@ -53,17 +53,14 @@ def scan_wine():
 
     original_vivino_url = data['vivino_url']
     
-    # --- CORRECTED URL SANITIZATION LOGIC ---
     try:
         parsed_url = urlparse(original_vivino_url)
         query_params = parse_qs(parsed_url.query)
 
-        # Create a new dictionary that ONLY contains the 'year' parameter, if it exists.
         final_query_params = {}
         if 'year' in query_params:
             final_query_params['year'] = query_params['year']
         
-        # Rebuild the URL with the clean path and only the 'year' parameter.
         sanitized_url_parts = list(parsed_url)
         sanitized_url_parts[4] = urlencode(final_query_params, doseq=True)
         sanitized_url = urlunparse(sanitized_url_parts)
@@ -72,11 +69,9 @@ def scan_wine():
     except Exception as e:
         logger.error(f"Failed to sanitize URL {original_vivino_url}: {e}")
         sanitized_url = original_vivino_url
-    # --- END CORRECTION ---
     
     quantity = data.get('quantity', 1)
     cost_tier = data.get('cost_tier')
-    # The manually specified vintage from the clients is now part of the sanitized_url
     manual_vintage = data.get('vintage') 
 
     if not isinstance(quantity, int) or quantity < 1:
@@ -87,11 +82,12 @@ def scan_wine():
     if not wine_data or not canonical_url:
         return jsonify({"status": "error", "message": "Scraping failed: Could not identify valid wine details on the page."}), 500
 
-    # The scraper now determines the vintage based on the final URL and page content.
-    # If a manual vintage was passed for some reason, we can give it highest priority here.
     if manual_vintage:
-        wine_data['vintage'] = int(manual_vintage)
-        logger.info(f"Overriding vintage with manually provided value: {manual_vintage}")
+        try:
+            wine_data['vintage'] = int(manual_vintage)
+            logger.info(f"Overriding vintage with manually provided value: {manual_vintage}")
+        except (ValueError, TypeError):
+            logger.warning(f"Invalid manual vintage value received: {manual_vintage}")
 
     wine_data['vivino_url'] = canonical_url
 
@@ -118,7 +114,6 @@ def scan_wine():
     else:
         return jsonify({"status": "error", "message": "Failed to store/update wine data in database."}), 500
 
-# ... (all other routes remain the same) ...
 @app.route('/add-manual-wine', methods=['POST'])
 def add_manual_wine():
     data = request.get_json()
@@ -166,7 +161,6 @@ def add_manual_wine():
     else:
         return jsonify({"status": "error", "message": "Failed to store manual wine data in database."}), 500
 
-
 @app.route('/edit-wine', methods=['POST'])
 def edit_wine():
     data = request.get_json()
@@ -204,7 +198,6 @@ def edit_wine():
     
     return jsonify({"status": "success", "message": "Wine updated successfully."}), 200
 
-
 @app.route('/inventory', methods=['GET'])
 def get_inventory():
     status_filter = request.args.get('filter', 'on_hand')
@@ -214,7 +207,6 @@ def get_inventory():
         wine['b4b_score'] = formatting.calculate_b4b_score(wine)
         
     return jsonify(wines), 200
-
 
 @app.route('/inventory/wine/set_quantity', methods=['POST'])
 def set_wine_quantity():
@@ -236,7 +228,6 @@ def set_wine_quantity():
     else:
         return jsonify({"status": "error", "message": "Failed to update quantity in database."}), 500
 
-
 @app.route('/api/consume-wine', methods=['POST'])
 def consume_wine_from_webhook():
     try:
@@ -245,7 +236,6 @@ def consume_wine_from_webhook():
         personal_rating = data.get("rating")
         
         if not item_text:
-            logger.error("Webhook received without 'item' text.")
             return jsonify({"status": "error", "message": "Missing 'item' in request body"}), 400
 
         parsed_name, parsed_vintage = None, None
@@ -263,12 +253,14 @@ def consume_wine_from_webhook():
         if not wine_record:
             return jsonify({"status": "warning", "message": "No matching wine found."}), 404
         
-        current_db_quantity = wine_record.get('quantity', 0)
-        
-        if current_db_quantity > 0:
-            new_quantity = current_db_quantity - 1
+        if wine_record.get('quantity', 0) > 0:
+            new_quantity = wine_record['quantity'] - 1
             updated_wine = db.update_wine_quantity_and_rating(wine_record['vivino_url'], new_quantity, personal_rating)
+            
             if updated_wine:
+                # Add consumption record to our DB and fire HA event
+                db.add_consumption_record(updated_wine['id'], personal_rating)
+                ha_service.fire_consumption_event(updated_wine)
                 ha_service.sync_wine_to_todo(updated_wine, new_quantity) 
                 return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
             else:
@@ -279,7 +271,6 @@ def consume_wine_from_webhook():
     except Exception as e:
         logger.error(f"Error processing webhook: {e}", exc_info=True)
         return jsonify({"status": "error", "message": "An internal error occurred."}), 500
-
 
 @app.route('/inventory/wine/consume', methods=['POST'])
 def consume_wine():
@@ -293,20 +284,20 @@ def consume_wine():
     if not wine_data:
         return jsonify({'error': 'Wine not found'}), 404
         
-    current_quantity = wine_data['quantity']
-    new_quantity = current_quantity
-    
-    if current_quantity > 0:
-        new_quantity = current_quantity - 1
+    if wine_data['quantity'] > 0:
+        new_quantity = wine_data['quantity'] - 1
         updated_wine = db.update_wine_quantity_and_rating(vivino_url, new_quantity, personal_rating)
+
         if updated_wine:
+            # Add consumption record to our DB and fire HA event
+            db.add_consumption_record(updated_wine['id'], personal_rating)
+            ha_service.fire_consumption_event(updated_wine)
             ha_service.sync_wine_to_todo(updated_wine, new_quantity)
             return jsonify({'status': 'success', 'new_quantity': new_quantity})
         else:
             return jsonify({'error': 'Failed to update wine in database'}), 500
     
-    return jsonify({'status': 'success', 'new_quantity': new_quantity})
-
+    return jsonify({'status': 'success', 'new_quantity': wine_data['quantity']})
 
 @app.route('/inventory/wine', methods=['DELETE'])
 def delete_wine():
@@ -314,17 +305,14 @@ def delete_wine():
     vivino_url = data.get('vivino_url')
     if not vivino_url:
         return jsonify({"status": "error", "message": "Missing 'vivino_url'"}), 400
-        
     wine_to_delete = db.get_wine_by_url(vivino_url)
     if not wine_to_delete:
         return jsonify({"status": "error", "message": "Wine not found."}), 404
-    
     if db.delete_wine_by_url(vivino_url):
         ha_service.sync_wine_to_todo(wine_to_delete, 0)
         return jsonify({"status": "success"}), 200
     else:
         return jsonify({"status": "error", "message": "Failed to delete wine from database."}), 500
-
 
 @app.route('/api/rate-wine', methods=['POST'])
 def rate_wine():
@@ -333,42 +321,32 @@ def rate_wine():
     personal_rating = data.get('personal_rating')
     if not vivino_url or personal_rating is None:
         return jsonify({"status": "error", "message": "Missing required fields"}), 400
-        
     try:
         rating_val = float(personal_rating)
         if not (0 <= rating_val <= 5): raise ValueError("Rating out of bounds")
     except (ValueError, TypeError):
         return jsonify({"status": "error", "message": "Invalid rating."}), 400
-        
     if not db.update_personal_rating(vivino_url, rating_val):
         return jsonify({"status": "error", "message": "Wine not found or DB error"}), 404
-
     updated_wine_row = db.get_wine_by_url(vivino_url)
     if updated_wine_row and updated_wine_row['quantity'] > 0:
         ha_service.sync_wine_to_todo(updated_wine_row, updated_wine_row['quantity'])
-    
     return jsonify({"status": "success"}), 200
-
 
 @app.route('/api/wine/notes', methods=['POST'])
 def save_tasting_notes_and_image():
     data = request.get_json()
     vivino_url = data.get('vivino_url')
-    
     if not vivino_url:
         return jsonify({"status": "error", "message": "Missing required vivino_url"}), 400
-        
     tasting_notes = data.get('tasting_notes')
     image_url = data.get('image_url')
-
     if tasting_notes is None and image_url is None:
         return jsonify({"status": "info", "message": "No data provided to update."}), 200
-
     if db.update_wine_notes_and_image(vivino_url, tasting_notes, image_url):
         return jsonify({"status": "success", "message": "Details saved."}), 200
     else:
         return jsonify({"status": "error", "message": "Wine not found or DB error."}), 404
-
 
 @app.route("/sync-all-wines", methods=["POST"])
 def sync_all_wines_to_ha_endpoint():
@@ -381,7 +359,6 @@ def sync_all_wines_to_ha_endpoint():
         logger.error(f"Error during full sync: {e}", exc_info=True)
         return jsonify({"status": "error", "message": "Internal error during sync."}), 500
 
-
 @app.route("/reinitialize-database-action", methods=["POST"])
 def reinitialize_db_endpoint():
     try:
@@ -391,7 +368,6 @@ def reinitialize_db_endpoint():
     except Exception as e:
         logger.error(f"Error reinitializing database: {e}", exc_info=True)
         return jsonify({"status": "error", "message": "Internal error during reinitialization."}), 500
-
 
 @app.route("/backup-database", methods=["POST"])
 def backup_db_endpoint():
@@ -404,7 +380,6 @@ def backup_db_endpoint():
     except Exception as e:
         logger.error(f"Error during backup: {e}", exc_info=True)
         return jsonify({"status": "error", "message": "Backup failed."}), 500
-
 
 @app.route("/restore-database", methods=["POST"])
 def restore_db_endpoint():
@@ -421,7 +396,6 @@ def restore_db_endpoint():
         logger.error(f"Error during restore: {e}", exc_info=True)
         return jsonify({"status": "error", "message": "Restore failed."}), 500
 
-
 @app.route("/")
 def serve_frontend():
     return send_from_directory("../frontend", "index.html")
@@ -430,7 +404,6 @@ def serve_frontend():
 def serve_static(path):
     return send_from_directory("../frontend", path)
 
-# --- Main Execution ---
 if __name__ == '__main__':
     db.init_db()
     logger.info(f"Starting Wonderful Wino on port 5000 with log level {config.LOG_LEVEL}")

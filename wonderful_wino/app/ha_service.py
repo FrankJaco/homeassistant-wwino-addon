@@ -2,7 +2,7 @@ import requests
 import logging
 from . import config
 from . import formatting
-from . import db # Import db to get wine history
+from . import db
 
 # Set up a logger specific to this module
 logger = logging.getLogger(__name__)
@@ -20,10 +20,7 @@ def _get_ha_headers():
 def _remove_ha_todo_item(item_text, headers):
     """Removes a single item from the HA To-Do list."""
     remove_url = f"{config.HOME_ASSISTANT_URL}/api/services/todo/remove_item"
-    payload = {
-        "entity_id": config.TODO_LIST_ENTITY_ID,
-        "item": item_text
-    }
+    payload = { "entity_id": config.TODO_LIST_ENTITY_ID, "item": item_text }
     try:
         resp = requests.post(remove_url, json=payload, headers=headers, timeout=5)
         if resp.status_code in [400, 500] and "Unable to find" in resp.text:
@@ -36,16 +33,13 @@ def _remove_ha_todo_item(item_text, headers):
 
 
 def sync_wine_to_todo(wine: dict, current_quantity: int):
-    """
-    Adds, updates, or removes a single wine item from the HA To-Do list.
-    """
+    """Adds, updates, or removes a single wine item from the HA To-Do list."""
     headers = _get_ha_headers()
     if not headers or not config.HOME_ASSISTANT_URL or not config.TODO_LIST_ENTITY_ID:
         logger.error("Cannot sync to HA: Missing URL, Token, or Entity ID configuration.")
         return
-
-    item_text = formatting.format_wine_for_todo(wine)
     
+    item_text = formatting.format_wine_for_todo(wine)
     _remove_ha_todo_item(item_text, headers)
 
     if current_quantity > 0:
@@ -56,7 +50,6 @@ def sync_wine_to_todo(wine: dict, current_quantity: int):
             "item": item_text,
             "description": description
         }
-        
         try:
             resp = requests.post(add_url, json=add_payload, headers=headers, timeout=5)
             resp.raise_for_status()
@@ -64,20 +57,43 @@ def sync_wine_to_todo(wine: dict, current_quantity: int):
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to add/update '{item_text}' in HA To-Do list: {e}")
 
+# NEW: Function to fire a custom event to Home Assistant
+def fire_consumption_event(wine_data: dict):
+    """Fires a 'wonderful_wino_wine_consumed' event to the HA event bus."""
+    headers = _get_ha_headers()
+    if not headers or not config.HOME_ASSISTANT_URL:
+        logger.error("Cannot fire HA event: Missing URL or Token configuration.")
+        return
+
+    event_url = f"{config.HOME_ASSISTANT_URL}/api/events/wonderful_wino_wine_consumed"
+    payload = {
+        "name": wine_data.get('name'),
+        "vintage": wine_data.get('vintage'),
+        "varietal": wine_data.get('varietal'),
+        "region": wine_data.get('region'),
+        "country": wine_data.get('country'),
+        "personal_rating": wine_data.get('personal_rating'),
+        "vivino_url": wine_data.get('vivino_url')
+    }
+    try:
+        resp = requests.post(event_url, json=payload, headers=headers, timeout=5)
+        resp.raise_for_status()
+        logger.info(f"Successfully fired 'wonderful_wino_wine_consumed' event for '{wine_data.get('name')}'")
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Failed to fire HA event: {e}")
+
+
 def sync_all_wines_to_ha(all_wines: list):
-    """
-    Performs a simple sync of all provided wines to the HA To-Do list.
-    """
+    """Performs a simple sync of all provided wines to the HA To-Do list."""
     logger.info(f"Starting sync of {len(all_wines)} wines to HA To-Do list.")
-    for wine in all_wines:
+    # Filter to only sync wines with quantity > 0
+    on_hand_wines = [wine for wine in all_wines if wine.get('quantity', 0) > 0]
+    for wine in on_hand_wines:
         sync_wine_to_todo(wine, wine.get('quantity', 0))
     logger.info("Completed sync.")
 
 def force_clear_ha_list():
-    """
-    Gets all wines ever in the DB and attempts to remove them from HA.
-    This is used before reinitializing the database.
-    """
+    """Gets all wines ever in the DB and attempts to remove them from HA."""
     logger.warning("Performing a force-clear of Home Assistant To-Do list.")
     headers = _get_ha_headers()
     if not headers:
