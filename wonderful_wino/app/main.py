@@ -28,9 +28,6 @@ class ReverseProxied:
 app.wsgi_app = ReverseProxied(app.wsgi_app)
 
 # --- Flask Routes ---
-# ... (all routes up to '/api/wine/notes' remain the same) ...
-
-# NEW ENDPOINT to fetch consumption history
 @app.route('/api/wine/history')
 def get_wine_history():
     vivino_url = request.args.get('vivino_url')
@@ -43,13 +40,6 @@ def get_wine_history():
     
     history = db.get_consumption_history(wine['id'])
     return jsonify(history), 200
-
-
-# --- (All other routes remain the same) ---
-# NOTE: To save space, I am omitting the other full routes.
-# The only addition is the new '/api/wine/history' endpoint above.
-# The rest of your main.py file should remain as it was in our last complete version.
-# For clarity, here is the full file again.
 
 @app.route('/api/settings', methods=['GET'])
 def get_settings():
@@ -75,6 +65,7 @@ def scan_wine():
     original_vivino_url = data['vivino_url']
     
     try:
+        # Original sanitization logic: only preserves the 'year' parameter
         parsed_url = urlparse(original_vivino_url)
         query_params = parse_qs(parsed_url.query)
         final_query_params = {}
@@ -94,6 +85,11 @@ def scan_wine():
 
     if not isinstance(quantity, int) or quantity < 1:
         quantity = 1
+
+    existing_wine = db.get_wine_by_url(sanitized_url)
+    if existing_wine and 'Vivino Wine ID' in existing_wine.get('name', ''):
+        logger.warning(f"Found existing placeholder entry for {sanitized_url}. Deleting it to re-scrape.")
+        db.delete_wine_by_url(sanitized_url)
 
     wine_data, canonical_url = scraper.scrape_vivino_data(sanitized_url)
     
