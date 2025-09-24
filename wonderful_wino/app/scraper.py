@@ -4,6 +4,7 @@ import re
 import json
 import logging
 from urllib.parse import urlparse, parse_qs, urlunparse, urlencode
+import time # NEW: Import the time module for delays
 
 # Set up a logger specific to this module
 logger = logging.getLogger(__name__)
@@ -54,12 +55,31 @@ def _perform_scrape_attempt(url: str):
     headers = { 'User-Agent': user_agents[0] }
 
     try:
-        response = requests.get(url, headers=headers, timeout=10)
-        canonical_url = response.url
-        
-        if response.status_code not in [200, 202]:
+        # --- MODIFIED SECTION: ADDED RETRY LOGIC ---
+        response = None
+        canonical_url = url
+        for attempt in range(3): # Try up to 3 times
+            response = requests.get(url, headers=headers, timeout=10)
+            canonical_url = response.url # Keep track of the final URL after redirects
+
+            if response.status_code == 200:
+                logger.debug(f"Scrape attempt {attempt + 1} for {url} successful with status 200.")
+                break # Success, exit the loop
+            
+            if response.status_code == 202:
+                logger.warning(f"Scrape attempt {attempt + 1} for {url} received status 202 (Accepted). Retrying after a delay...")
+                time.sleep(2) # Wait 2 seconds before retrying
+                continue # Go to the next attempt
+
+            # For any other non-200/202 status, fail immediately
             logger.warning(f"Scrape attempt failed for {url}. Status: {response.status_code}")
             return None, canonical_url
+        
+        # If the loop finishes without a 200, it's a failure
+        if response.status_code != 200:
+             logger.error(f"All scrape attempts for {url} failed to get a 200 response. Last status: {response.status_code}")
+             return None, canonical_url
+        # --- END OF MODIFIED SECTION ---
 
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'lxml')
