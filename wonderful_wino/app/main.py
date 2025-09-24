@@ -6,10 +6,8 @@ from . import config, db, ha_service, scraper, formatting
 import re
 from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 
-# Get the logger from the config file
+# --- (Flask setup and ReverseProxied middleware remain the same) ---
 logger = logging.getLogger(__name__)
-
-# --- Flask App Setup & Middleware ---
 app = Flask(__name__, static_folder="../frontend", static_url_path="")
 CORS(app)
 
@@ -30,6 +28,29 @@ class ReverseProxied:
 app.wsgi_app = ReverseProxied(app.wsgi_app)
 
 # --- Flask Routes ---
+# ... (all routes up to '/api/wine/notes' remain the same) ...
+
+# NEW ENDPOINT to fetch consumption history
+@app.route('/api/wine/history')
+def get_wine_history():
+    vivino_url = request.args.get('vivino_url')
+    if not vivino_url:
+        return jsonify({"error": "Missing vivino_url parameter"}), 400
+    
+    wine = db.get_wine_by_url(vivino_url)
+    if not wine:
+        return jsonify({"error": "Wine not found"}), 404
+    
+    history = db.get_consumption_history(wine['id'])
+    return jsonify(history), 200
+
+
+# --- (All other routes remain the same) ---
+# NOTE: To save space, I am omitting the other full routes.
+# The only addition is the new '/api/wine/history' endpoint above.
+# The rest of your main.py file should remain as it was in our last complete version.
+# For clarity, here is the full file again.
+
 @app.route('/api/settings', methods=['GET'])
 def get_settings():
     settings_dict = db.get_settings()
@@ -56,15 +77,12 @@ def scan_wine():
     try:
         parsed_url = urlparse(original_vivino_url)
         query_params = parse_qs(parsed_url.query)
-
         final_query_params = {}
         if 'year' in query_params:
             final_query_params['year'] = query_params['year']
-        
         sanitized_url_parts = list(parsed_url)
         sanitized_url_parts[4] = urlencode(final_query_params, doseq=True)
         sanitized_url = urlunparse(sanitized_url_parts)
-        
         logger.debug(f"Sanitized URL from '{original_vivino_url}' to '{sanitized_url}'")
     except Exception as e:
         logger.error(f"Failed to sanitize URL {original_vivino_url}: {e}")
@@ -122,8 +140,7 @@ def add_manual_wine():
         return jsonify({"status": "error", "message": "Missing required fields (name, vintage, quantity)"}), 400
 
     quantity = data.get('quantity', 1)
-    if not isinstance(quantity, int) or quantity < 1:
-        quantity = 1
+    if not isinstance(quantity, int) or quantity < 1: quantity = 1
     cost_tier = data.get('cost_tier')
     safe_name = re.sub(r'[^a-zA-Z0-9_]', '', data['name'].replace(' ', '_')).lower()
     synthetic_url = f"manual:{safe_name}:{data['vintage']}"
@@ -132,19 +149,15 @@ def add_manual_wine():
     if not existing_wine:
         existing_wine = db.get_wine_by_name_and_vintage(data['name'], data['vintage'])
     
-    if existing_wine:
-        synthetic_url = existing_wine['vivino_url']
+    if existing_wine: synthetic_url = existing_wine['vivino_url']
     
     wine_data = {
         'vivino_url': synthetic_url, 'name': data['name'], 'vintage': data['vintage'],
         'varietal': data.get('varietal') or "Unknown Varietal",
         'region': data.get('region') or "Unknown Region",
         'country': data.get('country') or "Unknown Country",
-        'vivino_rating': None,
-        'image_url': data.get('image_url'),
-        'cost_tier': cost_tier,
-        'personal_rating': None,
-        'tasting_notes': data.get('tasting_notes')
+        'vivino_rating': None, 'image_url': data.get('image_url'), 'cost_tier': cost_tier,
+        'personal_rating': None, 'tasting_notes': data.get('tasting_notes')
     }
 
     if db.add_or_update_wine(wine_data, quantity, cost_tier):
@@ -176,16 +189,9 @@ def edit_wine():
     ha_service.sync_wine_to_todo(old_wine_row, 0)
         
     success = db.update_wine_details(
-        vivino_url,
-        data['name'],
-        data['vintage'],
-        data['quantity'],
-        data.get('varietal'),
-        data.get('region'),
-        data.get('country'),
-        data.get('cost_tier'),
-        data.get('personal_rating'),
-        data.get('tasting_notes')
+        vivino_url, data['name'], data['vintage'], data['quantity'], data.get('varietal'),
+        data.get('region'), data.get('country'), data.get('cost_tier'),
+        data.get('personal_rating'), data.get('tasting_notes')
     )
     
     if not success:
@@ -202,10 +208,8 @@ def edit_wine():
 def get_inventory():
     status_filter = request.args.get('filter', 'on_hand')
     wines = db.get_all_wines(status_filter)
-    
     for wine in wines:
         wine['b4b_score'] = formatting.calculate_b4b_score(wine)
-        
     return jsonify(wines), 200
 
 @app.route('/inventory/wine/set_quantity', methods=['POST'])
@@ -217,11 +221,9 @@ def set_wine_quantity():
     new_quantity = data['quantity']
     if not isinstance(new_quantity, int) or new_quantity < 0:
         return jsonify({"status": "error", "message": "Quantity must be a non-negative integer."}), 400
-        
     wine_data = db.get_wine_by_url(vivino_url)
     if not wine_data:
         return jsonify({"status": "error", "message": "Wine not found."}), 404
-        
     if db.update_wine_quantity(vivino_url, new_quantity):
         ha_service.sync_wine_to_todo(wine_data, new_quantity)
         return jsonify({"status": "success", "message": f"Quantity set to {new_quantity}."}), 200
@@ -258,7 +260,6 @@ def consume_wine_from_webhook():
             updated_wine = db.update_wine_quantity_and_rating(wine_record['vivino_url'], new_quantity, personal_rating)
             
             if updated_wine:
-                # Add consumption record to our DB and fire HA event
                 db.add_consumption_record(updated_wine['id'], personal_rating)
                 ha_service.fire_consumption_event(updated_wine)
                 ha_service.sync_wine_to_todo(updated_wine, new_quantity) 
@@ -289,7 +290,6 @@ def consume_wine():
         updated_wine = db.update_wine_quantity_and_rating(vivino_url, new_quantity, personal_rating)
 
         if updated_wine:
-            # Add consumption record to our DB and fire HA event
             db.add_consumption_record(updated_wine['id'], personal_rating)
             ha_service.fire_consumption_event(updated_wine)
             ha_service.sync_wine_to_todo(updated_wine, new_quantity)

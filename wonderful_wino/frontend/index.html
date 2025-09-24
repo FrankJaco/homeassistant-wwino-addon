@@ -674,6 +674,12 @@
                         class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Save Changes</button>
                 </div>
             </form>
+            <hr class="my-6 border-gray-300">
+            <div>
+                <h4 class="text-lg font-medium text-gray-800 mb-3">Consumption Log</h4>
+                <div id="consumptionLogContainer" class="text-sm text-gray-700 space-y-2 max-h-48 overflow-y-auto">
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1246,18 +1252,54 @@
             document.getElementById('tasteModalWineName').textContent = `${wine.name} (${wine.vintage || 'NV'})`;
             resetTasteStars();
         }
+        async function fetchAndDisplayConsumptionHistory(wine) {
+                const container = document.getElementById('consumptionLogContainer');
+                container.innerHTML = '<p>Loading history...</p>';
+                try {
+                    const response = await fetch(`${BASE_URL}api/wine/history?vivino_url=${encodeURIComponent(wine.vivino_url)}`);
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Could not fetch history.');
+                    }
+                    const history = await response.json();
 
+                    if (history.length === 0) {
+                        container.innerHTML = '<p>No consumption history recorded.</p>';
+                        return;
+                    }
+
+                    const historyHtml = history.map(record => {
+                        const date = new Date(record.consumed_at).toLocaleDateString(undefined, {
+                            year: 'numeric', month: 'short', day: 'numeric'
+                        });
+                        const rating = record.personal_rating ? `(Rated: ${record.personal_rating.toFixed(1)} ★)` : '(Not rated)';
+                        return `<div class="flex justify-between items-center py-1 border-b border-gray-200">
+                                <span>Consumed on ${date}</span>
+                                <span class="text-gray-500">${rating}</span>
+                            </div>`;
+                    }).join('');
+
+                    container.innerHTML = historyHtml;
+
+                } catch (error) {
+                    console.error('Failed to fetch consumption history:', error);
+                    container.innerHTML = `<p class="text-red-600">Error loading history: ${error.message}</p>`;
+                }
+            }
         function prepareNotesModal(wine) {
-            const imageUrlInput = document.getElementById('imageUrlInput');
-            const toggleBtn = document.getElementById('toggleImageUrlLock');
-            document.getElementById('notesVivinoUrl').value = wine.vivino_url;
-            document.getElementById('notesModalWineName').textContent = `${wine.name} (${wine.vintage || 'NV'})`;
-            document.getElementById('tastingNotesInput').value = wine.tasting_notes || '';
-            document.getElementById('notesMessage').classList.add('hidden');
-            imageUrlInput.value = wine.image_url || '';
-            imageUrlInput.setAttribute('readonly', true);
-            toggleBtn.textContent = '🔒';
-        }
+                const imageUrlInput = document.getElementById('imageUrlInput');
+                const toggleBtn = document.getElementById('toggleImageUrlLock');
+                document.getElementById('notesVivinoUrl').value = wine.vivino_url;
+                document.getElementById('notesModalWineName').textContent = `${wine.name} (${wine.vintage || 'NV'})`;
+                document.getElementById('tastingNotesInput').value = wine.tasting_notes || '';
+                document.getElementById('notesMessage').classList.add('hidden');
+                imageUrlInput.value = wine.image_url || '';
+                imageUrlInput.setAttribute('readonly', true);
+                toggleBtn.textContent = '🔒';
+
+                // Call the new function when the modal is prepared
+                fetchAndDisplayConsumptionHistory(wine);
+            }
 
         function prepareSettingsModal() {
             populateCostTierFieldsFromSettings();

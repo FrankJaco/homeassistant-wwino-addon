@@ -43,7 +43,6 @@ def init_db():
                 value TEXT
             )
         ''')
-        # NEW: Create the consumption_history table
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS consumption_history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -68,9 +67,9 @@ def reinitialize_database():
         conn = get_db_connection()
         cursor = conn.cursor()
         logger.warning("Reinitializing database: Dropping existing tables.")
+        cursor.execute("DROP TABLE IF EXISTS consumption_history")
         cursor.execute("DROP TABLE IF EXISTS wines")
         cursor.execute("DROP TABLE IF EXISTS settings")
-        cursor.execute("DROP TABLE IF EXISTS consumption_history") # NEW
         conn.commit()
         init_db()
         logger.info("Database tables re-created.")
@@ -82,7 +81,6 @@ def reinitialize_database():
         if conn:
             conn.close()
 
-# NEW: Function to add a record to the consumption history
 def add_consumption_record(wine_id, personal_rating):
     """Adds a new record to the consumption_history table."""
     conn = None
@@ -105,7 +103,27 @@ def add_consumption_record(wine_id, personal_rating):
         if conn:
             conn.close()
 
-# --- (All other functions in db.py remain the same) ---
+# NEW FUNCTION to get the consumption history for a specific wine
+def get_consumption_history(wine_id: int):
+    """Fetches all consumption records for a given wine_id."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT * FROM consumption_history WHERE wine_id = ? ORDER BY consumed_at DESC",
+            (wine_id,)
+        )
+        history = cursor.fetchall()
+        return [dict(row) for row in history]
+    except sqlite3.Error as e:
+        logger.error(f"Database error getting consumption history: {e}")
+        return []
+    finally:
+        if conn:
+            conn.close()
+
+# --- (All other functions remain the same) ---
 
 def add_or_update_wine(wine_data: dict, quantity: int, cost_tier: int):
     conn = None
@@ -114,9 +132,7 @@ def add_or_update_wine(wine_data: dict, quantity: int, cost_tier: int):
         cursor = conn.cursor()
         cursor.execute("SELECT id, quantity FROM wines WHERE vivino_url = ?", (wine_data['vivino_url'],))
         existing_wine = cursor.fetchone()
-
-        # Determine if this is a placeholder from a fallback scrape
-        needs_review_flag = wine_data.get('name', '').startswith('Review Wine') or wine_data.get('name', '').startswith('Vivino Wine ID')
+        needs_review_flag = wine_data.get('name', '').startswith(('Review Wine', 'Vivino Wine ID'))
 
         if existing_wine:
             wine_id, current_quantity = existing_wine
@@ -194,7 +210,6 @@ def update_wine_details(vivino_url, name, vintage, quantity, varietal, region, c
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        # When a wine is edited, we assume it no longer needs review
         cursor.execute('''
             UPDATE wines SET name = ?, vintage = ?, varietal = ?, region = ?, country = ?, 
             quantity = ?, cost_tier = ?, personal_rating = ?, tasting_notes = ?, needs_review = FALSE 
@@ -264,7 +279,7 @@ def update_wine_notes_and_image(vivino_url, notes, image_url):
             cursor.execute(query, tuple(params))
             conn.commit()
             return cursor.rowcount > 0
-        return True # No updates needed is still a success
+        return True
     except sqlite3.Error as e:
         logger.error(f"Database error updating notes/image: {e}")
         if conn:
