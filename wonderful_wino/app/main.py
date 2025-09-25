@@ -64,26 +64,29 @@ def scan_wine():
 
     original_vivino_url = data['vivino_url']
     
-    try:
-        # --- MODIFIED SECTION: Correctly preserve utm_source if present ---
-        parsed_url = urlparse(original_vivino_url)
-        query_params = parse_qs(parsed_url.query)
-        final_query_params = {}
-        # Preserve 'year' if it exists
-        if 'year' in query_params:
-            final_query_params['year'] = query_params['year']
-        # Preserve 'utm_source' if it exists
-        if 'utm_source' in query_params:
-            final_query_params['utm_source'] = query_params['utm_source']
-        
-        sanitized_url_parts = list(parsed_url)
-        sanitized_url_parts[4] = urlencode(final_query_params, doseq=True)
-        sanitized_url = urlunparse(sanitized_url_parts)
-        # --- END MODIFIED SECTION ---
-        logger.debug(f"Sanitized URL from '{original_vivino_url}' to '{sanitized_url}'")
-    except Exception as e:
-        logger.error(f"Failed to sanitize URL {original_vivino_url}: {e}")
+    # --- MODIFIED SECTION: Simpler, safer URL handling ---
+    # If the URL is from the app, trust it completely and use it as is.
+    # Otherwise, perform simple sanitization for web URLs.
+    if 'utm_source=app' in original_vivino_url:
         sanitized_url = original_vivino_url
+        logger.debug(f"App-sourced URL detected. Using as-is: '{sanitized_url}'")
+    else:
+        try:
+            # Simple sanitizer for web-based URLs
+            parsed_url = urlparse(original_vivino_url)
+            query_params = parse_qs(parsed_url.query)
+            final_query_params = {}
+            if 'year' in query_params:
+                final_query_params['year'] = query_params['year']
+            
+            sanitized_url_parts = list(parsed_url)
+            sanitized_url_parts[4] = urlencode(final_query_params, doseq=True)
+            sanitized_url = urlunparse(sanitized_url_parts)
+            logger.debug(f"Sanitized web URL from '{original_vivino_url}' to '{sanitized_url}'")
+        except Exception as e:
+            logger.error(f"Failed to sanitize web URL {original_vivino_url}: {e}")
+            sanitized_url = original_vivino_url
+    # --- END MODIFIED SECTION ---
     
     quantity = data.get('quantity', 1)
     cost_tier = data.get('cost_tier')
