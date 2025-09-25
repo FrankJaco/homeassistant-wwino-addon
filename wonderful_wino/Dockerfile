@@ -11,7 +11,9 @@ RUN apk add --no-cache \
     python3-dev \
     libxml2-dev \
     libxslt-dev \
-    zlib-dev
+    zlib-dev \
+    chromium \
+    chromium-chromedriver
 
 # --- Backend Setup ---
 WORKDIR /app

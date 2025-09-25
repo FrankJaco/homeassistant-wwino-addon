@@ -3,3 +3,4 @@ requests          # For making HTTP requests to Vivino.com
 beautifulsoup4    # For parsing HTML from Vivino.com
 lxml              # For faster parsing with BeautifulSoup
 Flask-Cors        # Added for CORS support
+selenium         # NEW: For driving a real browser to defeat anti-bot measures
