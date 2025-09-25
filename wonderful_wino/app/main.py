@@ -4,7 +4,7 @@ from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from . import config, db, ha_service, scraper, formatting
 import re
-from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
+from urllib.parse import urlparse, urlunparse
 
 # --- (Flask setup and ReverseProxied middleware remain the same) ---
 logger = logging.getLogger(__name__)
@@ -65,30 +65,43 @@ def scan_wine():
     original_vivino_url = data['vivino_url']
     quantity = data.get('quantity', 1)
     cost_tier = data.get('cost_tier')
+    manual_vintage_str = data.get('vintage') # From Android Helper App
     
-    # --- MODIFIED: Final simplified logic ---
-    # The scraper is now fully responsible for all scraping strategies.
-    # We just pass it the original URL.
-    sanitized_url = original_vivino_url
-    if 'utm_source=app' in sanitized_url:
-        logger.debug(f"App-sourced URL detected: '{sanitized_url}'")
-    else:
-        logger.debug(f"Web-sourced URL detected: '{sanitized_url}'")
+    # --- MODIFIED SECTION: Sanitize App URLs before scraping ---
+    url_for_scraper = original_vivino_url
+    if 'utm_source=app' in original_vivino_url:
+        logger.info(f"App-sourced URL detected. Sanitizing for scraper: '{original_vivino_url}'")
+        
+        # 1. Strip all query parameters to get a clean base URL
+        parsed_url = urlparse(original_vivino_url)
+        # Create new URL parts with an empty query string
+        sanitized_parts = parsed_url._replace(query='')
+        sanitized_base_url = urlunparse(sanitized_parts)
 
-    # The user-provided vintage from the app is the source of truth.
-    manual_vintage_str = data.get('vintage')
-    
+        # 2. Rebuild the URL with only the year parameter, if provided
+        if manual_vintage_str:
+            parsed_sanitized_url = urlparse(sanitized_base_url)
+            # Add ONLY the year query parameter
+            rebuilt_parts = parsed_sanitized_url._replace(query=f"year={manual_vintage_str}")
+            url_for_scraper = urlunparse(rebuilt_parts)
+            logger.info(f"Rebuilt clean URL for scraper: '{url_for_scraper}'")
+        else:
+            url_for_scraper = sanitized_base_url
+            logger.warning("App-sourced URL received without a manual vintage. Scraping as non-vintage.")
+    else:
+        logger.debug(f"Web-sourced URL detected: '{url_for_scraper}'")
     # --- END MODIFIED SECTION ---
 
     if not isinstance(quantity, int) or quantity < 1:
         quantity = 1
 
-    wine_data, canonical_url = scraper.scrape_vivino_data(sanitized_url)
+    wine_data, canonical_url = scraper.scrape_vivino_data(url_for_scraper)
     
     if not wine_data or not canonical_url:
         return jsonify({"status": "error", "message": "Scraping failed: Could not identify valid wine details on the page."}), 500
 
     # If a vintage was passed from the app, it ALWAYS overrides what the scraper found.
+    # This remains as a final failsafe.
     if manual_vintage_str:
         try:
             wine_data['vintage'] = int(manual_vintage_str)
