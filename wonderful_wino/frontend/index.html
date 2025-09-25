@@ -1739,7 +1739,12 @@
                 e.target.textContent = isReadonly ? '🔓' : '🔒';
                 if (!isReadonly) imageUrlInput.focus();
             });
-
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') {
+                    console.log("Tab is visible, refreshing inventory.");
+                    fetchInventory();
+                }
+            });
             await fetchSettings();
             fetchInventory();
         });
