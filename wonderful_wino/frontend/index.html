@@ -485,6 +485,10 @@
                                     d="M3 20h13M3 16h9m-9-4h6m4 0l4 4m0 0l4-4m-4 4V4"></path>
                             </svg>
                         </button>
+                        <button id="refreshInventoryBtn" class="p-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 icon-button"
+                            aria-label="Refresh Inventory" title="Refresh Inventory">
+                            🔄
+                        </button>
                     </div>
                 </div>
             </div>
@@ -1745,6 +1749,7 @@
                     fetchInventory();
                 }
             });
+            document.getElementById('refreshInventoryBtn').addEventListener('click', fetchInventory);
             await fetchSettings();
             fetchInventory();
         });
