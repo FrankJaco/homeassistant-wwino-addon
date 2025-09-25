@@ -64,15 +64,28 @@ def scan_wine():
 
     original_vivino_url = data['vivino_url']
     
-    # --- MODIFIED SECTION: Simpler, safer URL handling ---
-    # If the URL is from the app, trust it completely and use it as is.
-    # Otherwise, perform simple sanitization for web URLs.
+    # --- MODIFIED: Final logic to handle App vs. Web URLs ---
+    url_for_scraping = original_vivino_url
+    vintage_to_save_str = data.get('vintage') # From previous Android app logic
+
+    # If the URL is from the app, decouple the vintage for scraping
     if 'utm_source=app' in original_vivino_url:
-        sanitized_url = original_vivino_url
-        logger.debug(f"App-sourced URL detected. Using as-is: '{sanitized_url}'")
+        logger.debug("App-sourced URL detected. Decoupling vintage for scraping.")
+        parsed_url = urlparse(original_vivino_url)
+        query_params = parse_qs(parsed_url.query)
+        
+        if 'year' in query_params:
+            vintage_to_save_str = query_params['year'][0]
+            del query_params['year'] # Remove year for the scraping URL
+        
+        # Rebuild the URL without the year parameter for the scraper
+        new_url_parts = list(parsed_url)
+        new_url_parts[4] = urlencode(query_params, doseq=True)
+        url_for_scraping = urlunparse(new_url_parts)
+    
+    # If not from the app, do the simple web sanitization
     else:
         try:
-            # Simple sanitizer for web-based URLs
             parsed_url = urlparse(original_vivino_url)
             query_params = parse_qs(parsed_url.query)
             final_query_params = {}
@@ -81,36 +94,37 @@ def scan_wine():
             
             sanitized_url_parts = list(parsed_url)
             sanitized_url_parts[4] = urlencode(final_query_params, doseq=True)
-            sanitized_url = urlunparse(sanitized_url_parts)
-            logger.debug(f"Sanitized web URL from '{original_vivino_url}' to '{sanitized_url}'")
+            url_for_scraping = urlunparse(sanitized_url_parts)
         except Exception as e:
             logger.error(f"Failed to sanitize web URL {original_vivino_url}: {e}")
-            sanitized_url = original_vivino_url
+            url_for_scraping = original_vivino_url
+    
+    logger.debug(f"URL for scraping: '{url_for_scraping}', Vintage to save: {vintage_to_save_str}")
     # --- END MODIFIED SECTION ---
     
     quantity = data.get('quantity', 1)
     cost_tier = data.get('cost_tier')
-    manual_vintage = data.get('vintage') 
 
     if not isinstance(quantity, int) or quantity < 1:
         quantity = 1
 
-    existing_wine = db.get_wine_by_url(sanitized_url)
+    existing_wine = db.get_wine_by_url(url_for_scraping)
     if existing_wine and 'Vivino Wine ID' in existing_wine.get('name', ''):
-        logger.warning(f"Found existing placeholder entry for {sanitized_url}. Deleting it to re-scrape.")
-        db.delete_wine_by_url(sanitized_url)
+        logger.warning(f"Found existing placeholder entry for {url_for_scraping}. Deleting it to re-scrape.")
+        db.delete_wine_by_url(url_for_scraping)
 
-    wine_data, canonical_url = scraper.scrape_vivino_data(sanitized_url)
+    wine_data, canonical_url = scraper.scrape_vivino_data(url_for_scraping)
     
     if not wine_data or not canonical_url:
         return jsonify({"status": "error", "message": "Scraping failed: Could not identify valid wine details on the page."}), 500
 
-    if manual_vintage:
+    # Override scraper vintage with the one from the app URL
+    if vintage_to_save_str:
         try:
-            wine_data['vintage'] = int(manual_vintage)
-            logger.info(f"Overriding vintage with manually provided value: {manual_vintage}")
+            wine_data['vintage'] = int(vintage_to_save_str)
+            logger.info(f"Overriding vintage with app-provided value: {vintage_to_save_str}")
         except (ValueError, TypeError):
-            logger.warning(f"Invalid manual vintage value received: {manual_vintage}")
+            logger.warning(f"Invalid vintage from app URL received: {vintage_to_save_str}")
 
     wine_data['vivino_url'] = canonical_url
 
