@@ -58,7 +58,9 @@ def _perform_scrape_attempt(url: str):
     
     try:
         response = None
-        canonical_url = url
+        # The canonical_url is determined before this function is called,
+        # but we still track response.url in case of further client-side redirects.
+        final_url_after_scrape = url
         for attempt in range(4): 
             if attempt > 0:
                 delay = 2**(attempt - 1)
@@ -66,8 +68,8 @@ def _perform_scrape_attempt(url: str):
                 time.sleep(delay)
 
             PERSISTENT_SESSION.headers.update({ 'User-Agent': random.choice(USER_AGENTS) })
-            response = PERSISTENT_SESSION.get(url, timeout=10)
-            canonical_url = response.url
+            response = PERSISTENT_SESSION.get(url, timeout=15) # Increased timeout
+            final_url_after_scrape = response.url
 
             if response.status_code == 200:
                 logger.debug(f"Scrape attempt {attempt + 1} for {url} successful with status 200.")
@@ -75,11 +77,11 @@ def _perform_scrape_attempt(url: str):
             
             if response.status_code != 202:
                 logger.warning(f"Scrape attempt failed for {url}. Status: {response.status_code}")
-                return None, canonical_url
+                return None, final_url_after_scrape
         
         if response.status_code != 200:
              logger.error(f"All scrape attempts for {url} failed to get a 200 response. Last status: {response.status_code}")
-             return None, canonical_url
+             return None, final_url_after_scrape
 
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'lxml')
@@ -342,7 +344,7 @@ def _perform_scrape_attempt(url: str):
                 except ValueError: pass
         if wine_data['vintage'] is None:
             try:
-                parsed_url = urlparse(canonical_url)
+                parsed_url = urlparse(final_url_after_scrape)
                 query_params = parse_qs(parsed_url.query)
                 if 'year' in query_params:
                     wine_data['vintage'] = int(query_params['year'][0])
@@ -350,9 +352,9 @@ def _perform_scrape_attempt(url: str):
                 pass
         
         if wine_data['name'] != 'Unknown Wine':
-            return wine_data, canonical_url
+            return wine_data, final_url_after_scrape
         
-        return None, canonical_url
+        return None, final_url_after_scrape
 
     except requests.exceptions.RequestException as e:
         logger.warning(f"Network error during scrape attempt for {url}: {e}")
@@ -364,21 +366,44 @@ def scrape_vivino_data(vivino_url):
     Orchestrates a multi-stage scrape attempt to find the best possible wine data.
     """
     wine_data = None
-    canonical_url = None
+    canonical_url = vivino_url
+    
+    # --- MODIFIED SECTION: Add a pre-flight check to resolve redirects ---
     try:
-        logger.info(f"Starting advanced scrape for: {vivino_url}")
+        logger.info(f"Performing pre-flight check to find canonical URL for: {vivino_url}")
+        # Use a lightweight HEAD request to follow redirects (301, 302) without downloading the body
+        head_response = PERSISTENT_SESSION.head(vivino_url, allow_redirects=True, timeout=10)
         
-        wine_data, canonical_url = _perform_scrape_attempt(vivino_url)
+        if head_response.status_code == 200:
+            if head_response.url != vivino_url:
+                logger.info(f"Redirects resolved. Canonical URL is: {head_response.url}")
+                canonical_url = head_response.url
+            else:
+                logger.info("URL is already canonical. Proceeding with original URL.")
+        else:
+            logger.warning(f"Pre-flight check for {vivino_url} returned status {head_response.status_code}. Proceeding with original URL.")
+    
+    except requests.exceptions.RequestException as e:
+        logger.warning(f"Network error during pre-flight check for {vivino_url}: {e}. Proceeding with original URL.")
+    # --- END MODIFIED SECTION ---
+
+    try:
+        logger.info(f"Starting advanced scrape for: {canonical_url}")
+        
+        wine_data, final_url = _perform_scrape_attempt(canonical_url)
+        # Always trust the URL returned by the final successful scrape attempt
+        if final_url:
+            canonical_url = final_url
+
         if wine_data:
             logger.info(f"Success on initial scrape for {canonical_url}")
             return wine_data, canonical_url
         
-        # If the initial scrape fails, cool down before trying fallbacks
-        logger.warning(f"Initial scrape failed. Cooling down for 5 seconds before checking nearby vintages.")
+        logger.warning(f"Initial scrape failed for {canonical_url}. Cooling down for 5 seconds before checking nearby vintages.")
         time.sleep(5)
 
         try:
-            parsed_url = urlparse(vivino_url)
+            parsed_url = urlparse(vivino_url) # Use the original URL for vintage logic
             query_params = parse_qs(parsed_url.query)
             original_vintage = int(query_params.get('year', [None])[0])
         except (ValueError, TypeError):
@@ -386,32 +411,35 @@ def scrape_vivino_data(vivino_url):
 
         if original_vintage:
             for i, year_offset in enumerate([-1, 1]):
-                # Add a delay between the two nearby vintage checks
                 if i > 0:
                     logger.debug("Applying 3-second delay between nearby vintage checks.")
                     time.sleep(3)
 
                 new_vintage = original_vintage + year_offset
                 
-                # --- MODIFIED: Correctly build nearby vintage URL, preserving all other params ---
-                new_query_params = query_params.copy()
+                # Build nearby vintage URL from the last known canonical URL to preserve path
+                parsed_canonical = urlparse(canonical_url)
+                new_query_params = parse_qs(parsed_canonical.query)
                 new_query_params['year'] = [str(new_vintage)]
                 
-                new_url_parts = list(parsed_url)
+                new_url_parts = list(parsed_canonical)
                 new_url_parts[4] = urlencode(new_query_params, doseq=True)
                 nearby_vintage_url = urlunparse(new_url_parts)
-                # --- END MODIFIED SECTION ---
 
                 logger.info(f"Attempting scrape of nearby vintage: {nearby_vintage_url}")
-                nearby_data, nearby_canonical_url = _perform_scrape_attempt(nearby_vintage_url)
+                nearby_data, nearby_final_url = _perform_scrape_attempt(nearby_vintage_url)
                 
                 if nearby_data:
                     logger.warning(f"Success scraping nearby vintage ({new_vintage}). Borrowing its data for original vintage ({original_vintage}).")
                     
-                    nearby_name_cleaned = re.sub(r'\s*\b(19|20)\d{2}\b', '', nearby_data['name']).strip()
+                    # Use the original URL with the correct vintage as the final canonical URL for this wine
+                    parsed_original = urlparse(vivino_url)
+                    original_query = parse_qs(parsed_original.query)
+                    original_query['year'] = [str(original_vintage)]
+                    final_canonical_url = urlunparse(parsed_original._replace(query=urlencode(original_query, doseq=True)))
 
                     borrowed_data = {
-                        'name': nearby_name_cleaned,
+                        'name': re.sub(r'\s*\b(19|20)\d{2}\b', '', nearby_data['name']).strip(),
                         'vintage': original_vintage,
                         'varietal': nearby_data['varietal'],
                         'region': nearby_data['region'],
@@ -419,7 +447,7 @@ def scrape_vivino_data(vivino_url):
                         'vivino_rating': None,
                         'image_url': nearby_data['image_url'],
                     }
-                    return borrowed_data, canonical_url
+                    return borrowed_data, final_canonical_url
 
         logger.warning("All scrape attempts failed. Attempting to parse URL for final fallback data.")
         fallback_data = _parse_url_for_fallback_data(vivino_url)
@@ -437,6 +465,5 @@ def scrape_vivino_data(vivino_url):
         logger.error(f"All scrape and fallback attempts failed to find a valid wine name for {vivino_url}.")
         return None, None
     finally:
-        # A final, short cooldown to ensure calls to this function are spaced out.
         logger.debug("Applying a final 2-second cooldown.")
         time.sleep(2)
