@@ -66,51 +66,35 @@ def scan_wine():
     quantity = data.get('quantity', 1)
     cost_tier = data.get('cost_tier')
     
-    # --- MODIFIED: Final two-stage scraping logic ---
-    wine_data, canonical_url = None, None
-    vintage_to_save_str = data.get('vintage') # From old Android app logic
+    # --- MODIFIED: Final simplified logic ---
+    # The scraper is now fully responsible for all scraping strategies.
+    # We just pass it the original URL.
+    sanitized_url = original_vivino_url
+    if 'utm_source=app' in sanitized_url:
+        logger.debug(f"App-sourced URL detected: '{sanitized_url}'")
+    else:
+        logger.debug(f"Web-sourced URL detected: '{sanitized_url}'")
 
-    # --- Stage 1: Standard scrape with the provided URL ---
-    logger.info("--- Starting Scrape Attempt: Stage 1 (As-Is URL) ---")
-    wine_data, canonical_url = scraper.scrape_vivino_data(original_vivino_url)
-
-    # --- Stage 2: If Stage 1 fails AND it's an app URL, try the decoupling strategy ---
-    if not wine_data and 'utm_source=app' in original_vivino_url:
-        logger.warning("Stage 1 failed for App URL. Proceeding to Stage 2 (Decoupled Vintage).")
-        try:
-            parsed_url = urlparse(original_vivino_url)
-            query_params = parse_qs(parsed_url.query)
-            
-            if 'year' in query_params:
-                vintage_to_save_str = query_params['year'][0]
-                del query_params['year']
-            
-            new_url_parts = list(parsed_url)
-            new_url_parts[4] = urlencode(query_params, doseq=True)
-            url_for_scraping = urlunparse(new_url_parts)
-            
-            logger.info(f"--- Starting Scrape Attempt: Stage 2 (URL: {url_for_scraping}) ---")
-            wine_data, canonical_url = scraper.scrape_vivino_data(url_for_scraping)
-
-        except Exception as e:
-            logger.error(f"Error during Stage 2 processing: {e}")
-            wine_data, canonical_url = None, None # Ensure failure if this block errors out
-
-    # If all attempts fail, exit
-    if not wine_data or not canonical_url:
-        return jsonify({"status": "error", "message": "All scraping attempts failed to find valid wine details."}), 500
-
-    # Override scraper vintage with the one from the app URL if it exists
-    if vintage_to_save_str:
-        try:
-            wine_data['vintage'] = int(vintage_to_save_str)
-            logger.info(f"Final vintage locked in from user input: {vintage_to_save_str}")
-        except (ValueError, TypeError):
-            logger.warning(f"Invalid vintage value received: {vintage_to_save_str}")
+    # The user-provided vintage from the app is the source of truth.
+    manual_vintage_str = data.get('vintage')
+    
     # --- END MODIFIED SECTION ---
 
     if not isinstance(quantity, int) or quantity < 1:
         quantity = 1
+
+    wine_data, canonical_url = scraper.scrape_vivino_data(sanitized_url)
+    
+    if not wine_data or not canonical_url:
+        return jsonify({"status": "error", "message": "Scraping failed: Could not identify valid wine details on the page."}), 500
+
+    # If a vintage was passed from the app, it ALWAYS overrides what the scraper found.
+    if manual_vintage_str:
+        try:
+            wine_data['vintage'] = int(manual_vintage_str)
+            logger.info(f"Overriding vintage with user-provided value: {manual_vintage_str}")
+        except (ValueError, TypeError):
+            logger.warning(f"Invalid manual vintage value received: {manual_vintage_str}")
 
     wine_data['vivino_url'] = canonical_url
 
