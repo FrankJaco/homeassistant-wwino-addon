@@ -10,8 +10,9 @@ import random
 # Set up a logger specific to this module
 logger = logging.getLogger(__name__)
 
-# --- Create a single, persistent session ---
-PERSISTENT_SESSION = requests.Session()
+# --- MODIFIED: The single persistent session is removed to avoid being flagged. ---
+# A new session will be created for each top-level scrape_vivino_data call.
+
 USER_AGENTS = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -19,8 +20,6 @@ USER_AGENTS = [
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0'
 ]
-PERSISTENT_SESSION.headers.update({ 'User-Agent': random.choice(USER_AGENTS) })
-
 
 def _parse_url_for_fallback_data(url: str):
     """
@@ -49,26 +48,27 @@ def _parse_url_for_fallback_data(url: str):
     
     return None
 
-
-def _perform_scrape_attempt(url: str):
+# MODIFIED: Function now accepts a session object
+def _perform_scrape_attempt(url: str, session: requests.Session):
     """
-    Performs a single, complete scrape attempt for a given URL.
+    Performs a single, complete scrape attempt for a given URL using a provided session.
     """
     logger.debug(f"Executing scrape attempt for URL: {url}")
     
     try:
         response = None
-        # The canonical_url is determined before this function is called,
-        # but we still track response.url in case of further client-side redirects.
         final_url_after_scrape = url
         for attempt in range(4): 
             if attempt > 0:
                 delay = 2**(attempt - 1)
-                logger.warning(f"Scrape attempt {attempt + 1} for {url} received status 202. Retrying after a {delay}s delay...")
-                time.sleep(delay)
+                # MODIFIED: Add random jitter to delays
+                randomized_delay = delay + random.uniform(0.5, 1.5)
+                logger.warning(f"Scrape attempt {attempt + 1} for {url} received status 202. Retrying after a {randomized_delay:.2f}s delay...")
+                time.sleep(randomized_delay)
 
-            PERSISTENT_SESSION.headers.update({ 'User-Agent': random.choice(USER_AGENTS) })
-            response = PERSISTENT_SESSION.get(url, timeout=15) # Increased timeout
+            # MODIFIED: Set a fresh user-agent for every single request
+            session.headers.update({ 'User-Agent': random.choice(USER_AGENTS) })
+            response = session.get(url, timeout=15, allow_redirects=True)
             final_url_after_scrape = response.url
 
             if response.status_code == 200:
@@ -365,33 +365,22 @@ def scrape_vivino_data(vivino_url):
     """
     Orchestrates a multi-stage scrape attempt to find the best possible wine data.
     """
+    # MODIFIED: Create a new session for each scrape attempt to appear as a new visitor.
+    session = requests.Session()
+    session.headers.update({ 'User-Agent': random.choice(USER_AGENTS) })
+    
     wine_data = None
     canonical_url = vivino_url
     
-    # --- MODIFIED SECTION: Add a pre-flight check to resolve redirects ---
-    try:
-        logger.info(f"Performing pre-flight check to find canonical URL for: {vivino_url}")
-        # Use a lightweight HEAD request to follow redirects (301, 302) without downloading the body
-        head_response = PERSISTENT_SESSION.head(vivino_url, allow_redirects=True, timeout=10)
-        
-        if head_response.status_code == 200:
-            if head_response.url != vivino_url:
-                logger.info(f"Redirects resolved. Canonical URL is: {head_response.url}")
-                canonical_url = head_response.url
-            else:
-                logger.info("URL is already canonical. Proceeding with original URL.")
-        else:
-            logger.warning(f"Pre-flight check for {vivino_url} returned status {head_response.status_code}. Proceeding with original URL.")
-    
-    except requests.exceptions.RequestException as e:
-        logger.warning(f"Network error during pre-flight check for {vivino_url}: {e}. Proceeding with original URL.")
-    # --- END MODIFIED SECTION ---
+    # MODIFIED: The pre-flight check has been removed as it creates a non-human request pattern.
+    # We now rely solely on a single GET request and let it handle redirects naturally.
 
     try:
         logger.info(f"Starting advanced scrape for: {canonical_url}")
         
-        wine_data, final_url = _perform_scrape_attempt(canonical_url)
-        # Always trust the URL returned by the final successful scrape attempt
+        # MODIFIED: Pass the new session object to the scrape attempt function.
+        wine_data, final_url = _perform_scrape_attempt(canonical_url, session)
+        
         if final_url:
             canonical_url = final_url
 
@@ -403,7 +392,7 @@ def scrape_vivino_data(vivino_url):
         time.sleep(5)
 
         try:
-            parsed_url = urlparse(vivino_url) # Use the original URL for vintage logic
+            parsed_url = urlparse(vivino_url)
             query_params = parse_qs(parsed_url.query)
             original_vintage = int(query_params.get('year', [None])[0])
         except (ValueError, TypeError):
@@ -417,7 +406,6 @@ def scrape_vivino_data(vivino_url):
 
                 new_vintage = original_vintage + year_offset
                 
-                # Build nearby vintage URL from the last known canonical URL to preserve path
                 parsed_canonical = urlparse(canonical_url)
                 new_query_params = parse_qs(parsed_canonical.query)
                 new_query_params['year'] = [str(new_vintage)]
@@ -427,12 +415,12 @@ def scrape_vivino_data(vivino_url):
                 nearby_vintage_url = urlunparse(new_url_parts)
 
                 logger.info(f"Attempting scrape of nearby vintage: {nearby_vintage_url}")
-                nearby_data, nearby_final_url = _perform_scrape_attempt(nearby_vintage_url)
+                # MODIFIED: Pass the session to the nearby vintage scrape attempts as well.
+                nearby_data, nearby_final_url = _perform_scrape_attempt(nearby_vintage_url, session)
                 
                 if nearby_data:
                     logger.warning(f"Success scraping nearby vintage ({new_vintage}). Borrowing its data for original vintage ({original_vintage}).")
                     
-                    # Use the original URL with the correct vintage as the final canonical URL for this wine
                     parsed_original = urlparse(vivino_url)
                     original_query = parse_qs(parsed_original.query)
                     original_query['year'] = [str(original_vintage)]
@@ -465,5 +453,7 @@ def scrape_vivino_data(vivino_url):
         logger.error(f"All scrape and fallback attempts failed to find a valid wine name for {vivino_url}.")
         return None, None
     finally:
-        logger.debug("Applying a final 2-second cooldown.")
-        time.sleep(2)
+        # MODIFIED: Use a randomized final cooldown
+        final_delay = random.uniform(2.0, 4.0)
+        logger.debug(f"Applying a final randomized cooldown of {final_delay:.2f} seconds.")
+        time.sleep(final_delay)
