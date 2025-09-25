@@ -62,7 +62,7 @@ def _perform_scrape_attempt(url: str):
         for attempt in range(4): 
             if attempt > 0:
                 delay = 2**(attempt - 1)
-                logger.warning(f"Scrape attempt {attempt} for {url} received status 202. Retrying after a {delay}s delay...")
+                logger.warning(f"Scrape attempt {attempt + 1} for {url} received status 202. Retrying after a {delay}s delay...")
                 time.sleep(delay)
 
             PERSISTENT_SESSION.headers.update({ 'User-Agent': random.choice(USER_AGENTS) })
@@ -363,6 +363,8 @@ def scrape_vivino_data(vivino_url):
     """
     Orchestrates a multi-stage scrape attempt to find the best possible wine data.
     """
+    wine_data = None
+    canonical_url = None
     try:
         logger.info(f"Starting advanced scrape for: {vivino_url}")
         
@@ -371,7 +373,9 @@ def scrape_vivino_data(vivino_url):
             logger.info(f"Success on initial scrape for {canonical_url}")
             return wine_data, canonical_url
         
-        logger.warning(f"Initial scrape failed for {vivino_url}. Checking for nearby vintages.")
+        # If the initial scrape fails, cool down before trying fallbacks
+        logger.warning(f"Initial scrape failed. Cooling down for 5 seconds before checking nearby vintages.")
+        time.sleep(5)
 
         try:
             parsed_url = urlparse(vivino_url)
@@ -381,12 +385,15 @@ def scrape_vivino_data(vivino_url):
             original_vintage = None
 
         if original_vintage:
-            for year_offset in [-1, 1]:
+            for i, year_offset in enumerate([-1, 1]):
+                # Add a delay between the two nearby vintage checks
+                if i > 0:
+                    logger.debug("Applying 3-second delay between nearby vintage checks.")
+                    time.sleep(3)
+
                 new_vintage = original_vintage + year_offset
                 
-                # --- MODIFIED SECTION: Correctly build nearby vintage URL ---
-                # This correctly preserves all other parameters (like utm_source)
-                # while only changing the year.
+                # --- MODIFIED: Correctly build nearby vintage URL, preserving all other params ---
                 new_query_params = query_params.copy()
                 new_query_params['year'] = [str(new_vintage)]
                 
@@ -430,6 +437,6 @@ def scrape_vivino_data(vivino_url):
         logger.error(f"All scrape and fallback attempts failed to find a valid wine name for {vivino_url}.")
         return None, None
     finally:
-        # Enforce a "cooldown" period to respect rate limits
-        logger.debug("Applying 5-second post-scrape delay to avoid rate-limiting.")
-        time.sleep(5)
+        # A final, short cooldown to ensure calls to this function are spaced out.
+        logger.debug("Applying a final 2-second cooldown.")
+        time.sleep(2)
