@@ -65,15 +65,21 @@ def scan_wine():
     original_vivino_url = data['vivino_url']
     
     try:
-        # Original sanitization logic: only preserves the 'year' parameter
+        # --- MODIFIED SECTION: Correctly preserve utm_source if present ---
         parsed_url = urlparse(original_vivino_url)
         query_params = parse_qs(parsed_url.query)
         final_query_params = {}
+        # Preserve 'year' if it exists
         if 'year' in query_params:
             final_query_params['year'] = query_params['year']
+        # Preserve 'utm_source' if it exists
+        if 'utm_source' in query_params:
+            final_query_params['utm_source'] = query_params['utm_source']
+        
         sanitized_url_parts = list(parsed_url)
         sanitized_url_parts[4] = urlencode(final_query_params, doseq=True)
         sanitized_url = urlunparse(sanitized_url_parts)
+        # --- END MODIFIED SECTION ---
         logger.debug(f"Sanitized URL from '{original_vivino_url}' to '{sanitized_url}'")
     except Exception as e:
         logger.error(f"Failed to sanitize URL {original_vivino_url}: {e}")
