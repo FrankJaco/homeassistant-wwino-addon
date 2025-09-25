@@ -63,27 +63,37 @@ def _perform_scrape_attempt_selenium(url: str):
     """
     logger.debug(f"Executing Selenium scrape attempt for URL: {url}")
     
+    # --- MODIFIED SECTION: Add options to make Selenium look more human ---
     options = Options()
     options.add_argument('--headless')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     options.add_argument(f'user-agent={random.choice(USER_AGENTS)}')
     options.add_argument("window-size=1920,1080")
-    # This can help in some environments
     options.add_argument("--disable-gpu")
+    # This tells the browser which language to use, appearing more like a real user
+    options.add_argument("--lang=en-US")
+    # This disables a flag that can reveal automation
+    options.add_argument('--disable-blink-features=AutomationControlled')
+    # Exclude experimental options that can also be detected
+    options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    options.add_experimental_option('useAutomationExtension', False)
+    # --- END MODIFIED SECTION ---
 
     driver = None
     try:
         driver = webdriver.Chrome(options=options)
+        
+        # This script helps to hide the "navigator.webdriver" flag
+        driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+
         driver.get(url)
 
         # Wait up to 25 seconds for the wine name H1 tag to appear.
-        # This is the key to defeating the '202' timing games.
         WebDriverWait(driver, 25).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, "h1[class*='wine-page-header__name'], h1[class*='VintageTitle__wine'], h1"))
         )
         
-        # Once the element is present, the page is loaded.
         final_url_after_scrape = driver.current_url
         page_source = driver.page_source
         logger.debug(f"Selenium successfully loaded page. Final URL: {final_url_after_scrape}")
@@ -104,7 +114,6 @@ def _perform_scrape_attempt_selenium(url: str):
         if driver:
             driver.quit()
 
-    # --- FULL BeautifulSoup parsing logic begins here ---
     soup = BeautifulSoup(page_source, 'lxml')
     
     wine_data = {
@@ -253,10 +262,9 @@ def scrape_vivino_data(vivino_url):
                     'vivino_rating': None,
                     'image_url': nearby_data.get('image_url'),
                 }
-                # Return the original URL as canonical to ensure the DB key is correct
                 return borrowed_data, vivino_url
             
-            time.sleep(random.uniform(2.0, 4.0)) # Pause between nearby vintage checks
+            time.sleep(random.uniform(2.0, 4.0))
 
     logger.warning("All scrape attempts failed. Attempting to parse URL for final fallback data.")
     fallback_data = _parse_url_for_fallback_data(vivino_url)
@@ -268,3 +276,4 @@ def scrape_vivino_data(vivino_url):
 
     logger.error(f"All scrape and fallback attempts failed for {vivino_url}.")
     return None, None
+
