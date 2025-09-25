@@ -23,13 +23,24 @@ def _remove_ha_todo_item(item_text, headers):
     payload = { "entity_id": config.TODO_LIST_ENTITY_ID, "item": item_text }
     try:
         resp = requests.post(remove_url, json=payload, headers=headers, timeout=5)
-        if resp.status_code in [400, 500] and "Unable to find" in resp.text:
-             logger.debug(f"Item '{item_text}' not found in HA to remove (this is OK).")
+        # Check for specific "not found" text within common error codes
+        if resp.status_code >= 400 and "Unable to find item" in resp.text:
+             logger.info(f"Item '{item_text}' not found on To-Do list (expected for new wines).")
         else:
+            # Raise an exception for other errors (like 500, 401, 403 etc.)
             resp.raise_for_status()
             logger.info(f"Successfully removed '{item_text}' from HA To-Do list.")
+    except requests.exceptions.HTTPError as e:
+        # This block now specifically catches the HTTP errors raised by raise_for_status()
+        # This is where the 500 Internal Server Error will land.
+        if e.response.status_code == 500 and "Unable to find item" in e.response.text:
+            logger.info(f"Item '{item_text}' not found on To-Do list (expected for new wines).")
+        else:
+            # Log all other unexpected HTTP errors as warnings
+            logger.warning(f"Could not remove '{item_text}' from HA To-Do. Error: {e}")
     except requests.exceptions.RequestException as e:
-        logger.warning(f"Could not remove '{item_text}' from HA To-Do. Error: {e}")
+        # Catch other network-related issues (timeout, connection error)
+        logger.warning(f"Could not remove '{item_text}' from HA To-Do. Network Error: {e}")
 
 
 def sync_wine_to_todo(wine: dict, current_quantity: int):
@@ -57,7 +68,6 @@ def sync_wine_to_todo(wine: dict, current_quantity: int):
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to add/update '{item_text}' in HA To-Do list: {e}")
 
-# NEW: Function to fire a custom event to Home Assistant
 def fire_consumption_event(wine_data: dict):
     """Fires a 'wonderful_wino_wine_consumed' event to the HA event bus."""
     headers = _get_ha_headers()
@@ -86,7 +96,6 @@ def fire_consumption_event(wine_data: dict):
 def sync_all_wines_to_ha(all_wines: list):
     """Performs a simple sync of all provided wines to the HA To-Do list."""
     logger.info(f"Starting sync of {len(all_wines)} wines to HA To-Do list.")
-    # Filter to only sync wines with quantity > 0
     on_hand_wines = [wine for wine in all_wines if wine.get('quantity', 0) > 0]
     for wine in on_hand_wines:
         sync_wine_to_todo(wine, wine.get('quantity', 0))
@@ -110,3 +119,4 @@ def force_clear_ha_list():
         _remove_ha_todo_item(item_text, headers)
     
     logger.info("Force-clear operation completed.")
+

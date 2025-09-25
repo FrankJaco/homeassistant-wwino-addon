@@ -9,7 +9,6 @@ from urllib.parse import urlparse, parse_qs, urlunparse, urlencode
 import time 
 import random 
 
-# --- MODIFIED: Import Selenium for browser automation ---
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
@@ -63,33 +62,27 @@ def _perform_scrape_attempt_selenium(url: str):
     """
     logger.debug(f"Executing Selenium scrape attempt for URL: {url}")
     
-    # --- MODIFIED SECTION: Add options to make Selenium look more human ---
     options = Options()
+    # MODIFIED: Use the 'eager' strategy to speed up page loads.
+    # It stops loading when the HTML is parsed, without waiting for all images/scripts.
+    options.page_load_strategy = 'eager'
     options.add_argument('--headless')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     options.add_argument(f'user-agent={random.choice(USER_AGENTS)}')
     options.add_argument("window-size=1920,1080")
     options.add_argument("--disable-gpu")
-    # This tells the browser which language to use, appearing more like a real user
     options.add_argument("--lang=en-US")
-    # This disables a flag that can reveal automation
     options.add_argument('--disable-blink-features=AutomationControlled')
-    # Exclude experimental options that can also be detected
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option('useAutomationExtension', False)
-    # --- END MODIFIED SECTION ---
 
     driver = None
     try:
         driver = webdriver.Chrome(options=options)
-        
-        # This script helps to hide the "navigator.webdriver" flag
         driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-
         driver.get(url)
 
-        # Wait up to 25 seconds for the wine name H1 tag to appear.
         WebDriverWait(driver, 25).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, "h1[class*='wine-page-header__name'], h1[class*='VintageTitle__wine'], h1"))
         )
