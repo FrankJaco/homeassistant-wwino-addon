@@ -10,9 +10,7 @@ import random
 # Set up a logger specific to this module
 logger = logging.getLogger(__name__)
 
-# --- MODIFIED SECTION: Create a single, persistent session ---
-# This session object will be reused for all scrapes, persisting cookies
-# and connection information to appear as a single, consistent user.
+# --- Create a single, persistent session ---
 PERSISTENT_SESSION = requests.Session()
 USER_AGENTS = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
@@ -21,34 +19,27 @@ USER_AGENTS = [
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0'
 ]
-# Set an initial User-Agent
 PERSISTENT_SESSION.headers.update({ 'User-Agent': random.choice(USER_AGENTS) })
-# --- END MODIFIED SECTION ---
 
 
 def _parse_url_for_fallback_data(url: str):
     """
     Parses a Vivino URL to get a fallback name and vintage.
-    This is the final safety net if all scraping fails.
-    It now handles both long (web) and short (Android) URL formats.
     """
     try:
         parsed_url = urlparse(url)
         query_params = parse_qs(parsed_url.query)
         vintage = int(query_params['year'][0]) if 'year' in query_params else None
 
-        # Try to parse the long (web) format first
         match = re.search(r'/(?:[a-zA-Z]{2}/)?([^/]+)/w/', parsed_url.path)
         if match:
             path_name = match.group(1).replace('-', ' ').title()
             logger.debug(f"Fallback parser matched long URL format for name: {path_name}")
             return {'name': path_name, 'vintage': vintage}
         
-        # If that fails, try to parse the short (Android) format
         match = re.search(r'/wines/(\d+)', parsed_url.path)
         if match:
             wine_id = match.group(1)
-            # We can't get a real name, so we create a useful placeholder.
             path_name = f"Vivino Wine ID {wine_id}"
             logger.debug(f"Fallback parser matched short URL format, created placeholder name: {path_name}")
             return {'name': path_name, 'vintage': vintage}
@@ -62,36 +53,30 @@ def _parse_url_for_fallback_data(url: str):
 def _perform_scrape_attempt(url: str):
     """
     Performs a single, complete scrape attempt for a given URL.
-    Returns (wine_data, canonical_url) on success, or (None, canonical_url) on failure.
     """
     logger.debug(f"Executing scrape attempt for URL: {url}")
     
     try:
-        # Exponential Backoff Retry Logic
         response = None
         canonical_url = url
-        # Try up to 4 times with increasing delays: 1, 2, 4 seconds
         for attempt in range(4): 
             if attempt > 0:
-                delay = 2**(attempt - 1) # 1, 2, 4 seconds
+                delay = 2**(attempt - 1)
                 logger.warning(f"Scrape attempt {attempt} for {url} received status 202. Retrying after a {delay}s delay...")
                 time.sleep(delay)
 
-            # Use the global persistent session and update its User-Agent
             PERSISTENT_SESSION.headers.update({ 'User-Agent': random.choice(USER_AGENTS) })
             response = PERSISTENT_SESSION.get(url, timeout=10)
-            canonical_url = response.url # Keep track of the final URL after redirects
+            canonical_url = response.url
 
             if response.status_code == 200:
                 logger.debug(f"Scrape attempt {attempt + 1} for {url} successful with status 200.")
                 break 
             
             if response.status_code != 202:
-                # For any other non-200/202 status, fail immediately
                 logger.warning(f"Scrape attempt failed for {url}. Status: {response.status_code}")
                 return None, canonical_url
         
-        # If the loop finishes without a 200, it's a failure
         if response.status_code != 200:
              logger.error(f"All scrape attempts for {url} failed to get a 200 response. Last status: {response.status_code}")
              return None, canonical_url
@@ -112,18 +97,18 @@ def _perform_scrape_attempt(url: str):
         for script in script_tags:
             try:
                 json_ld = json.loads(script.string)
-
+    
                 if isinstance(json_ld, dict):
                     if json_ld.get('@type') == 'Product':
                         if wine_data['name'] == 'Unknown Wine' and 'name' in json_ld:
                             wine_data['name'] = json_ld['name'].strip()
-
+    
                         if wine_data['image_url'] is None and 'image' in json_ld:
                             if isinstance(json_ld['image'], list) and json_ld['image']:
                                 wine_data['image_url'] = json_ld['image'][0]
                             elif isinstance(json_ld['image'], str):
                                 wine_data['image_url'] = json_ld['image']
-
+    
                         aggregate_rating = json_ld.get('aggregateRating')
                         if aggregate_rating and isinstance(aggregate_rating, dict):
                             if wine_data['vivino_rating'] is None:
@@ -137,7 +122,7 @@ def _perform_scrape_attempt(url: str):
                             if wine_data['vintage'] is None and 'vintage' in contains_wine:
                                 try: wine_data['vintage'] = int(contains_wine['vintage']);
                                 except ValueError: pass
-
+    
                             grapes = contains_wine.get('grape')
                             if grapes:
                                 if isinstance(grapes, list):
@@ -146,7 +131,7 @@ def _perform_scrape_attempt(url: str):
                                         all_grape_names_collected.extend(grape_names)
                                 elif isinstance(grapes, dict) and 'name' in grapes:
                                     all_grape_names_collected.append(grapes['name'].strip())
-
+    
                         main_entity_of_page = json_ld.get('mainEntityOfPage')
                         if main_entity_of_page and isinstance(main_entity_of_page, dict):
                             breadcrumb = main_entity_of_page.get('breadcrumb')
@@ -161,7 +146,7 @@ def _perform_scrape_attempt(url: str):
                                                     wine_data['country'] = item['name'].strip()
                                                 if wine_data['region'] == 'Unknown Region' and '/regions/' in item['url']:
                                                     wine_data['region'] = item['name'].strip()
-
+    
                     elif json_ld.get('@type') == 'WebPage':
                         content_location = json_ld.get('contentLocation')
                         if content_location and isinstance(content_location, dict):
@@ -170,7 +155,7 @@ def _perform_scrape_attempt(url: str):
                             if wine_data['country'] == 'Unknown Country' and 'address' in content_location and isinstance(content_location['address'], dict):
                                 if 'addressCountry' in content_location['address']:
                                     wine_data['country'] = content_location['address']['addressCountry'].strip()
-
+    
                     elif json_ld.get('@type') == 'Wine':
                         if wine_data['name'] == 'Unknown Wine' and 'name' in json_ld:
                             wine_data['name'] = json_ld['name'].strip()
@@ -199,7 +184,7 @@ def _perform_scrape_attempt(url: str):
                                 wine_data['image_url'] = json_ld['image'][0]
                             elif isinstance(json_ld['image'], str):
                                 wine_data['image_url'] = json_ld['image']
-
+    
             except (json.JSONDecodeError, KeyError, TypeError) as json_err:
                 logger.debug(f"Vivino JSON-LD parsing error (may be benign if other schemas exist): {json_err}")
                 pass
@@ -378,68 +363,69 @@ def scrape_vivino_data(vivino_url):
     """
     Orchestrates a multi-stage scrape attempt to find the best possible wine data.
     """
-    logger.info(f"Starting advanced scrape for: {vivino_url}")
-    
-    wine_data, canonical_url = _perform_scrape_attempt(vivino_url)
-    if wine_data:
-        logger.info(f"Success on initial scrape for {canonical_url}")
-        return wine_data, canonical_url
-    
-    logger.warning(f"Initial scrape failed for {vivino_url}. Checking for nearby vintages.")
-
     try:
-        parsed_url = urlparse(vivino_url)
-        query_params = parse_qs(parsed_url.query)
-        original_vintage = int(query_params.get('year', [None])[0])
-    except (ValueError, TypeError):
-        original_vintage = None
+        logger.info(f"Starting advanced scrape for: {vivino_url}")
+        
+        wine_data, canonical_url = _perform_scrape_attempt(vivino_url)
+        if wine_data:
+            logger.info(f"Success on initial scrape for {canonical_url}")
+            return wine_data, canonical_url
+        
+        logger.warning(f"Initial scrape failed for {vivino_url}. Checking for nearby vintages.")
 
-    if original_vintage:
-        for year_offset in [-1, 1]:
-            new_vintage = original_vintage + year_offset
-            
-            # Rebuild query parameters for the new URL
-            new_query_params = query_params.copy()
-            new_query_params['year'] = [str(new_vintage)]
-            
-            new_url_parts = list(parsed_url)
-            new_url_parts[4] = urlencode(new_query_params, doseq=True)
-            nearby_vintage_url = urlunparse(new_url_parts)
+        try:
+            parsed_url = urlparse(vivino_url)
+            query_params = parse_qs(parsed_url.query)
+            original_vintage = int(query_params.get('year', [None])[0])
+        except (ValueError, TypeError):
+            original_vintage = None
 
-            logger.info(f"Attempting scrape of nearby vintage: {nearby_vintage_url}")
-            nearby_data, nearby_canonical_url = _perform_scrape_attempt(nearby_vintage_url)
-            
-            if nearby_data:
-                logger.warning(f"Success scraping nearby vintage ({new_vintage}). Borrowing its data for original vintage ({original_vintage}).")
+        if original_vintage:
+            for year_offset in [-1, 1]:
+                new_vintage = original_vintage + year_offset
                 
-                nearby_name_cleaned = re.sub(r'\s*\b(19|20)\d{2}\b', '', nearby_data['name']).strip()
+                new_query_params = query_params.copy()
+                new_query_params['year'] = [str(new_vintage)]
+                
+                new_url_parts = list(parsed_url)
+                new_url_parts[4] = urlencode(new_query_params, doseq=True)
+                nearby_vintage_url = urlunparse(new_url_parts)
 
-                borrowed_data = {
-                    'name': nearby_name_cleaned,
-                    'vintage': original_vintage,
-                    'varietal': nearby_data['varietal'],
-                    'region': nearby_data['region'],
-                    'country': nearby_data['country'],
-                    'vivino_rating': None,
-                    'image_url': nearby_data['image_url'],
-                }
-                return borrowed_data, canonical_url
+                logger.info(f"Attempting scrape of nearby vintage: {nearby_vintage_url}")
+                nearby_data, nearby_canonical_url = _perform_scrape_attempt(nearby_vintage_url)
+                
+                if nearby_data:
+                    logger.warning(f"Success scraping nearby vintage ({new_vintage}). Borrowing its data for original vintage ({original_vintage}).")
+                    
+                    nearby_name_cleaned = re.sub(r'\s*\b(19|20)\d{2}\b', '', nearby_data['name']).strip()
 
-    # Quality Gate to prevent saving placeholder data
-    logger.warning("All scrape attempts failed. Attempting to parse URL for final fallback data.")
-    fallback_data = _parse_url_for_fallback_data(vivino_url)
-    
-    # Only accept the fallback if it produces a real name, not a placeholder.
-    if fallback_data and 'Vivino Wine ID' not in fallback_data.get('name', ''):
-        logger.info(f"Successfully parsed fallback data for {fallback_data.get('name')}")
-        minimal_data = {
-            'name': 'Unknown Wine', 'vintage': None, 'varietal': 'Unknown Varietal',
-            'region': 'Unknown Region', 'country': 'Unknown Country',
-            'vivino_rating': None, 'image_url': None
-        }
-        minimal_data.update(fallback_data)
-        return minimal_data, vivino_url
+                    borrowed_data = {
+                        'name': nearby_name_cleaned,
+                        'vintage': original_vintage,
+                        'varietal': nearby_data['varietal'],
+                        'region': nearby_data['region'],
+                        'country': nearby_data['country'],
+                        'vivino_rating': None,
+                        'image_url': nearby_data['image_url'],
+                    }
+                    return borrowed_data, canonical_url
 
-    # If all real scraping fails and the fallback is a placeholder, signal a total failure.
-    logger.error(f"All scrape and fallback attempts failed to find a valid wine name for {vivino_url}.")
-    return None, None
+        logger.warning("All scrape attempts failed. Attempting to parse URL for final fallback data.")
+        fallback_data = _parse_url_for_fallback_data(vivino_url)
+        
+        if fallback_data and 'Vivino Wine ID' not in fallback_data.get('name', ''):
+            logger.info(f"Successfully parsed fallback data for {fallback_data.get('name')}")
+            minimal_data = {
+                'name': 'Unknown Wine', 'vintage': None, 'varietal': 'Unknown Varietal',
+                'region': 'Unknown Region', 'country': 'Unknown Country',
+                'vivino_rating': None, 'image_url': None
+            }
+            minimal_data.update(fallback_data)
+            return minimal_data, vivino_url
+
+        logger.error(f"All scrape and fallback attempts failed to find a valid wine name for {vivino_url}.")
+        return None, None
+    finally:
+        # --- NEW: Add a forced delay to respect rate limits ---
+        logger.debug("Applying 5-second post-scrape delay to avoid rate-limiting.")
+        time.sleep(5)
