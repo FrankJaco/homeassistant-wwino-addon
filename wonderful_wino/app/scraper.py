@@ -384,12 +384,16 @@ def scrape_vivino_data(vivino_url):
             for year_offset in [-1, 1]:
                 new_vintage = original_vintage + year_offset
                 
+                # --- MODIFIED SECTION: Correctly build nearby vintage URL ---
+                # This correctly preserves all other parameters (like utm_source)
+                # while only changing the year.
                 new_query_params = query_params.copy()
                 new_query_params['year'] = [str(new_vintage)]
                 
                 new_url_parts = list(parsed_url)
                 new_url_parts[4] = urlencode(new_query_params, doseq=True)
                 nearby_vintage_url = urlunparse(new_url_parts)
+                # --- END MODIFIED SECTION ---
 
                 logger.info(f"Attempting scrape of nearby vintage: {nearby_vintage_url}")
                 nearby_data, nearby_canonical_url = _perform_scrape_attempt(nearby_vintage_url)
@@ -426,6 +430,6 @@ def scrape_vivino_data(vivino_url):
         logger.error(f"All scrape and fallback attempts failed to find a valid wine name for {vivino_url}.")
         return None, None
     finally:
-        # --- NEW: Add a forced delay to respect rate limits ---
+        # Enforce a "cooldown" period to respect rate limits
         logger.debug("Applying 5-second post-scrape delay to avoid rate-limiting.")
         time.sleep(5)
