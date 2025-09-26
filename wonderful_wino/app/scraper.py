@@ -63,8 +63,6 @@ def _perform_scrape_attempt_selenium(url: str):
     logger.debug(f"Executing Selenium scrape attempt for URL: {url}")
     
     options = Options()
-    # MODIFIED: Use the 'eager' strategy to speed up page loads.
-    # It stops loading when the HTML is parsed, without waiting for all images/scripts.
     options.page_load_strategy = 'eager'
     options.add_argument('--headless')
     options.add_argument('--no-sandbox')
@@ -116,6 +114,8 @@ def _perform_scrape_attempt_selenium(url: str):
     }
 
     all_grape_names_collected = []
+    # MODIFICATION: Flag to prioritize JSON-LD grape order.
+    found_grapes_in_json = False
     
     script_tags = soup.find_all('script', type='application/ld+json')
     for script in script_tags:
@@ -123,33 +123,34 @@ def _perform_scrape_attempt_selenium(url: str):
             json_ld = json.loads(script.string)
 
             if isinstance(json_ld, dict):
-                if json_ld.get('@type') == 'Product':
-                    if wine_data['name'] == 'Unknown Wine' and 'name' in json_ld:
-                        wine_data['name'] = json_ld['name'].strip()
+                is_product = json_ld.get('@type') == 'Product'
+                is_wine = json_ld.get('@type') == 'Wine'
+
+                if is_product:
+                    if wine_data['name'] == 'Unknown Wine' and 'name' in json_ld: wine_data['name'] = json_ld['name'].strip()
                     if wine_data['image_url'] is None and 'image' in json_ld:
                         if isinstance(json_ld['image'], list) and json_ld['image']: wine_data['image_url'] = json_ld['image'][0]
                         elif isinstance(json_ld['image'], str): wine_data['image_url'] = json_ld['image']
                     if 'aggregateRating' in json_ld and wine_data['vivino_rating'] is None:
                         try: wine_data['vivino_rating'] = float(str(json_ld['aggregateRating'].get('ratingValue')).replace(',', '.'))
                         except (ValueError, TypeError, AttributeError): pass
-                    if 'containsWine' in json_ld and isinstance(json_ld['containsWine'], dict):
-                        if wine_data['vintage'] is None and 'vintage' in json_ld['containsWine']:
-                            try: wine_data['vintage'] = int(json_ld['containsWine']['vintage'])
-                            except (ValueError, TypeError): pass
-                        if 'grape' in json_ld['containsWine']:
-                            grapes = json_ld['containsWine']['grape']
-                            if isinstance(grapes, list): all_grape_names_collected.extend([g['name'] for g in grapes if g and 'name' in g])
-                            elif isinstance(grapes, dict) and 'name' in grapes: all_grape_names_collected.append(grapes['name'].strip())
                 
-                elif json_ld.get('@type') == 'Wine':
+                grape_source = None
+                if is_product and 'containsWine' in json_ld and isinstance(json_ld['containsWine'], dict) and 'grape' in json_ld['containsWine']:
+                    grape_source = json_ld['containsWine']['grape']
+                elif is_wine and 'grape' in json_ld:
+                    grape_source = json_ld['grape']
+
+                if grape_source:
+                    found_grapes_in_json = True
+                    if isinstance(grape_source, list): all_grape_names_collected.extend([g['name'] for g in grape_source if g and 'name' in g])
+                    elif isinstance(grape_source, dict) and 'name' in grape_source: all_grape_names_collected.append(grape_source['name'].strip())
+
+                if is_wine:
                     if wine_data['name'] == 'Unknown Wine' and 'name' in json_ld: wine_data['name'] = json_ld['name'].strip()
                     if wine_data['vintage'] is None and 'vintage' in json_ld:
                         try: wine_data['vintage'] = int(json_ld['vintage'])
                         except (ValueError, TypeError): pass
-                    if 'grape' in json_ld:
-                        grapes = json_ld['grape']
-                        if isinstance(grapes, list): all_grape_names_collected.extend([g['name'] for g in grapes if g and 'name' in g])
-                        elif isinstance(grapes, dict) and 'name' in grapes: all_grape_names_collected.append(grapes['name'].strip())
 
         except (json.JSONDecodeError, KeyError, TypeError) as json_err:
             logger.debug(f"Vivino JSON-LD parsing error (may be benign): {json_err}")
@@ -193,11 +194,42 @@ def _perform_scrape_attempt_selenium(url: str):
         text = link.get_text(strip=True)
         if '/wine-countries/' in href and wine_data['country'] == 'Unknown Country': wine_data['country'] = text
         elif '/wine-regions/' in href and wine_data['region'] == 'Unknown Region': wine_data['region'] = text
-        elif '/grapes/' in href and text and 'blend' not in text.lower(): all_grape_names_collected.append(text)
+        # MODIFICATION: Only use hyperlink grapes if none were found in the structured JSON data.
+        elif not found_grapes_in_json and '/grapes/' in href and text and 'blend' not in text.lower(): all_grape_names_collected.append(text)
 
+    # MODIFICATION: New heuristics for varietal ordering and Shiraz/Syrah naming convention.
     if all_grape_names_collected:
-        unique_grapes = sorted(list(set(g.strip() for g in all_grape_names_collected if g.strip().lower() not in ['wine'])) , key=lambda x: len(x), reverse=True)
-        wine_data['varietal'] = ", ".join(unique_grapes)
+        # 1. Preserve order of appearance by using dict.fromkeys for de-duplication. Filter out noise.
+        cleaned_grapes = [g.strip() for g in all_grape_names_collected if g.strip().lower() not in ['wine']]
+        unique_grapes_ordered = list(dict.fromkeys(cleaned_grapes))
+
+        # 2. Implement Shiraz/Syrah logic with a tiered priority system.
+        preferred_syrah_term = None
+        # Priority 1: Check the wine name itself.
+        if 'shiraz' in wine_data['name'].lower():
+            preferred_syrah_term = 'Shiraz'
+        elif 'syrah' in wine_data['name'].lower():
+            preferred_syrah_term = 'Syrah'
+        
+        final_grapes = []
+        for grape in unique_grapes_ordered:
+            is_syrah_family = 'syrah' in grape.lower() or 'shiraz' in grape.lower()
+            if not is_syrah_family:
+                final_grapes.append(grape)
+                continue
+            
+            # Decide which term to use based on the priority rules.
+            term_to_use = 'Syrah' # Default
+            if preferred_syrah_term:
+                term_to_use = preferred_syrah_term
+            # Priority 2: Fallback to country.
+            elif wine_data.get('country') in ['Australia', 'South Africa']:
+                term_to_use = 'Shiraz'
+            
+            final_grapes.append(term_to_use)
+
+        # 3. Final de-duplication in case both Syrah and Shiraz were present and collapsed.
+        wine_data['varietal'] = ", ".join(list(dict.fromkeys(final_grapes)))
 
     if wine_data['vivino_rating'] is None:
         rating_tag = soup.find('div', class_=re.compile(r'vivinoRating_averageValue|community-score__score'))
@@ -269,4 +301,3 @@ def scrape_vivino_data(vivino_url):
 
     logger.error(f"All scrape and fallback attempts failed for {vivino_url}.")
     return None, None
-
