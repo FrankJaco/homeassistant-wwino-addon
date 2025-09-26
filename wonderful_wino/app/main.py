@@ -401,6 +401,11 @@ def restore_db_endpoint():
         logger.error(f"Error during restore: {e}", exc_info=True)
         return jsonify({"status": "error", "message": "Restore failed."}), 500
 
+@app.route('/health', methods=['GET'])
+def health_check():
+    """A simple endpoint to verify the server is running."""
+    return jsonify({"status": "ok"}), 200
+
 @app.route("/")
 def serve_frontend():
     return send_from_directory("../frontend", "index.html")
