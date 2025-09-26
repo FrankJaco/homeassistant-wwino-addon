@@ -115,7 +115,8 @@ def build_markdown_description(wine: dict, current_quantity: int) -> str:
     description_parts.append("".join(rendered_varietal_line_markdown) if rendered_varietal_line_markdown else "Unknown Varietal")
 
     region_str = wine.get("region")
-    country_str = wine.get("country")
+    country_name = wine.get("country")
+    country_str = COUNTRY_ABBREVIATIONS.get(country_name, country_name)
     region_country_display = []
     current_rc_visual_length = 0
 
