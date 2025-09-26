@@ -114,7 +114,6 @@ def _perform_scrape_attempt_selenium(url: str):
     }
 
     all_grape_names_collected = []
-    # MODIFICATION: Flag to prioritize JSON-LD grape order.
     found_grapes_in_json = False
     
     script_tags = soup.find_all('script', type='application/ld+json')
@@ -194,21 +193,35 @@ def _perform_scrape_attempt_selenium(url: str):
         text = link.get_text(strip=True)
         if '/wine-countries/' in href and wine_data['country'] == 'Unknown Country': wine_data['country'] = text
         elif '/wine-regions/' in href and wine_data['region'] == 'Unknown Region': wine_data['region'] = text
-        # MODIFICATION: Only use hyperlink grapes if none were found in the structured JSON data.
         elif not found_grapes_in_json and '/grapes/' in href and text and 'blend' not in text.lower(): all_grape_names_collected.append(text)
 
-    # MODIFICATION: New heuristics for varietal ordering and Shiraz/Syrah naming convention.
+    # MODIFICATION: New multi-stage heuristics for varietal ordering and naming convention.
     if all_grape_names_collected:
-        # 1. Preserve order of appearance by using dict.fromkeys for de-duplication. Filter out noise.
+        # Stage 1: Preserve order of appearance from scrape and perform initial cleaning.
         cleaned_grapes = [g.strip() for g in all_grape_names_collected if g.strip().lower() not in ['wine']]
         unique_grapes_ordered = list(dict.fromkeys(cleaned_grapes))
 
-        # 2. Implement Shiraz/Syrah logic with a tiered priority system.
+        # Stage 2: Re-order the list if varietals are mentioned in the wine's name.
+        grapes_in_name = []
+        name_lower = wine_data['name'].lower()
+        for grape in unique_grapes_ordered:
+            # Use regex with word boundaries for an exact, case-insensitive match
+            match = re.search(r'\b' + re.escape(grape.lower()) + r'\b', name_lower)
+            if match:
+                grapes_in_name.append({'name': grape, 'pos': match.start()})
+        
+        if grapes_in_name:
+            # Sort the found grapes by their position in the name
+            grapes_in_name.sort(key=lambda x: x['pos'])
+            prioritized_grapes = [g['name'] for g in grapes_in_name]
+            remaining_grapes = [g for g in unique_grapes_ordered if g not in prioritized_grapes]
+            unique_grapes_ordered = prioritized_grapes + remaining_grapes # This is now the definitive order
+
+        # Stage 3: Implement Shiraz/Syrah logic on the now-finalized grape order.
         preferred_syrah_term = None
-        # Priority 1: Check the wine name itself.
-        if 'shiraz' in wine_data['name'].lower():
+        if 'shiraz' in name_lower:
             preferred_syrah_term = 'Shiraz'
-        elif 'syrah' in wine_data['name'].lower():
+        elif 'syrah' in name_lower:
             preferred_syrah_term = 'Syrah'
         
         final_grapes = []
@@ -218,17 +231,15 @@ def _perform_scrape_attempt_selenium(url: str):
                 final_grapes.append(grape)
                 continue
             
-            # Decide which term to use based on the priority rules.
             term_to_use = 'Syrah' # Default
             if preferred_syrah_term:
                 term_to_use = preferred_syrah_term
-            # Priority 2: Fallback to country.
             elif wine_data.get('country') in ['Australia', 'South Africa']:
                 term_to_use = 'Shiraz'
             
             final_grapes.append(term_to_use)
 
-        # 3. Final de-duplication in case both Syrah and Shiraz were present and collapsed.
+        # Stage 4: Final de-duplication and formatting.
         wine_data['varietal'] = ", ".join(list(dict.fromkeys(final_grapes)))
 
     if wine_data['vivino_rating'] is None:
