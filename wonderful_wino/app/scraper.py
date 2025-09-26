@@ -1,5 +1,3 @@
-# scraper.py
-
 import requests
 from bs4 import BeautifulSoup
 import re
@@ -26,6 +24,15 @@ USER_AGENTS = [
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0'
 ]
+
+# Master list of common grapes to check for in the wine name if missing from scraped data.
+# Using a set for fast lookups. Sorted by length descending to help with sub-string matching (e.g. 'Sauvignon' vs 'Sauvignon Blanc')
+MASTER_GRAPE_LIST = sorted([
+    'Cabernet Sauvignon', 'Sauvignon Blanc', 'Cabernet Franc', 'Pinot Noir', 'Merlot',
+    'Chardonnay', 'Malbec', 'Syrah', 'Shiraz', 'Riesling', 'Zinfandel', 'Sangiovese',
+    'Grenache', 'Tempranillo', 'Nebbiolo', 'Pinotage', 'Carménère', 'Viognier',
+    'Chenin Blanc', 'Gewürztraminer', 'Pinot Gris', 'Pinot Grigio', 'Mourvèdre'
+], key=len, reverse=True)
 
 
 def _parse_url_for_fallback_data(url: str):
@@ -195,29 +202,35 @@ def _perform_scrape_attempt_selenium(url: str):
         elif '/wine-regions/' in href and wine_data['region'] == 'Unknown Region': wine_data['region'] = text
         elif not found_grapes_in_json and '/grapes/' in href and text and 'blend' not in text.lower(): all_grape_names_collected.append(text)
 
-    # MODIFICATION: New multi-stage heuristics for varietal ordering and naming convention.
-    if all_grape_names_collected:
+    # Heuristics for varietal ordering and naming convention.
+    if all_grape_names_collected or 'Unknown Wine' not in wine_data['name']:
         # Stage 1: Preserve order of appearance from scrape and perform initial cleaning.
         cleaned_grapes = [g.strip() for g in all_grape_names_collected if g.strip().lower() not in ['wine']]
         unique_grapes_ordered = list(dict.fromkeys(cleaned_grapes))
 
-        # Stage 2: Re-order the list if varietals are mentioned in the wine's name.
-        grapes_in_name = []
+        # Stage 2: Augment the grape list with varietals found in the name that were missing from scrape data.
         name_lower = wine_data['name'].lower()
+        current_grapes_lower = {g.lower() for g in unique_grapes_ordered}
+        for grape in MASTER_GRAPE_LIST:
+            if grape.lower() not in current_grapes_lower:
+                if re.search(r'\b' + re.escape(grape.lower()) + r'\b', name_lower):
+                    unique_grapes_ordered.append(grape)
+                    logger.debug(f"Augmented grape list with '{grape}' from wine name.")
+
+        # Stage 3: Re-order the (now augmented) list if varietals are mentioned in the wine's name.
+        grapes_in_name = []
         for grape in unique_grapes_ordered:
-            # Use regex with word boundaries for an exact, case-insensitive match
             match = re.search(r'\b' + re.escape(grape.lower()) + r'\b', name_lower)
             if match:
                 grapes_in_name.append({'name': grape, 'pos': match.start()})
         
         if grapes_in_name:
-            # Sort the found grapes by their position in the name
             grapes_in_name.sort(key=lambda x: x['pos'])
             prioritized_grapes = [g['name'] for g in grapes_in_name]
             remaining_grapes = [g for g in unique_grapes_ordered if g not in prioritized_grapes]
-            unique_grapes_ordered = prioritized_grapes + remaining_grapes # This is now the definitive order
+            unique_grapes_ordered = prioritized_grapes + remaining_grapes
 
-        # Stage 3: Implement Shiraz/Syrah logic on the now-finalized grape order.
+        # Stage 4: Implement Shiraz/Syrah logic on the now-finalized grape order.
         preferred_syrah_term = None
         if 'shiraz' in name_lower:
             preferred_syrah_term = 'Shiraz'
@@ -239,8 +252,9 @@ def _perform_scrape_attempt_selenium(url: str):
             
             final_grapes.append(term_to_use)
 
-        # Stage 4: Final de-duplication and formatting.
-        wine_data['varietal'] = ", ".join(list(dict.fromkeys(final_grapes)))
+        # Stage 5: Final de-duplication and formatting.
+        if final_grapes:
+             wine_data['varietal'] = ", ".join(list(dict.fromkeys(final_grapes)))
 
     if wine_data['vivino_rating'] is None:
         rating_tag = soup.find('div', class_=re.compile(r'vivinoRating_averageValue|community-score__score'))
