@@ -198,7 +198,7 @@ def _perform_scrape_attempt_selenium(url: str):
     for link in soup.find_all('a', href=re.compile(r'/(wine-countries|wine-regions|grapes)/')):
         href = link.get('href', '')
         text = link.get_text(strip=True)
-        if '/wine-countries/' in href and wine_data['country'] == 'Unknown Country': wine_data['country'] = text
+        if '/wine-countries/' in href and wine_data['country'] == 'Unknown Country': wine_data['country'] = text.strip()
         elif '/wine-regions/' in href and wine_data['region'] == 'Unknown Region': wine_data['region'] = text
         elif not found_grapes_in_json and '/grapes/' in href and text and 'blend' not in text.lower(): all_grape_names_collected.append(text)
 
