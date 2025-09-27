@@ -18,30 +18,19 @@ def _get_ha_headers():
     }
 
 def _remove_ha_todo_item(item_text, headers):
-    """Removes a single item from the HA To-Do list and returns True if successful."""
+    """Fires a 'remove_item' call to HA and logs the outcome without halting."""
     remove_url = f"{config.HOME_ASSISTANT_URL}/api/services/todo/remove_item"
     payload = { "entity_id": config.TODO_LIST_ENTITY_ID, "item": item_text }
     try:
         resp = requests.post(remove_url, json=payload, headers=headers, timeout=5)
-        resp.raise_for_status()  # Let this handle all non-2xx status codes.
-        
-        logger.info(f"Successfully removed '{item_text}' from HA To-Do list.")
-        return True # Return True only on a successful (2xx) response.
-
-    except requests.exceptions.HTTPError as e:
-        # This block now specifically catches HTTP-related errors (like the 500 error).
-        # Check if the error response text contains our expected "not found" message.
-        if e.response and "Unable to find item" in e.response.text:
-            logger.debug(f"Item '{item_text}' was not found on To-Do list (normal for new wines).")
+        # Check for any non-successful status code.
+        if resp.status_code >= 400:
+            logger.debug(f"Pre-sync cleanup for '{item_text}' failed with status {resp.status_code}. This is normal if the item is new.")
         else:
-            # If it's any other HTTP error, log it as a warning.
-            logger.warning(f"Could not remove '{item_text}' from HA To-Do. HTTP Error: {e}")
-        return False
-        
-    except requests.exceptions.RequestException as e:
-        # Catch other network-related issues (timeout, connection error).
-        logger.warning(f"Could not remove '{item_text}' from HA To-Do. Network Error: {e}")
-        return False
+            logger.info(f"Successfully cleared old item '{item_text}' from HA To-Do list.")
+    except requests.exceptions.RequestException:
+        # If the request fails entirely, log it quietly and move on.
+        logger.debug(f"Pre-sync cleanup for '{item_text}' failed with a network error. Proceeding.")
 
 def sync_wine_to_todo(wine: dict, current_quantity: int):
     """Adds, updates, or removes a single wine item from the HA To-Do list."""
@@ -54,8 +43,8 @@ def sync_wine_to_todo(wine: dict, current_quantity: int):
     
     logger.info(f"Starting sync for '{item_text}'.")
     
-    # The remove function now returns True if the item was found and deleted.
-    was_existing_item = _remove_ha_todo_item(item_text, headers)
+    # Perform the "fire and forget" removal of any existing item.
+    _remove_ha_todo_item(item_text, headers)
 
     if current_quantity > 0:
         description = formatting.build_markdown_description(wine, current_quantity)
@@ -68,12 +57,8 @@ def sync_wine_to_todo(wine: dict, current_quantity: int):
         try:
             resp = requests.post(add_url, json=add_payload, headers=headers, timeout=5)
             resp.raise_for_status()
-            
-            # Now we provide a specific message based on whether we removed an item first.
-            if was_existing_item:
-                logger.info(f"Successfully updated '{item_text}' on HA To-Do list.")
-            else:
-                logger.info(f"Successfully added '{item_text}' to HA To-Do list.")
+            # Use a clear, general-purpose success message.
+            logger.info(f"Successfully synced '{item_text}' to the HA To-Do list.")
                 
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to add/update '{item_text}' in HA To-Do list: {e}")
