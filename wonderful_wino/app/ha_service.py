@@ -23,24 +23,26 @@ def _remove_ha_todo_item(item_text, headers):
     payload = { "entity_id": config.TODO_LIST_ENTITY_ID, "item": item_text }
     try:
         resp = requests.post(remove_url, json=payload, headers=headers, timeout=5)
+        resp.raise_for_status()  # Let this handle all non-2xx status codes.
         
-        # If the API reports an error (status >= 400), check if it's the expected "not found" error.
-        if resp.status_code >= 400:
-            if "Unable to find item" in resp.text:
-                # This is the expected case for a new wine, log it quietly and return False.
-                logger.debug(f"Item '{item_text}' was not found on To-Do list.")
-                return False
-            else:
-                # For any other error, trigger the exception handler below.
-                resp.raise_for_status()
-
         logger.info(f"Successfully removed '{item_text}' from HA To-Do list.")
-        return True # Explicitly return True on successful removal.
+        return True # Return True only on a successful (2xx) response.
 
-    except requests.exceptions.RequestException as e:
-        # Catch any request-related error (HTTP error, timeout, etc.)
-        logger.warning(f"Could not remove '{item_text}' from HA To-Do. Error: {e}")
+    except requests.exceptions.HTTPError as e:
+        # This block now specifically catches HTTP-related errors (like the 500 error).
+        # Check if the error response text contains our expected "not found" message.
+        if e.response and "Unable to find item" in e.response.text:
+            logger.debug(f"Item '{item_text}' was not found on To-Do list (normal for new wines).")
+        else:
+            # If it's any other HTTP error, log it as a warning.
+            logger.warning(f"Could not remove '{item_text}' from HA To-Do. HTTP Error: {e}")
         return False
+        
+    except requests.exceptions.RequestException as e:
+        # Catch other network-related issues (timeout, connection error).
+        logger.warning(f"Could not remove '{item_text}' from HA To-Do. Network Error: {e}")
+        return False
+
 def sync_wine_to_todo(wine: dict, current_quantity: int):
     """Adds, updates, or removes a single wine item from the HA To-Do list."""
     headers = _get_ha_headers()
