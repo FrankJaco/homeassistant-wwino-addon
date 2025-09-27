@@ -132,7 +132,9 @@ def add_or_update_wine(wine_data: dict, quantity: int, cost_tier: int):
         cursor = conn.cursor()
         cursor.execute("SELECT id, quantity FROM wines WHERE vivino_url = ?", (wine_data['vivino_url'],))
         existing_wine = cursor.fetchone()
-        needs_review_flag = wine_data.get('name', '').startswith(('Review Wine', 'Vivino Wine ID'))
+               # Check for the explicit flag from the scraper, otherwise fall back to name-based check.
+        needs_review_flag = wine_data.get('needs_review', False) or \
+                            wine_data.get('name', '').startswith(('Review Wine', 'Vivino Wine ID'))
 
         if existing_wine:
             wine_id, current_quantity = existing_wine

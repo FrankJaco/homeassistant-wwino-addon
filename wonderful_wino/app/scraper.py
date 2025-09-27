@@ -114,8 +114,21 @@ def _perform_scrape_attempt_selenium(url: str):
 
     soup = BeautifulSoup(page_source, 'lxml')
     
+        # Perform a strict check for the wine name first. This is our primary validation.
+    name_tag = soup.find('h1', class_=re.compile(r'wine-page-header__name|VintageTitle__wine'))
+    if not name_tag:
+        logger.warning(f"Scrape failed for {final_url_after_scrape}: No valid wine name tag found on the page.")
+        return None, final_url_after_scrape
+
+    wine_name = " ".join(name_tag.text.strip().split())
+
+    # As a secondary safety net, check for common error text in the title.
+    if "404" in wine_name or "not found" in wine_name.lower():
+        logger.warning(f"Scrape failed for {final_url_after_scrape}: Page content indicates a 404 or error page.")
+        return None, final_url_after_scrape
+
     wine_data = {
-        'name': 'Unknown Wine', 'vintage': None, 'varietal': 'Unknown Varietal',
+        'name': wine_name, 'vintage': None, 'varietal': 'Unknown Varietal',
         'region': 'Unknown Region', 'country': 'Unknown Country',
         'vivino_rating': None, 'image_url': None
     }
@@ -198,8 +211,24 @@ def _perform_scrape_attempt_selenium(url: str):
     for link in soup.find_all('a', href=re.compile(r'/(wine-countries|wine-regions|grapes)/')):
         href = link.get('href', '')
         text = link.get_text(strip=True)
-        if '/wine-countries/' in href and wine_data['country'] == 'Unknown Country': wine_data['country'] = text.strip()
-        elif '/wine-regions/' in href and wine_data['region'] == 'Unknown Region': wine_data['region'] = text
+        if '/wine-countries/' in href and wine_data['country'] == 'Unknown Country': wine_data['country'] = text.strip()        # Perform a strict check for the wine name first. This is our primary validation.
+    name_tag = soup.find('h1', class_=re.compile(r'wine-page-header__name|VintageTitle__wine'))
+    if not name_tag:
+        logger.warning(f"Scrape failed for {final_url_after_scrape}: No valid wine name tag found on the page.")
+        return None, final_url_after_scrape
+
+    wine_name = " ".join(name_tag.text.strip().split())
+
+    # As a secondary safety net, check for common error text in the title.
+    if "404" in wine_name or "not found" in wine_name.lower():
+        logger.warning(f"Scrape failed for {final_url_after_scrape}: Page content indicates a 404 or error page.")
+        return None, final_url_after_scrape
+
+    wine_data = {
+        'name': wine_name, 'vintage': None, 'varietal': 'Unknown Varietal',
+        'region': 'Unknown Region', 'country': 'Unknown Country',
+        'vivino_rating': None, 'image_url': None
+    }        elif '/wine-regions/' in href and wine_data['region'] == 'Unknown Region': wine_data['region'] = text
         elif not found_grapes_in_json and '/grapes/' in href and text and 'blend' not in text.lower(): all_grape_names_collected.append(text)
 
     # Heuristics for varietal ordering and naming convention.
@@ -320,8 +349,14 @@ def scrape_vivino_data(vivino_url):
     fallback_data = _parse_url_for_fallback_data(vivino_url)
     
     if fallback_data and 'Vivino Wine ID' not in fallback_data.get('name', ''):
-        minimal_data = {'name': 'Unknown Wine', 'vintage': None, 'varietal': 'Unknown Varietal', 'region': 'Unknown Region', 'country': 'Unknown Country', 'vivino_rating': None, 'image_url': None}
+        minimal_data = {
+            'name': 'Unknown Wine', 'vintage': None, 'varietal': 'Unknown Varietal', 
+            'region': 'Unknown Region', 'country': 'Unknown Country', 
+            'vivino_rating': None, 'image_url': None,
+            'needs_review': True  # Flag this entry for user review
+        }
         minimal_data.update(fallback_data)
+        logger.warning(f"Full scrape failed, returning partial data from URL for review: {fallback_data.get('name')}")
         return minimal_data, vivino_url
 
     logger.error(f"All scrape and fallback attempts failed for {vivino_url}.")
