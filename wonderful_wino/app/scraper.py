@@ -114,8 +114,8 @@ def _perform_scrape_attempt_selenium(url: str):
 
     soup = BeautifulSoup(page_source, 'lxml')
     
-        # Perform a strict check for the wine name first. This is our primary validation.
-    name_tag = soup.find('h1', class_=re.compile(r'wine-page-header__name|VintageTitle__wine'))
+    # Perform a strict check for the wine name first. This is our primary validation.
+    name_tag = soup.find('h1', class_=re.compile(r'wine-page-header__name|VintageTitle_wine'))
     if not name_tag:
         logger.warning(f"Scrape failed for {final_url_after_scrape}: No valid wine name tag found on the page.")
         return None, final_url_after_scrape
@@ -140,16 +140,10 @@ def _perform_scrape_attempt_selenium(url: str):
     for script in script_tags:
         try:
             json_ld = json.loads(script.string)
-
             if isinstance(json_ld, dict):
                 is_product = json_ld.get('@type') == 'Product'
                 is_wine = json_ld.get('@type') == 'Wine'
-
                 if is_product:
-                    if wine_data['name'] == 'Unknown Wine' and 'name' in json_ld: wine_data['name'] = json_ld['name'].strip()
-                    if wine_data['image_url'] is None and 'image' in json_ld:
-                        if isinstance(json_ld['image'], list) and json_ld['image']: wine_data['image_url'] = json_ld['image'][0]
-                        elif isinstance(json_ld['image'], str): wine_data['image_url'] = json_ld['image']
                     if 'aggregateRating' in json_ld and wine_data['vivino_rating'] is None:
                         try: wine_data['vivino_rating'] = float(str(json_ld['aggregateRating'].get('ratingValue')).replace(',', '.'))
                         except (ValueError, TypeError, AttributeError): pass
@@ -166,11 +160,9 @@ def _perform_scrape_attempt_selenium(url: str):
                     elif isinstance(grape_source, dict) and 'name' in grape_source: all_grape_names_collected.append(grape_source['name'].strip())
 
                 if is_wine:
-                    if wine_data['name'] == 'Unknown Wine' and 'name' in json_ld: wine_data['name'] = json_ld['name'].strip()
                     if wine_data['vintage'] is None and 'vintage' in json_ld:
                         try: wine_data['vintage'] = int(json_ld['vintage'])
                         except (ValueError, TypeError): pass
-
         except (json.JSONDecodeError, KeyError, TypeError) as json_err:
             logger.debug(f"Vivino JSON-LD parsing error (may be benign): {json_err}")
             pass
@@ -188,11 +180,7 @@ def _perform_scrape_attempt_selenium(url: str):
     if wine_data['image_url'] and wine_data['image_url'].startswith('//'):
         wine_data['image_url'] = 'https:' + wine_data['image_url']
             
-    if wine_data['name'] == 'Unknown Wine':
-        name_tag = soup.find('h1', class_=re.compile(r'wine-page-header__name|VintageTitle_wine')) or soup.find('h1')
-        if name_tag: wine_data['name'] = " ".join(name_tag.text.strip().split())
-
-    if wine_data['vintage'] is None and wine_data['name'] and 'Unknown Wine' not in wine_data['name']:
+    if wine_data['vintage'] is None:
         match = re.search(r'\b(19\d{2}|20\d{2})\b', wine_data['name'])
         if match:
             try:
@@ -210,34 +198,15 @@ def _perform_scrape_attempt_selenium(url: str):
     
     for link in soup.find_all('a', href=re.compile(r'/(wine-countries|wine-regions|grapes)/')):
         href = link.get('href', '')
-        text = link.get_text(strip=True)
-        if '/wine-countries/' in href and wine_data['country'] == 'Unknown Country': wine_data['country'] = text.strip()        # Perform a strict check for the wine name first. This is our primary validation.
-    name_tag = soup.find('h1', class_=re.compile(r'wine-page-header__name|VintageTitle__wine'))
-    if not name_tag:
-        logger.warning(f"Scrape failed for {final_url_after_scrape}: No valid wine name tag found on the page.")
-        return None, final_url_after_scrape
-
-    wine_name = " ".join(name_tag.text.strip().split())
-
-    # As a secondary safety net, check for common error text in the title.
-    if "404" in wine_name or "not found" in wine_name.lower():
-        logger.warning(f"Scrape failed for {final_url_after_scrape}: Page content indicates a 404 or error page.")
-        return None, final_url_after_scrape
-
-    wine_data = {
-        'name': wine_name, 'vintage': None, 'varietal': 'Unknown Varietal',
-        'region': 'Unknown Region', 'country': 'Unknown Country',
-        'vivino_rating': None, 'image_url': None
-    }        elif '/wine-regions/' in href and wine_data['region'] == 'Unknown Region': wine_data['region'] = text
+        text = link.get_text(strip=True).strip()
+        if '/wine-countries/' in href and wine_data['country'] == 'Unknown Country': wine_data['country'] = text
+        elif '/wine-regions/' in href and wine_data['region'] == 'Unknown Region': wine_data['region'] = text
         elif not found_grapes_in_json and '/grapes/' in href and text and 'blend' not in text.lower(): all_grape_names_collected.append(text)
 
     # Heuristics for varietal ordering and naming convention.
     if all_grape_names_collected or 'Unknown Wine' not in wine_data['name']:
-        # Stage 1: Preserve order of appearance from scrape and perform initial cleaning.
         cleaned_grapes = [g.strip() for g in all_grape_names_collected if g.strip().lower() not in ['wine']]
         unique_grapes_ordered = list(dict.fromkeys(cleaned_grapes))
-
-        # Stage 2: Augment the grape list with varietals found in the name that were missing from scrape data.
         name_lower = wine_data['name'].lower()
         current_grapes_lower = {g.lower() for g in unique_grapes_ordered}
         for grape in MASTER_GRAPE_LIST:
@@ -245,43 +214,33 @@ def _perform_scrape_attempt_selenium(url: str):
                 if re.search(r'\b' + re.escape(grape.lower()) + r'\b', name_lower):
                     unique_grapes_ordered.append(grape)
                     logger.debug(f"Augmented grape list with '{grape}' from wine name.")
-
-        # Stage 3: Re-order the (now augmented) list if varietals are mentioned in the wine's name.
         grapes_in_name = []
         for grape in unique_grapes_ordered:
             match = re.search(r'\b' + re.escape(grape.lower()) + r'\b', name_lower)
             if match:
                 grapes_in_name.append({'name': grape, 'pos': match.start()})
-        
         if grapes_in_name:
             grapes_in_name.sort(key=lambda x: x['pos'])
             prioritized_grapes = [g['name'] for g in grapes_in_name]
             remaining_grapes = [g for g in unique_grapes_ordered if g not in prioritized_grapes]
             unique_grapes_ordered = prioritized_grapes + remaining_grapes
-
-        # Stage 4: Implement Shiraz/Syrah logic on the now-finalized grape order.
         preferred_syrah_term = None
         if 'shiraz' in name_lower:
             preferred_syrah_term = 'Shiraz'
         elif 'syrah' in name_lower:
             preferred_syrah_term = 'Syrah'
-        
         final_grapes = []
         for grape in unique_grapes_ordered:
             is_syrah_family = 'syrah' in grape.lower() or 'shiraz' in grape.lower()
             if not is_syrah_family:
                 final_grapes.append(grape)
                 continue
-            
-            term_to_use = 'Syrah' # Default
+            term_to_use = 'Syrah'
             if preferred_syrah_term:
                 term_to_use = preferred_syrah_term
             elif wine_data.get('country') in ['Australia', 'South Africa']:
                 term_to_use = 'Shiraz'
-            
             final_grapes.append(term_to_use)
-
-        # Stage 5: Final de-duplication and formatting.
         if final_grapes:
              wine_data['varietal'] = ", ".join(list(dict.fromkeys(final_grapes)))
 
@@ -291,9 +250,7 @@ def _perform_scrape_attempt_selenium(url: str):
             try: wine_data['vivino_rating'] = float(rating_tag.text.strip().replace(',', '.'))
             except (ValueError, TypeError): pass
 
-    if wine_data['name'] and wine_data['name'] != 'Unknown Wine':
-        return wine_data, final_url_after_scrape
-    return None, final_url_after_scrape
+    return wine_data, final_url_after_scrape
 
 
 def scrape_vivino_data(vivino_url):

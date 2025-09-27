@@ -103,7 +103,6 @@ def add_consumption_record(wine_id, personal_rating):
         if conn:
             conn.close()
 
-# NEW FUNCTION to get the consumption history for a specific wine
 def get_consumption_history(wine_id: int):
     """Fetches all consumption records for a given wine_id."""
     conn = None
@@ -123,8 +122,6 @@ def get_consumption_history(wine_id: int):
         if conn:
             conn.close()
 
-# --- (All other functions remain the same) ---
-
 def add_or_update_wine(wine_data: dict, quantity: int, cost_tier: int):
     conn = None
     try:
@@ -132,23 +129,31 @@ def add_or_update_wine(wine_data: dict, quantity: int, cost_tier: int):
         cursor = conn.cursor()
         cursor.execute("SELECT id, quantity FROM wines WHERE vivino_url = ?", (wine_data['vivino_url'],))
         existing_wine = cursor.fetchone()
-               # Check for the explicit flag from the scraper, otherwise fall back to name-based check.
+        
+        # Check for the explicit flag from the scraper, otherwise fall back to name-based check.
         needs_review_flag = wine_data.get('needs_review', False) or \
                             wine_data.get('name', '').startswith(('Review Wine', 'Vivino Wine ID'))
 
         if existing_wine:
             wine_id, current_quantity = existing_wine
             new_quantity = current_quantity + quantity
-            cursor.execute('''
-                UPDATE wines SET quantity = ?, name = ?, vintage = ?, varietal = ?, region = ?,
-                country = ?, vivino_rating = ?, image_url = ?, cost_tier = ?, needs_review = ?
-                WHERE id = ?
-            ''', (
-                new_quantity, wine_data['name'], wine_data['vintage'], wine_data['varietal'],
-                wine_data['region'], wine_data['country'], wine_data['vivino_rating'],
-                wine_data['image_url'], cost_tier, needs_review_flag, wine_id
-            ))
-            logger.info(f"Updated quantity for '{wine_data['name']}' to {new_quantity}.")
+            
+            # If the incoming data is just a partial placeholder, only update the quantity
+            # to avoid overwriting good data with bad data.
+            if needs_review_flag:
+                cursor.execute('UPDATE wines SET quantity = ? WHERE id = ?', (new_quantity, wine_id))
+                logger.info(f"Updated quantity only for '{wine_data['name']}' to {new_quantity} as it needs review.")
+            else:
+                cursor.execute('''
+                    UPDATE wines SET quantity = ?, name = ?, vintage = ?, varietal = ?, region = ?,
+                    country = ?, vivino_rating = ?, image_url = ?, cost_tier = ?, needs_review = ?
+                    WHERE id = ?
+                ''', (
+                    new_quantity, wine_data['name'], wine_data['vintage'], wine_data['varietal'],
+                    wine_data['region'], wine_data['country'], wine_data['vivino_rating'],
+                    wine_data['image_url'], cost_tier, False, wine_id # Explicitly set needs_review to False on a good update
+                ))
+                logger.info(f"Updated and refreshed data for '{wine_data['name']}' with new quantity {new_quantity}.")
         else:
             cursor.execute('''
                 INSERT INTO wines (vivino_url, name, vintage, varietal, region, country, vivino_rating, image_url, quantity, cost_tier, personal_rating, tasting_notes, needs_review)
