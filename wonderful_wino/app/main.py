@@ -417,4 +417,6 @@ def serve_static(path):
 if __name__ == '__main__':
     db.init_db()
     logger.info(f"Starting Wonderful Wino on port 5000 with log level {config.LOG_LEVEL}")
+    print("\n---> NOTE: The following 'WARNING' is a standard benign message from the internal web server.\n"
+          "---> It is normal and expected for a Home Assistant add-on and can be safely ignored.\n")
     app.run(host='0.0.0.0', port=5000)

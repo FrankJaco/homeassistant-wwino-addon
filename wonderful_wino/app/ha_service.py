@@ -18,31 +18,29 @@ def _get_ha_headers():
     }
 
 def _remove_ha_todo_item(item_text, headers):
-    """Removes a single item from the HA To-Do list."""
+    """Removes a single item from the HA To-Do list and returns True if successful."""
     remove_url = f"{config.HOME_ASSISTANT_URL}/api/services/todo/remove_item"
     payload = { "entity_id": config.TODO_LIST_ENTITY_ID, "item": item_text }
     try:
         resp = requests.post(remove_url, json=payload, headers=headers, timeout=5)
-        # Check for specific "not found" text within common error codes
-        if resp.status_code >= 400 and "Unable to find item" in resp.text:
-             logger.info(f"Item '{item_text}' not found on To-Do list (expected for new wines).")
-        else:
-            # Raise an exception for other errors (like 500, 401, 403 etc.)
-            resp.raise_for_status()
-            logger.info(f"Successfully removed '{item_text}' from HA To-Do list.")
-    except requests.exceptions.HTTPError as e:
-        # This block now specifically catches the HTTP errors raised by raise_for_status()
-        # This is where the 500 Internal Server Error will land.
-        if e.response.status_code == 500 and "Unable to find item" in e.response.text:
-            logger.info(f"Item '{item_text}' not found on To-Do list (expected for new wines).")
-        else:
-            # Log all other unexpected HTTP errors as warnings
-            logger.warning(f"Could not remove '{item_text}' from HA To-Do. Error: {e}")
+        
+        # If the API reports an error (status >= 400), check if it's the expected "not found" error.
+        if resp.status_code >= 400:
+            if "Unable to find item" in resp.text:
+                # This is the expected case for a new wine, log it quietly and return False.
+                logger.debug(f"Item '{item_text}' was not found on To-Do list.")
+                return False
+            else:
+                # For any other error, trigger the exception handler below.
+                resp.raise_for_status()
+
+        logger.info(f"Successfully removed '{item_text}' from HA To-Do list.")
+        return True # Explicitly return True on successful removal.
+
     except requests.exceptions.RequestException as e:
-        # Catch other network-related issues (timeout, connection error)
-        logger.warning(f"Could not remove '{item_text}' from HA To-Do. Network Error: {e}")
-
-
+        # Catch any request-related error (HTTP error, timeout, etc.)
+        logger.warning(f"Could not remove '{item_text}' from HA To-Do. Error: {e}")
+        return False
 def sync_wine_to_todo(wine: dict, current_quantity: int):
     """Adds, updates, or removes a single wine item from the HA To-Do list."""
     headers = _get_ha_headers()
@@ -51,7 +49,11 @@ def sync_wine_to_todo(wine: dict, current_quantity: int):
         return
     
     item_text = formatting.format_wine_for_todo(wine)
-    _remove_ha_todo_item(item_text, headers)
+    
+    logger.info(f"Starting sync for '{item_text}'.")
+    
+    # The remove function now returns True if the item was found and deleted.
+    was_existing_item = _remove_ha_todo_item(item_text, headers)
 
     if current_quantity > 0:
         description = formatting.build_markdown_description(wine, current_quantity)
@@ -64,7 +66,13 @@ def sync_wine_to_todo(wine: dict, current_quantity: int):
         try:
             resp = requests.post(add_url, json=add_payload, headers=headers, timeout=5)
             resp.raise_for_status()
-            logger.info(f"Successfully synced '{item_text}' to HA To-Do list.")
+            
+            # Now we provide a specific message based on whether we removed an item first.
+            if was_existing_item:
+                logger.info(f"Successfully updated '{item_text}' on HA To-Do list.")
+            else:
+                logger.info(f"Successfully added '{item_text}' to HA To-Do list.")
+                
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to add/update '{item_text}' in HA To-Do list: {e}")
 
