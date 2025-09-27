@@ -71,7 +71,7 @@ def build_markdown_description(wine: dict, current_quantity: int) -> str:
     """
     description_parts = []
     
-    # This complex truncation logic for the description is fine as-is.
+    # This complex truncation logic for the varietal line is fine as-is.
     varietal_str = wine.get("varietal")
     rendered_varietal_line_markdown = []
     current_visual_length = 0
@@ -114,12 +114,15 @@ def build_markdown_description(wine: dict, current_quantity: int) -> str:
 
     description_parts.append("".join(rendered_varietal_line_markdown) if rendered_varietal_line_markdown else "Unknown Varietal")
 
+    # --- START: Modified Region/Country Logic ---
     region_str = wine.get("region")
     country_name = wine.get("country")
-    country_str = COUNTRY_ABBREVIATIONS.get(country_name, country_name)
+    country_abbr = COUNTRY_ABBREVIATIONS.get(country_name)
+    
     region_country_display = []
     current_rc_visual_length = 0
 
+    # First, add the region and truncate if necessary (this part is unchanged)
     if region_str and region_str != "Unknown Region":
         visual_len_region = len(region_str)
         if visual_len_region <= MAX_VISUAL_LINE_LENGTH_FOR_VARIETAL:
@@ -132,18 +135,22 @@ def build_markdown_description(wine: dict, current_quantity: int) -> str:
                 region_country_display.append(f"**{truncated_region}**")
                 current_rc_visual_length += len(truncated_region)
 
-    if country_str and country_str != "Unknown Country":
+    # Next, apply the new logic to add the country
+    if country_name and country_name != "Unknown Country":
         separator_rc = " " if region_country_display else ""
-        remaining_space_rc = MAX_VISUAL_LINE_LENGTH_FOR_VARIETAL - current_rc_visual_length
-        visual_len_country = len(country_str)
-        if remaining_space_rc >= (len(separator_rc) + visual_len_country):
-            region_country_display.append(f"{separator_rc}{country_str}")
-            current_rc_visual_length += len(separator_rc) + visual_len_country
-        else:
-            space_for_country_body = remaining_space_rc - len(separator_rc)
-            if space_for_country_body > 0 and (space_for_country_body / visual_len_country) >= TRUNCATION_THRESHOLD_PERCENT:
-                truncated_country = country_str[:space_for_country_body]
-                region_country_display.append(f"{separator_rc}{truncated_country}")
+        remaining_space = MAX_VISUAL_LINE_LENGTH_FOR_VARIETAL - current_rc_visual_length
+        
+        # 1. Try to fit the full country name
+        if (len(separator_rc) + len(country_name)) <= remaining_space:
+            region_country_display.append(f"{separator_rc}{country_name}")
+        
+        # 2. If not, try to fit the abbreviation
+        elif country_abbr and (len(separator_rc) + len(country_abbr)) <= remaining_space:
+            region_country_display.append(f"{separator_rc}{country_abbr}")
+            
+        # 3. If neither fits, do nothing, effectively omitting the country.
+        
+    # --- END: Modified Region/Country Logic ---
 
     if region_country_display:
         description_parts.append("".join(region_country_display))
