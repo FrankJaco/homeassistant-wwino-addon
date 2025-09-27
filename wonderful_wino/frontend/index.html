@@ -1046,7 +1046,7 @@
                     const b4bValue = Math.round(item.b4b_score);
                     const formatted = (b4bValue > 0 ? `+${b4bValue}` : b4bValue);
                     const colorClass = b4bValue > 0 ? "text-green-600" : b4bValue < 0 ? "text-red-600" : "";
-                    detailsHtml += `<p><strong>B4B:</strong> 🎯 <span class="${colorClass}">${formatted}</span></p>`;
+                    detailsHtml += `<p><strong>B4B:</strong> 🎯 <span class="${colorClass} font-bold">${formatted}</span></p>`;
                 }
                 detailsCell.innerHTML = detailsHtml;
 
