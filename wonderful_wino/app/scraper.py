@@ -62,7 +62,6 @@ def _parse_url_for_fallback_data(url: str):
     
     return None
 
-
 def _perform_scrape_attempt_selenium(url: str):
     """
     Performs a single, complete scrape attempt using a headless Chrome browser.
@@ -114,24 +113,28 @@ def _perform_scrape_attempt_selenium(url: str):
 
     soup = BeautifulSoup(page_source, 'lxml')
     
-    # Perform a strict check for the wine name first. This is our primary validation.
-    name_tag = soup.find('h1', class_=re.compile(r'wine-page-header__name|VintageTitle_wine'))
-    if not name_tag:
-        logger.warning(f"Scrape failed for {final_url_after_scrape}: No valid wine name tag found on the page.")
-        return None, final_url_after_scrape
-
-    wine_name = " ".join(name_tag.text.strip().split())
-
-    # As a secondary safety net, check for common error text in the title.
-    if "404" in wine_name or "not found" in wine_name.lower():
-        logger.warning(f"Scrape failed for {final_url_after_scrape}: Page content indicates a 404 or error page.")
-        return None, final_url_after_scrape
-
     wine_data = {
-        'name': wine_name, 'vintage': None, 'varietal': 'Unknown Varietal',
+        'name': 'Unknown Wine', 'vintage': None, 'varietal': 'Unknown Varietal',
         'region': 'Unknown Region', 'country': 'Unknown Country',
         'vivino_rating': None, 'image_url': None
     }
+
+    # Use the forgiving method to find the main heading of the page.
+    name_tag = soup.find('h1', class_=re.compile(r'wine-page-header__name|VintageTitle_wine')) or soup.find('h1')
+    if name_tag:
+        wine_name = " ".join(name_tag.text.strip().split())
+        
+        # Now, perform a sanity check on the CONTENT of the heading.
+        if "404" in wine_name or "not found" in wine_name.lower():
+            logger.warning(f"Scrape failed for {final_url_after_scrape}: Page content indicates a 404 or error page.")
+            return None, final_url_after_scrape
+        
+        wine_data['name'] = wine_name
+    
+    # If no h1 tag was found at all, it's a failed scrape.
+    if wine_data['name'] == 'Unknown Wine':
+        logger.warning(f"Scrape failed for {final_url_after_scrape}: No h1 tag found on the page.")
+        return None, final_url_after_scrape
 
     all_grape_names_collected = []
     found_grapes_in_json = False
@@ -251,7 +254,6 @@ def _perform_scrape_attempt_selenium(url: str):
             except (ValueError, TypeError): pass
 
     return wine_data, final_url_after_scrape
-
 
 def scrape_vivino_data(vivino_url):
     """
