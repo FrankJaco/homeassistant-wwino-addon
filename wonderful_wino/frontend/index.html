@@ -970,7 +970,7 @@
         const VIVINO_SEARCH_URL = 'https://www.vivino.com/search/wines?q=';
         const DEFAULT_COST_TIERS = { t1: 10, t2r: 20, t3r: 35, t4r: 50 };
 
-        // NEW: Emoji map for consistency with backend
+        // Emoji map for consistency with backend
         const WINE_TYPE_EMOJIS = {
             "Red": "🍷",
             "White": "🥂",
@@ -1079,7 +1079,27 @@
             });
         }
 
-        // This function applies client-side filters and sorting, then updates the display.
+        // NEW: Hides/shows type filter buttons based on available wine types.
+        function updateFilterVisibility() {
+            if (!masterInventoryList) return;
+
+            const availableTypes = new Set(masterInventoryList.map(wine => wine.wine_type).filter(Boolean));
+
+            document.querySelector('[data-type-filter="Red"]').classList.toggle('hidden', !availableTypes.has('Red'));
+            document.querySelector('[data-type-filter="White"]').classList.toggle('hidden', !availableTypes.has('White'));
+            document.querySelector('[data-type-filter="Rosé"]').classList.toggle('hidden', !availableTypes.has('Rosé'));
+            document.querySelector('[data-type-filter="Sparkling"]').classList.toggle('hidden', !availableTypes.has('Sparkling'));
+
+            const hasSpecialty = availableTypes.has('Dessert') || availableTypes.has('Fortified');
+            document.querySelector('[data-type-filter="specialty"]').classList.toggle('hidden', !hasSpecialty);
+
+            const activeFilterButton = document.querySelector('#type-filters .type-filter-button.active');
+            if (activeFilterButton && activeFilterButton.classList.contains('hidden')) {
+                document.querySelector('[data-type-filter="all"]').click();
+            }
+        }
+
+        // Applies client-side filters and sorting, then updates the display.
         function updateDisplayedInventory() {
             let inventoryToDisplay = [...masterInventoryList];
 
@@ -1098,7 +1118,7 @@
             displayInventory(sortedData);
         }
 
-        // fetchInventory now only fetches the master list for the main filter.
+        // Fetches the master list for the main filter.
         async function fetchInventory() {
             const inventoryTableBody = document.getElementById('inventoryTableBody');
             inventoryTableBody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-gray-500">Loading inventory...</td></tr>';
@@ -1106,7 +1126,11 @@
                 const response = await fetch(`${BASE_URL}inventory?filter=${currentFilter}`);
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 masterInventoryList = await response.json();
-                updateDisplayedInventory(); // Filter, sort, and display the newly fetched data.
+
+                // NEW: Update filter visibility based on the fetched data
+                updateFilterVisibility();
+
+                updateDisplayedInventory(); // Then filter, sort, and display.
             } catch (error) {
                 showMessage('inventoryMessage', `Failed to load inventory: ${error.message}`, 'error');
                 inventoryTableBody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-red-600">Error loading inventory.</td></tr>';
@@ -1135,7 +1159,8 @@
             if (inventory.length === 0) {
                 let message = `No wines found for filter: ${currentFilter.replace('_', ' ')}`;
                 if (currentTypeFilter !== 'all') {
-                    message += ` and type: ${currentTypeFilter}`;
+                    const filterName = document.querySelector(`[data-type-filter="${currentTypeFilter}"]`)?.title || currentTypeFilter;
+                    message += ` and type: ${filterName}`;
                 }
                 container.innerHTML = `<tr><td colspan="3" class="py-4 text-center text-gray-500">${message}</td></tr>`;
                 return;
