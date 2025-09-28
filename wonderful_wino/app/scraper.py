@@ -96,16 +96,6 @@ def _perform_scrape_attempt_selenium(url: str):
         final_url_after_scrape = driver.current_url
         page_source = driver.page_source
         logger.debug(f"Selenium successfully loaded page. Final URL: {final_url_after_scrape}")
-        
-        # --- START TEMPORARY DEBUGGING CODE ---
-        try:
-            debug_path = "/share/vivino_page_source.html"
-            with open(debug_path, "w", encoding="utf-8") as f:
-                f.write(page_source)
-            logger.info(f"DEBUG: Successfully saved page HTML for analysis to {debug_path}")
-        except Exception as e:
-            logger.error(f"DEBUG: CRITICAL - Failed to save page source for analysis: {e}")
-        # --- END TEMPORARY DEBUGGING CODE ---
 
     except TimeoutException:
         logger.error(f"Selenium timed out waiting for page content to load for URL: {url}")
@@ -133,7 +123,7 @@ def _perform_scrape_attempt_selenium(url: str):
     }
 
     # Use the forgiving method to find the main heading of the page.
-    name_tag = soup.find('h1', class_=re.compile(r'wine-page-header__name|VintageTitle__wine')) or soup.find('h1')
+    name_tag = soup.find('h1', class_=re.compile(r'wine-page-header__name|VintageTitle_wine')) or soup.find('h1')
     if name_tag:
         wine_name = " ".join(name_tag.text.strip().split())
         
@@ -151,6 +141,41 @@ def _perform_scrape_attempt_selenium(url: str):
 
     all_grape_names_collected = []
     found_grapes_in_json = False
+    
+    # Primary Method: Parse the __PRELOADED_STATE__ JSON blob from a script tag. This is the most reliable source.
+    preloaded_state_script = soup.find('script', string=re.compile(r'window\.__PRELOADED_STATE__\.vintagePageInformation'))
+    if preloaded_state_script:
+        logger.debug("Found __PRELOADED_STATE__ script tag. Parsing for detailed wine info.")
+        script_content = preloaded_state_script.string
+        
+        json_str_match = re.search(r'window\.__PRELOADED_STATE__\.vintagePageInformation\s*=\s*(\{.*?\});', script_content, re.DOTALL)
+        if json_str_match:
+            try:
+                page_info = json.loads(json_str_match.group(1))
+                vintage_info = page_info.get('vintage', {})
+                
+                # Scrape Wine Type from its ID
+                if wine_data['wine_type'] is None:
+                    wine_type_id = vintage_info.get('wine', {}).get('type_id')
+                    if wine_type_id == 1: wine_data['wine_type'] = 'Red'
+                    elif wine_type_id == 2: wine_data['wine_type'] = 'White'
+                    elif wine_type_id == 3: wine_data['wine_type'] = 'Sparkling'
+                    elif wine_type_id == 4: wine_data['wine_type'] = 'Rosé'
+                    elif wine_type_id == 7: wine_data['wine_type'] = 'Dessert'
+                    elif wine_type_id == 24: wine_data['wine_type'] = 'Fortified'
+                    if wine_data['wine_type']:
+                         logger.debug(f"Found Wine Type from __PRELOADED_STATE__: {wine_data['wine_type']}")
+
+                # Scrape Alcohol Percentage from wine_facts
+                if wine_data['alcohol_percent'] is None:
+                    # The alcohol value can be in two places, we check the more specific one first.
+                    alcohol = vintage_info.get('wine_facts', {}).get('alcohol') or vintage_info.get('alcohol')
+                    if alcohol:
+                        wine_data['alcohol_percent'] = float(alcohol)
+                        logger.debug(f"Found Alcohol Percentage from __PRELOADED_STATE__: {wine_data['alcohol_percent']}%")
+
+            except json.JSONDecodeError:
+                logger.warning("Failed to decode __PRELOADED_STATE__ JSON.")
     
     script_tags = soup.find_all('script', type='application/ld+json')
     for script in script_tags:
@@ -218,6 +243,42 @@ def _perform_scrape_attempt_selenium(url: str):
         if '/wine-countries/' in href and wine_data['country'] == 'Unknown Country': wine_data['country'] = text
         elif '/wine-regions/' in href and wine_data['region'] == 'Unknown Region': wine_data['region'] = text
         elif not found_grapes_in_json and '/grapes/' in href and text and 'blend' not in text.lower(): all_grape_names_collected.append(text)
+    
+    # Fallback for Wine Type from breadcrumbs if not found in primary JSON
+    if wine_data['wine_type'] is None:
+        try:
+            breadcrumbs = soup.find('div', class_=re.compile(r'breadCrumbs'))
+            if breadcrumbs:
+                breadcrumb_links = breadcrumbs.find_all('a')
+                for link in breadcrumb_links:
+                    link_text = link.get_text(strip=True)
+                    # Check if the link text is one of our target types (e.g. "Red wine")
+                    if any(wt in link_text for wt in WINE_TYPES):
+                         for wt in WINE_TYPES:
+                             if wt in link_text:
+                                wine_data['wine_type'] = wt
+                                logger.debug(f"Found Wine Type from breadcrumbs: {wt}")
+                                break
+                    if wine_data['wine_type']:
+                        break
+        except Exception as e:
+            logger.debug(f"Could not parse wine type from breadcrumbs (non-critical): {e}")
+
+    # Fallback for Alcohol Percentage from wine facts table if not found in primary JSON
+    if wine_data['alcohol_percent'] is None:
+        try:
+            # Find the header cell (th) containing "Alcohol content"
+            label_header = soup.find('th', string=re.compile(r'Alcohol content', re.I))
+            if label_header:
+                # The value is in the next table cell (td)
+                value_cell = label_header.find_next_sibling('td')
+                if value_cell:
+                    match = re.search(r'(\d{1,2}(\.\d{1,2})?)\s*%', value_cell.get_text())
+                    if match:
+                        wine_data['alcohol_percent'] = float(match.group(1))
+                        logger.debug(f"Found Alcohol Percentage from facts table: {wine_data['alcohol_percent']}%")
+        except Exception as e:
+            logger.debug(f"Could not parse alcohol percentage from facts table (non-critical): {e}")
 
     # Heuristics for varietal ordering and naming convention.
     if all_grape_names_collected or 'Unknown Wine' not in wine_data['name']:
@@ -267,69 +328,3 @@ def _perform_scrape_attempt_selenium(url: str):
             except (ValueError, TypeError): pass
 
     return wine_data, final_url_after_scrape
-
-def scrape_vivino_data(vivino_url):
-    """
-    Orchestrates scraping using a headless browser to be resilient to anti-bot measures.
-    """
-    logger.info(f"Starting Selenium-based scrape for: {vivino_url}")
-    
-    wine_data, canonical_url = _perform_scrape_attempt_selenium(vivino_url)
-
-    if wine_data:
-        logger.info(f"Success on initial Selenium scrape for {canonical_url}")
-        return wine_data, canonical_url
-    
-    logger.warning(f"Initial Selenium scrape failed for {canonical_url}. Cooling down before checking nearby vintages.")
-    time.sleep(random.uniform(3.0, 5.0))
-
-    try:
-        parsed_url = urlparse(vivino_url)
-        query_params = parse_qs(parsed_url.query)
-        original_vintage = int(query_params.get('year', [None])[0])
-    except (ValueError, TypeError, IndexError):
-        original_vintage = None
-
-    if original_vintage:
-        for year_offset in [-1, 1]:
-            new_vintage = original_vintage + year_offset
-            
-            parsed_canonical = urlparse(canonical_url)
-            new_query_params = parse_qs(parsed_canonical.query)
-            new_query_params['year'] = [str(new_vintage)]
-            nearby_vintage_url = urlunparse(list(parsed_canonical._replace(query=urlencode(new_query_params, doseq=True))))
-
-            logger.info(f"Attempting scrape of nearby vintage: {nearby_vintage_url}")
-            nearby_data, _ = _perform_scrape_attempt_selenium(nearby_vintage_url)
-            
-            if nearby_data:
-                logger.warning(f"Success scraping nearby vintage ({new_vintage}). Borrowing its data for original vintage ({original_vintage}).")
-                borrowed_data = {
-                    'name': re.sub(r'\s*\b(19|20)\d{2}\b', '', nearby_data.get('name', 'Unknown Wine')).strip(),
-                    'vintage': original_vintage,
-                    'varietal': nearby_data.get('varietal', 'Unknown Varietal'),
-                    'region': nearby_data.get('region', 'Unknown Region'),
-                    'country': nearby_data.get('country', 'Unknown Country'),
-                    'vivino_rating': None,
-                    'image_url': nearby_data.get('image_url'),
-                }
-                return borrowed_data, vivino_url
-            
-            time.sleep(random.uniform(2.0, 4.0))
-
-    logger.warning("All scrape attempts failed. Attempting to parse URL for final fallback data.")
-    fallback_data = _parse_url_for_fallback_data(vivino_url)
-    
-    if fallback_data and 'Vivino Wine ID' not in fallback_data.get('name', ''):
-        minimal_data = {
-            'name': 'Unknown Wine', 'vintage': None, 'varietal': 'Unknown Varietal', 
-            'region': 'Unknown Region', 'country': 'Unknown Country', 
-            'vivino_rating': None, 'image_url': None,
-            'needs_review': True  # Flag this entry for user review
-        }
-        minimal_data.update(fallback_data)
-        logger.warning(f"Full scrape failed, returning partial data from URL for review: {fallback_data.get('name')}")
-        return minimal_data, vivino_url
-
-    logger.error(f"All scrape and fallback attempts failed for {vivino_url}.")
-    return None, None
