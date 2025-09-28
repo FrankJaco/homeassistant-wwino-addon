@@ -97,6 +97,16 @@ def _perform_scrape_attempt_selenium(url: str):
         page_source = driver.page_source
         logger.debug(f"Selenium successfully loaded page. Final URL: {final_url_after_scrape}")
 
+        # --- START TEMPORARY DEBUGGING CODE ---
+        try:
+            debug_path = "/share/vivino_page_source.html"
+            with open(debug_path, "w", encoding="utf-8") as f:
+                f.write(page_source)
+            logger.info(f"DEBUG: Successfully saved page HTML for analysis to {debug_path}")
+        except Exception as e:
+            logger.error(f"DEBUG: CRITICAL - Failed to save page source for analysis: {e}")
+        # --- END TEMPORARY DEBUGGING CODE ---
+
     except TimeoutException:
         logger.error(f"Selenium timed out waiting for page content to load for URL: {url}")
         if driver: driver.quit()
@@ -147,6 +157,17 @@ def _perform_scrape_attempt_selenium(url: str):
         try:
             json_ld = json.loads(script.string)
             if isinstance(json_ld, dict):
+                # Scrape for Wine Type from JSON-LD
+                if wine_data['wine_type'] is None:
+                    json_string = json.dumps(json_ld)
+                    for wine_type in WINE_TYPES:
+                        # Look for "Red" or "Red wine", etc. as a distinct value
+                        pattern = r'"' + re.escape(wine_type) + r'(?: wine)?"'
+                        if re.search(pattern, json_string, re.IGNORECASE):
+                            wine_data['wine_type'] = wine_type # Store the base type (e.g., "Red")
+                            logger.debug(f"Found Wine Type via keyword match: {wine_type}")
+                            break
+                
                 is_product = json_ld.get('@type') == 'Product'
                 is_wine = json_ld.get('@type') == 'Wine'
                 if is_product:
@@ -209,24 +230,10 @@ def _perform_scrape_attempt_selenium(url: str):
         elif '/wine-regions/' in href and wine_data['region'] == 'Unknown Region': wine_data['region'] = text
         elif not found_grapes_in_json and '/grapes/' in href and text and 'blend' not in text.lower(): all_grape_names_collected.append(text)
 
-    # Scrape for Wine Type from breadcrumbs
-    if wine_data['wine_type'] is None:
-        try:
-            breadcrumbs = soup.find('nav', attrs={'aria-label': 'Breadcrumb'})
-            if breadcrumbs:
-                breadcrumb_links = breadcrumbs.find_all('a')
-                for link in breadcrumb_links:
-                    link_text = link.get_text(strip=True)
-                    if link_text in WINE_TYPES:
-                        wine_data['wine_type'] = link_text
-                        logger.debug(f"Found Wine Type from breadcrumbs: {link_text}")
-                        break
-        except Exception as e:
-            logger.debug(f"Could not parse wine type from breadcrumbs (non-critical): {e}")
-
     # Scrape for Alcohol Percentage (ABV) from wine facts table
     if wine_data['alcohol_percent'] is None:
         try:
+            # Find the specific label "Alcohol content" for a more reliable anchor
             label_header = soup.find('th', string=re.compile(r'Alcohol content', re.I))
             if label_header:
                 value_cell = label_header.find_next_sibling('td')
