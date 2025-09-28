@@ -164,19 +164,21 @@ def build_markdown_description(wine: dict, current_quantity: int) -> str:
 
     wine_type = wine.get("wine_type")
     type_emoji = WINE_TYPE_EMOJIS.get(wine_type, "🍇") # Default to grape if type is unknown
-    line3_parts.append(f" {type_emoji}")
+    line3_parts.append(f" {type_emoji}") # Space before emoji for separation from qty
     line3_visual_len += 2 # Emoji and a space
 
     alcohol = wine.get("alcohol_percent")
     if alcohol is not None:
-        abv_str = f" {alcohol:.1f}%"
+        # No space between emoji and ABV
+        abv_str = f"{alcohol:.1f}%"
         line3_parts.append(abv_str)
         line3_visual_len += len(abv_str)
 
     # 2. Add Rating
     display_rating = _get_display_rating(wine)
     if display_rating is not None:
-        rating_str = f" | ⭐{display_rating:.1f}"
+        # No space between pipe and star emoji
+        rating_str = f" |⭐{display_rating:.1f}"
         line3_parts.append(rating_str)
         line3_visual_len += len(rating_str)
     
@@ -184,7 +186,8 @@ def build_markdown_description(wine: dict, current_quantity: int) -> str:
     b4b_score = calculate_b4b_score(wine)
     if b4b_score is not None:
         score_str = f"+{b4b_score}" if b4b_score > 0 else str(b4b_score)
-        b4b_str = f" | 🎯{score_str}"
+        # No space between pipe and target emoji
+        b4b_str = f" |🎯{score_str}"
         line3_parts.append(b4b_str)
         line3_visual_len += len(b4b_str)
 
@@ -192,7 +195,8 @@ def build_markdown_description(wine: dict, current_quantity: int) -> str:
     cost_tier = wine.get('cost_tier')
     if cost_tier and isinstance(cost_tier, int) and cost_tier > 0:
         cost_display = ''.join(['$'] * cost_tier)
-        cost_str = f" | {cost_display}"
+        # Removing space for consistency, gaining one character
+        cost_str = f" |{cost_display}"
         
         # Check if adding the cost string will exceed the max visual length
         if (line3_visual_len + len(cost_str)) <= MAX_VISUAL_LINE_LENGTH:
@@ -203,3 +207,4 @@ def build_markdown_description(wine: dict, current_quantity: int) -> str:
     # --- END: New logic for Stats Line (Line 3) ---
 
     return "  \n".join(description_parts)
+
