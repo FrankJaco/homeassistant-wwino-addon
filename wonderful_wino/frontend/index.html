@@ -959,7 +959,7 @@
         const VIVINO_SEARCH_URL = 'https://www.vivino.com/search/wines?q=';
         const DEFAULT_COST_TIERS = { t1: 10, t2r: 20, t3r: 35, t4r: 50 };
 
-        let currentInventory = [];
+        let masterInventoryList = [];
         let currentSortBy = 'name';
         let currentSortDirection = 'asc';
         let currentFilter = 'on_hand';
@@ -1058,20 +1058,36 @@
             });
         }
 
-        function applySortAndDisplayInventory() {
-            const sortedData = sortInventory(currentInventory, currentSortBy, currentSortDirection);
+        // NEW: This function applies client-side filters and sorting, then updates the display.
+        function updateDisplayedInventory() {
+            let inventoryToDisplay = [...masterInventoryList];
+
+            // Apply Type Filter
+            if (currentTypeFilter !== 'all') {
+                if (currentTypeFilter === 'other') {
+                    // "Other" includes types that are not Red or White, but are not null/empty either.
+                    inventoryToDisplay = inventoryToDisplay.filter(wine =>
+                        wine.wine_type && !['Red', 'White'].includes(wine.wine_type)
+                    );
+                } else {
+                    inventoryToDisplay = inventoryToDisplay.filter(wine => wine.wine_type === currentTypeFilter);
+                }
+            }
+
+            const sortedData = sortInventory(inventoryToDisplay, currentSortBy, currentSortDirection);
             displayInventory(sortedData);
         }
 
-        // MODIFIED: fetchInventory now includes the type filter
+        // MODIFIED: fetchInventory now only fetches the master list for the main filter.
         async function fetchInventory() {
             const inventoryTableBody = document.getElementById('inventoryTableBody');
             inventoryTableBody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-gray-500">Loading inventory...</td></tr>';
             try {
-                const response = await fetch(`${BASE_URL}inventory?filter=${currentFilter}&type_filter=${currentTypeFilter}`);
+                // The type_filter param is removed as this is now handled client-side.
+                const response = await fetch(`${BASE_URL}inventory?filter=${currentFilter}`);
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                currentInventory = await response.json();
-                applySortAndDisplayInventory();
+                masterInventoryList = await response.json();
+                updateDisplayedInventory(); // Filter, sort, and display the newly fetched data.
             } catch (error) {
                 showMessage('inventoryMessage', `Failed to load inventory: ${error.message}`, 'error');
                 inventoryTableBody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-red-600">Error loading inventory.</td></tr>';
@@ -1757,17 +1773,19 @@
                 localStorage.setItem('theme', isDark ? 'dark' : 'light');
                 document.getElementById('themeIcon').textContent = isDark ? '🌙' : '☀️';
             });
+
+            // MODIFIED: Sort listeners now call the client-side update function.
             sortSelect.addEventListener('change', (e) => {
                 currentSortBy = e.target.value;
-                applySortAndDisplayInventory();
+                updateDisplayedInventory();
             });
             sortDirectionToggle.addEventListener('click', () => {
                 currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
                 updateSortIcons();
-                applySortAndDisplayInventory();
+                updateDisplayedInventory();
             });
 
-            // MODIFIED: Event listener for main filters
+            // MODIFIED: Event listener for main filters calls fetchInventory (correct).
             document.getElementById('inventory-filters').addEventListener('click', (e) => {
                 if (e.target.matches('.filter-button')) {
                     currentFilter = e.target.dataset.filter;
@@ -1775,17 +1793,17 @@
                     e.target.classList.add('active');
                     const headingText = `Wine ${currentFilter.replace('_', ' ')}`;
                     document.getElementById('inventory-heading').textContent = headingText.charAt(0).toUpperCase() + headingText.slice(1);
-                    fetchInventory(); // This will now use the persisted currentTypeFilter
+                    fetchInventory();
                 }
             });
 
-            // NEW: Event listener for type filters
+            // MODIFIED: Event listener for type filters now calls the client-side update function.
             document.getElementById('type-filters').addEventListener('click', (e) => {
                 if (e.target.matches('.type-filter-button')) {
                     currentTypeFilter = e.target.dataset.typeFilter;
                     document.querySelectorAll('#type-filters .type-filter-button').forEach(btn => btn.classList.remove('active'));
                     e.target.classList.add('active');
-                    fetchInventory(); // Re-fetch data from the server with the new type filter
+                    updateDisplayedInventory(); // Does not re-fetch, just re-filters and displays.
                 }
             });
 
