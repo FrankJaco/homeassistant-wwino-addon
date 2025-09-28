@@ -162,7 +162,9 @@ def add_manual_wine():
         'region': data.get('region') or "Unknown Region",
         'country': data.get('country') or "Unknown Country",
         'vivino_rating': None, 'image_url': data.get('image_url'), 'cost_tier': cost_tier,
-        'personal_rating': None, 'tasting_notes': data.get('tasting_notes')
+        'personal_rating': None, 'tasting_notes': data.get('tasting_notes'),
+        'alcohol_percent': data.get('alcohol_percent'),
+        'wine_type': data.get('wine_type')
     }
 
     if db.add_or_update_wine(wine_data, quantity, cost_tier):
@@ -196,7 +198,8 @@ def edit_wine():
     success = db.update_wine_details(
         vivino_url, data['name'], data['vintage'], data['quantity'], data.get('varietal'),
         data.get('region'), data.get('country'), data.get('cost_tier'),
-        data.get('personal_rating'), data.get('tasting_notes')
+        data.get('personal_rating'), data.get('tasting_notes'),
+        data.get('alcohol_percent'), data.get('wine_type')
     )
     
     if not success:
