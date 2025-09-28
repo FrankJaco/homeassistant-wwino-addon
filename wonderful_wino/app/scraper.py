@@ -122,15 +122,12 @@ def _perform_scrape_attempt_selenium(url: str):
         'alcohol_percent': None, 'wine_type': None
     }
 
-    # Use the forgiving method to find the main heading of the page.
     name_tag = soup.find('h1', class_=re.compile(r'wine-page-header__name|VintageTitle_wine')) or soup.find('h1')
     if name_tag:
         wine_name = " ".join(name_tag.text.strip().split())
-        
         if "404" in wine_name or "not found" in wine_name.lower():
             logger.warning(f"Scrape failed for {final_url_after_scrape}: Page content indicates a 404 or error page.")
             return None, final_url_after_scrape
-        
         wine_data['name'] = wine_name
     
     if wine_data['name'] == 'Unknown Wine':
@@ -140,18 +137,24 @@ def _perform_scrape_attempt_selenium(url: str):
     all_grape_names_collected = []
     found_grapes_in_json = False
     
-    # Primary Method: Parse the __PRELOADED_STATE__ JSON blob from a script tag.
+    # Primary Method: Parse the __PRELOADED_STATE__ JSON blob.
     preloaded_state_script = soup.find('script', string=re.compile(r'window\.__PRELOADED_STATE__\.vintagePageInformation'))
     if preloaded_state_script:
         logger.debug("Found __PRELOADED_STATE__ script tag. Parsing for detailed wine info.")
         script_content = preloaded_state_script.string
-        
         json_str_match = re.search(r'window\.__PRELOADED_STATE__\.vintagePageInformation\s*=\s*(\{.*?\});', script_content, re.DOTALL)
         if json_str_match:
             try:
                 page_info = json.loads(json_str_match.group(1))
                 vintage_info = page_info.get('vintage', {})
                 
+                if wine_data['image_url'] is None:
+                    image_variations = vintage_info.get('image', {}).get('variations', {})
+                    image_url = image_variations.get('bottle_large') or image_variations.get('bottle_medium')
+                    if image_url:
+                        wine_data['image_url'] = image_url
+                        logger.debug(f"Found Image URL from __PRELOADED_STATE__: {image_url}")
+
                 if wine_data['wine_type'] is None:
                     wine_type_id = vintage_info.get('wine', {}).get('type_id')
                     if wine_type_id == 1: wine_data['wine_type'] = 'Red'
@@ -203,15 +206,21 @@ def _perform_scrape_attempt_selenium(url: str):
             logger.debug(f"Vivino JSON-LD parsing error (may be benign): {json_err}")
             pass
 
+    # Fallback 1: Preload link
     if wine_data['image_url'] is None:
         preload_link = soup.find('link', rel='preload', attrs={'as': 'image'})
         if preload_link and preload_link.has_attr('href'):
             wine_data['image_url'] = preload_link['href']
+            logger.debug(f"Found Image URL from preload link: {wine_data['image_url']}")
 
+
+    # Fallback 2: Regular img tag
     if wine_data['image_url'] is None:
         image_tag = soup.find('img', class_=re.compile(r'wine-page-image__image|vivinoImage_image|image-preview__image'))
         if image_tag:
             wine_data['image_url'] = image_tag.get('src') or image_tag.get('data-src')
+            logger.debug(f"Found Image URL from img tag: {wine_data['image_url']}")
+
 
     if wine_data['image_url'] and wine_data['image_url'].startswith('//'):
         wine_data['image_url'] = 'https:' + wine_data['image_url']
