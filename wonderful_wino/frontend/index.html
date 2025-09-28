@@ -58,7 +58,27 @@
             /* A bit lighter than card bg for contrast */
         }
 
-        /* NEW: Styles for the collapsible accordion panel */
+        /* NEW: Style for the type filter buttons */
+        .type-filter-button {
+            padding: 0.25rem 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 9999px;
+            /* Pill shape */
+            background-color: var(--button-secondary-bg);
+            color: var(--button-secondary-text);
+            font-weight: 500;
+            transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+            cursor: pointer;
+            font-size: 0.875rem;
+        }
+
+        .type-filter-button.active {
+            background-color: var(--accent-color);
+            color: white;
+            border-color: var(--accent-color);
+        }
+
+        /* Styles for the collapsible accordion panel */
         .collapsible-content {
             max-height: 0;
             overflow: hidden;
@@ -75,7 +95,6 @@
         .is-expanded #collapseIcon {
             transform: rotate(90deg);
         }
-
 
         /* Styles for filter buttons */
         .filter-button {
@@ -484,49 +503,61 @@
         </section>
 
         <section class="bg-white p-6 rounded-lg shadow-md mb-8">
-            <div class="flex flex-col sm:flex-row justify-between items-start mb-6 sm:mb-4 gap-4">
+            <div class="flex flex-col sm:flex-row justify-between items-start mb-4 gap-4">
                 <div>
                     <h2 id="inventory-heading" class="text-2xl font-semibold text-gray-800">Wine Inventory</h2>
                     <div id="inventory-summary" class="text-sm text-gray-600 mt-1 hidden"></div>
                 </div>
 
-                <div class="flex flex-wrap items-center gap-4">
-                    <div id="inventory-filters" class="flex items-center gap-2">
-                        <button class="filter-button active" data-filter="on_hand">On Hand</button>
-                        <button class="filter-button" data-filter="history">History</button>
-                        <button class="filter-button" data-filter="all">All</button>
+                <div class="flex flex-col items-start sm:items-end gap-3 w-full sm:w-auto">
+                    <!-- Row 1: Main Filters and Sorter -->
+                    <div class="flex flex-wrap items-center gap-4">
+                        <div id="inventory-filters" class="flex items-center gap-2">
+                            <button class="filter-button active" data-filter="on_hand">On Hand</button>
+                            <button class="filter-button" data-filter="history">History</button>
+                            <button class="filter-button" data-filter="all">All</button>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <select id="sortSelect"
+                                class="px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm w-32">
+                                <option value="name">Name</option>
+                                <option value="varietal">Varietal</option>
+                                <option value="country">Country</option>
+                                <option value="region">Region</option>
+                                <option value="vintage">Vintage</option>
+                                <option value="vivino_rating">Rating</option>
+                                <option value="b4b_score">B4B</option>
+                                <option value="quantity">Quantity</option>
+                            </select>
+                            <button id="sortDirectionToggle"
+                                class="p-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+                                aria-label="Toggle sort direction">
+                                <svg id="sortAscIcon" class="w-5 h-5 sort-icon" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"></path>
+                                </svg>
+                                <svg id="sortDescIcon" class="w-5 h-5 sort-icon hidden" fill="none"
+                                    stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M3 20h13M3 16h9m-9-4h6m4 0l4 4m0 0l4-4m-4 4V4"></path>
+                                </svg>
+                            </button>
+                            <button id="refreshInventoryBtn"
+                                class="p-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 icon-button"
+                                aria-label="Refresh Inventory" title="Refresh Inventory">
+                                🔄
+                            </button>
+                        </div>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <select id="sortSelect"
-                            class="px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm w-32">
-                            <option value="name">Name</option>
-                            <option value="varietal">Varietal</option>
-                            <option value="country">Country</option>
-                            <option value="region">Region</option>
-                            <option value="vintage">Vintage</option>
-                            <option value="vivino_rating">Rating</option>
-                            <option value="b4b_score">B4B</option>
-                            <option value="quantity">Quantity</option>
-                        </select>
-                        <button id="sortDirectionToggle"
-                            class="p-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
-                            aria-label="Toggle sort direction">
-                            <svg id="sortAscIcon" class="w-5 h-5 sort-icon" fill="none" stroke="currentColor"
-                                viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"></path>
-                            </svg>
-                            <svg id="sortDescIcon" class="w-5 h-5 sort-icon hidden" fill="none" stroke="currentColor"
-                                viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M3 20h13M3 16h9m-9-4h6m4 0l4 4m0 0l4-4m-4 4V4"></path>
-                            </svg>
-                        </button>
-                        <button id="refreshInventoryBtn"
-                            class="p-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 icon-button"
-                            aria-label="Refresh Inventory" title="Refresh Inventory">
-                            🔄
-                        </button>
+
+                    <!-- Row 2: Type Filters -->
+                    <div id="type-filters" class="flex flex-wrap items-center gap-2">
+                        <span class="text-sm font-medium text-gray-600 mr-2">Type:</span>
+                        <button class="type-filter-button active" data-type-filter="all">All</button>
+                        <button class="type-filter-button" data-type-filter="Red">Red</button>
+                        <button class="type-filter-button" data-type-filter="White">White</button>
+                        <button class="type-filter-button" data-type-filter="other">Other</button>
                     </div>
                 </div>
             </div>
@@ -557,6 +588,7 @@
         <p>&copy; 2025 Wonderful-Wino. All rights reserved.</p>
     </footer>
 
+    <!-- All Modals (Help, Entry, Taste, Notes, Settings, NV Prompt) are unchanged -->
     <div id="helpModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="helpModalTitle">
         <div class="modal-content">
             <button class="modal-close-button" onclick="closeModal()">&times;</button>
@@ -931,6 +963,7 @@
         let currentSortBy = 'name';
         let currentSortDirection = 'asc';
         let currentFilter = 'on_hand';
+        let currentTypeFilter = 'all'; // NEW: State for type filter
         let appSettings = {};
         let initialCostTierValues = {};
         let openModalElement = null;
@@ -1030,11 +1063,12 @@
             displayInventory(sortedData);
         }
 
+        // MODIFIED: fetchInventory now includes the type filter
         async function fetchInventory() {
             const inventoryTableBody = document.getElementById('inventoryTableBody');
             inventoryTableBody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-gray-500">Loading inventory...</td></tr>';
             try {
-                const response = await fetch(`${BASE_URL}inventory?filter=${currentFilter}`);
+                const response = await fetch(`${BASE_URL}inventory?filter=${currentFilter}&type_filter=${currentTypeFilter}`);
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 currentInventory = await response.json();
                 applySortAndDisplayInventory();
@@ -1054,7 +1088,7 @@
             const summaryEl = document.getElementById('inventory-summary');
             container.innerHTML = '';
 
-            if (currentFilter === 'on_hand' && inventory.length > 0) {
+            if (inventory.length > 0) {
                 const totalBottles = inventory.reduce((sum, wine) => sum + wine.quantity, 0);
                 const uniqueWines = inventory.length;
                 summaryEl.textContent = `${uniqueWines} unique ${uniqueWines === 1 ? 'wine' : 'wines'} / ${totalBottles} total ${totalBottles === 1 ? 'bottle' : 'bottles'}`;
@@ -1064,7 +1098,11 @@
             }
 
             if (inventory.length === 0) {
-                container.innerHTML = `<tr><td colspan="3" class="py-4 text-center text-gray-500">No wines found for filter: ${currentFilter.replace('_', ' ')}</td></tr>`;
+                let message = `No wines found for filter: ${currentFilter.replace('_', ' ')}`;
+                if (currentTypeFilter !== 'all') {
+                    message += ` and type: ${currentTypeFilter}`;
+                }
+                container.innerHTML = `<tr><td colspan="3" class="py-4 text-center text-gray-500">${message}</td></tr>`;
                 return;
             }
 
@@ -1083,7 +1121,6 @@
                     : '<div class="text-gray-400 text-center w-24 h-24 flex items-center justify-center bg-gray-100">No Image</div>';
                 imageCell.appendChild(imageContainer);
 
-                // START: MODIFIED WINE DETAILS DISPLAY LOGIC
                 const detailsCell = document.createElement('td');
                 detailsCell.className = 'py-4 sm:p-4 text-sm text-gray-900 wine-details-cell w-full sm:w-auto text-center sm:text-left';
 
@@ -1098,12 +1135,8 @@
                     detailsHtml += `<p><strong>Origin:</strong> ${location}</p>`;
                 }
 
-                // New "Type & Alcohol" line logic
                 const wineTypeColors = {
-                    'Red': {
-                        color: 'var(--wine-red-text)',
-                        backgroundColor: 'var(--wine-red-bg)',
-                    },
+                    'Red': { color: 'var(--wine-red-text)', backgroundColor: 'var(--wine-red-bg)', },
                     'White': { color: '#F8D987', backgroundColor: 'var(--wine-tag-bg)' },
                     'Rosé': { color: '#FFC0CB', backgroundColor: 'var(--wine-tag-bg)' },
                     'Sparkling': { color: '#E0E0E0', backgroundColor: 'var(--wine-tag-bg)' },
@@ -1117,7 +1150,6 @@
                     const style = wineTypeColors[item.wine_type];
                     let styleString = '';
                     if (style) {
-                        // Make tags/pills for types that have a background color defined
                         const padding = style.backgroundColor ? 'padding: 2px 8px;' : '';
                         const borderRadius = style.backgroundColor ? 'border-radius: 9999px;' : '';
                         styleString = `style="font-weight: 700; color:${style.color}; ${style.backgroundColor ? `background-color:${style.backgroundColor};` : ''} ${padding} ${borderRadius}"`;
@@ -1133,7 +1165,6 @@
                     detailsHtml += `<p>${typeAndAlcoholParts.join('&nbsp; | &nbsp;')}</p>`;
                 }
 
-                // Quality rating
                 let display_rating = item.personal_rating ?? item.vivino_rating;
                 if (item.personal_rating != null && item.vivino_rating != null) {
                     display_rating = (item.personal_rating + item.vivino_rating) / 2;
@@ -1142,7 +1173,6 @@
                     detailsHtml += `<p><strong>Quality:</strong> ⭐ ${display_rating.toFixed(1)}</p>`;
                 }
 
-                // Combined "Cost & B4B" line logic
                 const costAndB4bParts = [];
                 if (item.cost_tier) {
                     costAndB4bParts.push(`<strong>Cost:</strong> ${'$'.repeat(item.cost_tier)}`);
@@ -1158,7 +1188,6 @@
                 }
 
                 detailsCell.innerHTML = detailsHtml;
-                // END: MODIFIED WINE DETAILS DISPLAY LOGIC
 
                 const actionsCell = document.createElement('td');
                 actionsCell.className = 'py-4 sm:p-4 flex flex-row justify-center items-center gap-2 w-full sm:w-auto';
@@ -1206,6 +1235,7 @@
             });
         }
 
+        // All other functions (setWineQuantity, deleteWine, openModal, closeModal, etc.) remain the same
         async function setWineQuantity(vivinoUrl, newQuantity) {
             const quantity = parseInt(newQuantity, 10);
             if (isNaN(quantity) || quantity < 0) {
@@ -1278,7 +1308,6 @@
         document.addEventListener('keydown', (e) => {
             if (!openModalElement) return;
             if (e.key === 'Escape') {
-                // Allow escape to work like the cancel button in the NV prompt
                 if (openModalElement.id === 'nvPromptModal' && window.nvPromptResolver) {
                     window.nvPromptResolver.reject('cancelled');
                 } else {
@@ -1332,10 +1361,8 @@
                 document.getElementById('manualVarietalInput').value = wine.varietal !== 'Unknown Varietal' ? wine.varietal : '';
                 document.getElementById('manualRegionInput').value = wine.region !== 'Unknown Region' ? wine.region : '';
                 document.getElementById('manualCountryInput').value = wine.country !== 'Unknown Country' ? wine.country : '';
-                // START: MODIFIED BLOCK
                 document.getElementById('manualWineTypeInput').value = wine.wine_type || '';
                 document.getElementById('manualAlcoholInput').value = wine.alcohol_percent || '';
-                // END: MODIFIED BLOCK
                 document.getElementById('manualQuantityInput').value = wine.quantity;
                 updateCostTierSelector(wine.cost_tier);
                 const rating = wine.personal_rating || 0;
@@ -1356,10 +1383,8 @@
                     document.getElementById('manualVarietalInput').value = wine.varietal !== 'Unknown Varietal' ? wine.varietal : '';
                     document.getElementById('manualRegionInput').value = wine.region !== 'Unknown Region' ? wine.region : '';
                     document.getElementById('manualCountryInput').value = wine.country !== 'Unknown Country' ? wine.country : '';
-                    // START: MODIFIED BLOCK
                     document.getElementById('manualWineTypeInput').value = wine.wine_type || '';
                     document.getElementById('manualAlcoholInput').value = wine.alcohol_percent || '';
-                    // END: MODIFIED BLOCK
                     updateCostTierSelector(wine.cost_tier);
                     vintageInput.value = '';
                     vintageInput.focus();
@@ -1375,7 +1400,6 @@
             resetTasteStars();
         }
 
-        // NEW: Function to fetch and display consumption history
         async function fetchAndDisplayConsumptionHistory(wine) {
             const container = document.getElementById('consumptionLogContainer');
             container.innerHTML = '<p>Loading history...</p>';
@@ -1411,7 +1435,6 @@
             }
         }
 
-        // MODIFIED: prepareNotesModal to call the new history function
         function prepareNotesModal(wine) {
             const imageUrlInput = document.getElementById('imageUrlInput');
             const toggleBtn = document.getElementById('toggleImageUrlLock');
@@ -1422,8 +1445,6 @@
             imageUrlInput.value = wine.image_url || '';
             imageUrlInput.setAttribute('readonly', true);
             toggleBtn.textContent = '🔒';
-
-            // Call the new function when the modal is prepared
             fetchAndDisplayConsumptionHistory(wine);
         }
 
@@ -1710,7 +1731,6 @@
             setupStarRating(document.getElementById('tasteRatingSelector'), document.getElementById('tasteRatingInput'), document.getElementById('tasteRatingFeedback'));
             setupStarRating(document.getElementById('editTasteRatingSelector'), document.getElementById('manualTasteRatingInput'), document.getElementById('editTasteRatingFeedback'));
 
-            // NEW: Accordion logic for "Add Wine" panel
             const addWineSection = document.getElementById('addWineSection');
             const addWineHeader = document.getElementById('addWineHeader');
 
@@ -1719,7 +1739,6 @@
                 localStorage.setItem('addWinePanelState', isExpanded ? 'expanded' : 'collapsed');
             });
 
-            // Set initial state from localStorage, defaulting to collapsed
             if (localStorage.getItem('addWinePanelState') === 'expanded') {
                 addWineSection.classList.add('is-expanded');
             }
@@ -1747,6 +1766,8 @@
                 updateSortIcons();
                 applySortAndDisplayInventory();
             });
+
+            // MODIFIED: Event listener for main filters
             document.getElementById('inventory-filters').addEventListener('click', (e) => {
                 if (e.target.matches('.filter-button')) {
                     currentFilter = e.target.dataset.filter;
@@ -1754,7 +1775,17 @@
                     e.target.classList.add('active');
                     const headingText = `Wine ${currentFilter.replace('_', ' ')}`;
                     document.getElementById('inventory-heading').textContent = headingText.charAt(0).toUpperCase() + headingText.slice(1);
-                    fetchInventory();
+                    fetchInventory(); // This will now use the persisted currentTypeFilter
+                }
+            });
+
+            // NEW: Event listener for type filters
+            document.getElementById('type-filters').addEventListener('click', (e) => {
+                if (e.target.matches('.type-filter-button')) {
+                    currentTypeFilter = e.target.dataset.typeFilter;
+                    document.querySelectorAll('#type-filters .type-filter-button').forEach(btn => btn.classList.remove('active'));
+                    e.target.classList.add('active');
+                    fetchInventory(); // Re-fetch data from the server with the new type filter
                 }
             });
 
@@ -1772,9 +1803,8 @@
             scanWineForm.addEventListener('submit', async function (e) {
                 e.preventDefault();
                 const vivinoUrlInput = document.getElementById('vivinoUrlInput');
-                let vivinoUrl = vivinoUrlInput.value; // Use let since it can be modified
+                let vivinoUrl = vivinoUrlInput.value;
 
-                // Primary URL validation
                 const isValidVivinoWineUrl = (url) => url && url.includes('vivino.com') && /\/w\/\d+/.test(url);
 
                 if (!isValidVivinoWineUrl(vivinoUrl)) {
@@ -1783,30 +1813,27 @@
                     return;
                 }
 
-                // Check for vintage and prompt if missing
                 const hasYearParam = /year=\d{4}/.test(vivinoUrl);
                 if (!hasYearParam) {
                     try {
-                        const result = await promptForVintage(); // This 'await' pauses execution until the promise resolves
+                        const result = await promptForVintage();
                         if (result.isNv) {
                             // User chose NV, URL remains unchanged.
                         } else if (result.vintage) {
-                            // User provided a vintage, so we update the URL.
                             const url = new URL(vivinoUrl);
                             url.searchParams.set('year', result.vintage);
                             vivinoUrl = url.toString();
-                            vivinoUrlInput.value = vivinoUrl; // Also update the input field for the user to see
+                            vivinoUrlInput.value = vivinoUrl;
                         }
                     } catch (error) {
-                        // This block runs if the promise is rejected (user cancelled)
                         showMessage('scanMessage', 'Action cancelled.', 'info');
                         vivinoUrlInput.focus();
-                        return; // Stop the submission
+                        return;
                     }
                 }
 
                 const payload = {
-                    vivino_url: vivinoUrl, // Use the final, potentially updated URL
+                    vivino_url: vivinoUrl,
                     quantity: parseInt(document.getElementById('quantityInput').value, 10) || 1,
                     cost_tier: parseInt(document.getElementById('mainCostTierInput').value, 10) || null
                 };
@@ -1821,7 +1848,6 @@
             entryForm.addEventListener('submit', async function (e) {
                 e.preventDefault();
                 const isEditMode = !!document.getElementById('entryVivinoUrl').value;
-                // START: MODIFIED PAYLOAD
                 const payload = {
                     name: document.getElementById('manualNameInput').value,
                     vintage: document.getElementById('nvCheckbox').checked ? null : parseInt(document.getElementById('manualVintageInput').value, 10),
@@ -1836,7 +1862,6 @@
                     tasting_notes: document.getElementById('manualTastingNotesInput').value,
                     image_url: document.getElementById('manualImageUrlInput').value,
                 };
-                // END: MODIFIED PAYLOAD
                 if (isEditMode) payload.vivino_url = document.getElementById('entryVivinoUrl').value;
 
                 try {
