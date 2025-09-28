@@ -151,8 +151,10 @@ def _perform_scrape_attempt_selenium(url: str):
                 if wine_data['wine_type'] is None:
                     json_string = json.dumps(json_ld)
                     for wine_type in WINE_TYPES:
-                        if re.search(r'"' + re.escape(wine_type) + r'"', json_string, re.IGNORECASE):
-                            wine_data['wine_type'] = wine_type
+                        # Look for "Red" or "Red wine", etc. as a distinct value
+                        pattern = r'"' + re.escape(wine_type) + r'(?: wine)?"'
+                        if re.search(pattern, json_string, re.IGNORECASE):
+                            wine_data['wine_type'] = wine_type # Store the base type (e.g., "Red")
                             logger.debug(f"Found Wine Type via keyword match: {wine_type}")
                             break
                 
@@ -221,12 +223,17 @@ def _perform_scrape_attempt_selenium(url: str):
     # Scrape for Alcohol Percentage (ABV)
     if wine_data['alcohol_percent'] is None:
         try:
-            alcohol_tag = soup.find(lambda tag: tag.name == 'div' and 'Alcohol' in tag.get_text())
-            if alcohol_tag:
-                match = re.search(r'(\d{1,2}(\.\d{1,2})?)', alcohol_tag.get_text())
-                if match:
-                    wine_data['alcohol_percent'] = float(match.group(1))
-                    logger.debug(f"Found Alcohol Percentage: {wine_data['alcohol_percent']}%")
+            # Find the specific label "Alcohol content" for a more reliable anchor
+            label_tag = soup.find(lambda tag: tag.name in ['span', 'div'] and 'alcohol content' in tag.get_text(strip=True).lower())
+            if label_tag:
+                # The value is typically in a sibling or nearby element. Navigate to a common parent to find it.
+                container = label_tag.find_parent(class_=re.compile(r'row|item|fact'))
+                if container:
+                    value_text = container.get_text()
+                    match = re.search(r'(\d{1,2}(\.\d{1,2})?)\s*%', value_text)
+                    if match:
+                        wine_data['alcohol_percent'] = float(match.group(1))
+                        logger.debug(f"Found Alcohol Percentage: {wine_data['alcohol_percent']}%")
         except Exception as e:
             logger.debug(f"Could not parse alcohol percentage (non-critical): {e}")
 
