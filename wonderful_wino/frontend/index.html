@@ -58,7 +58,7 @@
             /* A bit lighter than card bg for contrast */
         }
 
-        /* NEW: Style for the type filter buttons */
+        /* Style for the type filter buttons */
         .type-filter-button {
             padding: 0.25rem 0.75rem;
             border: 1px solid var(--border-color);
@@ -76,6 +76,14 @@
             background-color: var(--accent-color);
             color: white;
             border-color: var(--accent-color);
+        }
+
+        /* Make emoji-only buttons a bit larger and more square */
+        .type-filter-button[data-type-filter]:not([data-type-filter="all"]) {
+            font-size: 1.1rem;
+            width: 2.25rem;
+            height: 2.25rem;
+            padding: 0;
         }
 
         /* Styles for the collapsible accordion panel */
@@ -554,10 +562,13 @@
                     <!-- Row 2: Type Filters -->
                     <div id="type-filters" class="flex flex-wrap items-center gap-2">
                         <span class="text-sm font-medium text-gray-600 mr-2">Type:</span>
-                        <button class="type-filter-button active" data-type-filter="all">All</button>
-                        <button class="type-filter-button" data-type-filter="Red">Red</button>
-                        <button class="type-filter-button" data-type-filter="White">White</button>
-                        <button class="type-filter-button" data-type-filter="other">Other</button>
+                        <button class="type-filter-button active" data-type-filter="all" title="All Types">All</button>
+                        <button class="type-filter-button" data-type-filter="Red" title="Red">🍷</button>
+                        <button class="type-filter-button" data-type-filter="White" title="White">🥂</button>
+                        <button class="type-filter-button" data-type-filter="Rosé" title="Rosé">🌸</button>
+                        <button class="type-filter-button" data-type-filter="Sparkling" title="Sparkling">🍾</button>
+                        <button class="type-filter-button" data-type-filter="specialty"
+                            title="Dessert & Fortified">🍰</button>
                     </div>
                 </div>
             </div>
@@ -660,12 +671,12 @@
                         <label for="manualWineTypeInput" class="block text-sm font-medium">Wine Type</label>
                         <select id="manualWineTypeInput" class="mt-1 block w-full border rounded-md p-2">
                             <option value="">Select type...</option>
-                            <option value="Red">Red</option>
-                            <option value="White">White</option>
-                            <option value="Rosé">Rosé</option>
-                            <option value="Sparkling">Sparkling</option>
-                            <option value="Dessert">Dessert</option>
-                            <option value="Fortified">Fortified</option>
+                            <option value="Red">🍷 Red</option>
+                            <option value="White">🥂 White</option>
+                            <option value="Rosé">🌸 Rosé</option>
+                            <option value="Sparkling">🍾 Sparkling</option>
+                            <option value="Dessert">🍰 Dessert</option>
+                            <option value="Fortified">🍰 Fortified</option>
                         </select>
                     </div>
                     <div>
@@ -959,11 +970,21 @@
         const VIVINO_SEARCH_URL = 'https://www.vivino.com/search/wines?q=';
         const DEFAULT_COST_TIERS = { t1: 10, t2r: 20, t3r: 35, t4r: 50 };
 
+        // NEW: Emoji map for consistency with backend
+        const WINE_TYPE_EMOJIS = {
+            "Red": "🍷",
+            "White": "🥂",
+            "Rosé": "🌸",
+            "Sparkling": "🍾",
+            "Dessert": "🍰",
+            "Fortified": "🍰",
+        };
+
         let masterInventoryList = [];
         let currentSortBy = 'name';
         let currentSortDirection = 'asc';
         let currentFilter = 'on_hand';
-        let currentTypeFilter = 'all'; // NEW: State for type filter
+        let currentTypeFilter = 'all'; // State for type filter
         let appSettings = {};
         let initialCostTierValues = {};
         let openModalElement = null;
@@ -1058,16 +1079,15 @@
             });
         }
 
-        // NEW: This function applies client-side filters and sorting, then updates the display.
+        // This function applies client-side filters and sorting, then updates the display.
         function updateDisplayedInventory() {
             let inventoryToDisplay = [...masterInventoryList];
 
             // Apply Type Filter
             if (currentTypeFilter !== 'all') {
-                if (currentTypeFilter === 'other') {
-                    // "Other" includes types that are not Red or White, but are not null/empty either.
+                if (currentTypeFilter === 'specialty') {
                     inventoryToDisplay = inventoryToDisplay.filter(wine =>
-                        wine.wine_type && !['Red', 'White'].includes(wine.wine_type)
+                        ['Dessert', 'Fortified'].includes(wine.wine_type)
                     );
                 } else {
                     inventoryToDisplay = inventoryToDisplay.filter(wine => wine.wine_type === currentTypeFilter);
@@ -1078,12 +1098,11 @@
             displayInventory(sortedData);
         }
 
-        // MODIFIED: fetchInventory now only fetches the master list for the main filter.
+        // fetchInventory now only fetches the master list for the main filter.
         async function fetchInventory() {
             const inventoryTableBody = document.getElementById('inventoryTableBody');
             inventoryTableBody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-gray-500">Loading inventory...</td></tr>';
             try {
-                // The type_filter param is removed as this is now handled client-side.
                 const response = await fetch(`${BASE_URL}inventory?filter=${currentFilter}`);
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 masterInventoryList = await response.json();
@@ -1164,13 +1183,14 @@
 
                 if (item.wine_type) {
                     const style = wineTypeColors[item.wine_type];
+                    const emoji = WINE_TYPE_EMOJIS[item.wine_type] || '🍇';
                     let styleString = '';
                     if (style) {
                         const padding = style.backgroundColor ? 'padding: 2px 8px;' : '';
                         const borderRadius = style.backgroundColor ? 'border-radius: 9999px;' : '';
                         styleString = `style="font-weight: 700; color:${style.color}; ${style.backgroundColor ? `background-color:${style.backgroundColor};` : ''} ${padding} ${borderRadius}"`;
                     }
-                    typeAndAlcoholParts.push(`<strong>Type:</strong> <span ${styleString}>${item.wine_type}</span>`);
+                    typeAndAlcoholParts.push(`<strong>Type:</strong> <span class="mr-1">${emoji}</span><span ${styleString}>${item.wine_type}</span>`);
                 }
 
                 if (item.alcohol_percent) {
@@ -1774,7 +1794,7 @@
                 document.getElementById('themeIcon').textContent = isDark ? '🌙' : '☀️';
             });
 
-            // MODIFIED: Sort listeners now call the client-side update function.
+            // Sort listeners
             sortSelect.addEventListener('change', (e) => {
                 currentSortBy = e.target.value;
                 updateDisplayedInventory();
@@ -1785,7 +1805,7 @@
                 updateDisplayedInventory();
             });
 
-            // MODIFIED: Event listener for main filters calls fetchInventory (correct).
+            // Event listener for main filters
             document.getElementById('inventory-filters').addEventListener('click', (e) => {
                 if (e.target.matches('.filter-button')) {
                     currentFilter = e.target.dataset.filter;
@@ -1797,13 +1817,14 @@
                 }
             });
 
-            // MODIFIED: Event listener for type filters now calls the client-side update function.
+            // Event listener for type filters
             document.getElementById('type-filters').addEventListener('click', (e) => {
-                if (e.target.matches('.type-filter-button')) {
-                    currentTypeFilter = e.target.dataset.typeFilter;
+                if (e.target.closest('.type-filter-button')) {
+                    const button = e.target.closest('.type-filter-button');
+                    currentTypeFilter = button.dataset.typeFilter;
                     document.querySelectorAll('#type-filters .type-filter-button').forEach(btn => btn.classList.remove('active'));
-                    e.target.classList.add('active');
-                    updateDisplayedInventory(); // Does not re-fetch, just re-filters and displays.
+                    button.classList.add('active');
+                    updateDisplayedInventory();
                 }
             });
 
