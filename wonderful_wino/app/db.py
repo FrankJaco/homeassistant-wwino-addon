@@ -33,6 +33,8 @@ def init_db():
                 cost_tier INTEGER,
                 personal_rating REAL,
                 tasting_notes TEXT,
+                alcohol_percent REAL,
+                wine_type TEXT,
                 added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 needs_review BOOLEAN DEFAULT FALSE
             )
@@ -52,6 +54,16 @@ def init_db():
                 FOREIGN KEY (wine_id) REFERENCES wines (id) ON DELETE CASCADE
             )
         ''')
+        # Check if new columns exist and add them if they don't
+        cursor.execute("PRAGMA table_info(wines)")
+        columns = [column['name'] for column in cursor.fetchall()]
+        if 'alcohol_percent' not in columns:
+            cursor.execute("ALTER TABLE wines ADD COLUMN alcohol_percent REAL")
+            logger.info("Added 'alcohol_percent' column to wines table.")
+        if 'wine_type' not in columns:
+            cursor.execute("ALTER TABLE wines ADD COLUMN wine_type TEXT")
+            logger.info("Added 'wine_type' column to wines table.")
+
         conn.commit()
         logger.info(f"Database initialized at {DB_PATH}")
     except sqlite3.Error as e:
@@ -130,7 +142,6 @@ def add_or_update_wine(wine_data: dict, quantity: int, cost_tier: int):
         cursor.execute("SELECT id, quantity FROM wines WHERE vivino_url = ?", (wine_data['vivino_url'],))
         existing_wine = cursor.fetchone()
         
-        # Check for the explicit flag from the scraper, otherwise fall back to name-based check.
         needs_review_flag = wine_data.get('needs_review', False) or \
                             wine_data.get('name', '').startswith(('Review Wine', 'Vivino Wine ID'))
 
@@ -138,32 +149,37 @@ def add_or_update_wine(wine_data: dict, quantity: int, cost_tier: int):
             wine_id, current_quantity = existing_wine
             new_quantity = current_quantity + quantity
             
-            # If the incoming data is just a partial placeholder, only update the quantity
-            # to avoid overwriting good data with bad data.
             if needs_review_flag:
                 cursor.execute('UPDATE wines SET quantity = ? WHERE id = ?', (new_quantity, wine_id))
                 logger.info(f"Updated quantity only for '{wine_data['name']}' to {new_quantity} as it needs review.")
             else:
                 cursor.execute('''
-                    UPDATE wines SET quantity = ?, name = ?, vintage = ?, varietal = ?, region = ?,
-                    country = ?, vivino_rating = ?, image_url = ?, cost_tier = ?, needs_review = ?
+                    UPDATE wines SET 
+                        quantity = ?, name = ?, vintage = ?, varietal = ?, region = ?,
+                        country = ?, vivino_rating = ?, image_url = ?, cost_tier = ?, 
+                        alcohol_percent = ?, wine_type = ?, needs_review = ?
                     WHERE id = ?
                 ''', (
-                    new_quantity, wine_data['name'], wine_data['vintage'], wine_data['varietal'],
-                    wine_data['region'], wine_data['country'], wine_data['vivino_rating'],
-                    wine_data['image_url'], cost_tier, False, wine_id # Explicitly set needs_review to False on a good update
+                    new_quantity, wine_data.get('name'), wine_data.get('vintage'), wine_data.get('varietal'),
+                    wine_data.get('region'), wine_data.get('country'), wine_data.get('vivino_rating'),
+                    wine_data.get('image_url'), cost_tier, wine_data.get('alcohol_percent'),
+                    wine_data.get('wine_type'), False, wine_id
                 ))
-                logger.info(f"Updated and refreshed data for '{wine_data['name']}' with new quantity {new_quantity}.")
+                logger.info(f"Updated and refreshed data for '{wine_data.get('name')}' with new quantity {new_quantity}.")
         else:
             cursor.execute('''
-                INSERT INTO wines (vivino_url, name, vintage, varietal, region, country, vivino_rating, image_url, quantity, cost_tier, personal_rating, tasting_notes, needs_review)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO wines (
+                    vivino_url, name, vintage, varietal, region, country, vivino_rating, 
+                    image_url, quantity, cost_tier, personal_rating, tasting_notes, 
+                    alcohol_percent, wine_type, needs_review
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
-                wine_data['vivino_url'], wine_data['name'], wine_data['vintage'], wine_data['varietal'],
-                wine_data['region'], wine_data['country'], wine_data['vivino_rating'],
-                wine_data['image_url'], quantity, cost_tier, None, None, needs_review_flag
+                wine_data.get('vivino_url'), wine_data.get('name'), wine_data.get('vintage'), wine_data.get('varietal'),
+                wine_data.get('region'), wine_data.get('country'), wine_data.get('vivino_rating'),
+                wine_data.get('image_url'), quantity, cost_tier, None, None,
+                wine_data.get('alcohol_percent'), wine_data.get('wine_type'), needs_review_flag
             ))
-            logger.info(f"New wine '{wine_data['name']}' inserted with quantity {quantity}.")
+            logger.info(f"New wine '{wine_data.get('name')}' inserted with quantity {quantity}.")
         
         conn.commit()
         return True
