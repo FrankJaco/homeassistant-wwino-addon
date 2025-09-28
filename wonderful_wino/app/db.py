@@ -141,14 +141,14 @@ def add_or_update_wine(wine_data: dict, quantity: int, cost_tier: int):
         cursor = conn.cursor()
         cursor.execute("SELECT id, quantity FROM wines WHERE vivino_url = ?", (wine_data['vivino_url'],))
         existing_wine = cursor.fetchone()
-        
+
         needs_review_flag = wine_data.get('needs_review', False) or \
                             wine_data.get('name', '').startswith(('Review Wine', 'Vivino Wine ID'))
 
         if existing_wine:
             wine_id, current_quantity = existing_wine
             new_quantity = current_quantity + quantity
-            
+
             if needs_review_flag:
                 cursor.execute('UPDATE wines SET quantity = ? WHERE id = ?', (new_quantity, wine_id))
                 logger.info(f"Updated quantity only for '{wine_data['name']}' to {new_quantity} as it needs review.")
@@ -180,7 +180,7 @@ def add_or_update_wine(wine_data: dict, quantity: int, cost_tier: int):
                 wine_data.get('alcohol_percent'), wine_data.get('wine_type'), needs_review_flag
             ))
             logger.info(f"New wine '{wine_data.get('name')}' inserted with quantity {quantity}.")
-        
+
         conn.commit()
         return True
     except sqlite3.Error as e:
@@ -228,16 +228,17 @@ def get_wine_by_url(vivino_url: str):
         if conn:
             conn.close()
 
-def update_wine_details(vivino_url, name, vintage, quantity, varietal, region, country, cost_tier, personal_rating, tasting_notes):
+def update_wine_details(vivino_url, name, vintage, quantity, varietal, region, country, cost_tier, personal_rating, tasting_notes, alcohol_percent, wine_type):
     conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute('''
             UPDATE wines SET name = ?, vintage = ?, varietal = ?, region = ?, country = ?, 
-            quantity = ?, cost_tier = ?, personal_rating = ?, tasting_notes = ?, needs_review = FALSE 
+            quantity = ?, cost_tier = ?, personal_rating = ?, tasting_notes = ?,
+            alcohol_percent = ?, wine_type = ?, needs_review = FALSE 
             WHERE vivino_url = ?
-        ''', (name, vintage, varietal, region, country, quantity, cost_tier, personal_rating, tasting_notes, vivino_url))
+        ''', (name, vintage, varietal, region, country, quantity, cost_tier, personal_rating, tasting_notes, alcohol_percent, wine_type, vivino_url))
         conn.commit()
         return cursor.rowcount > 0
     except sqlite3.Error as e:
