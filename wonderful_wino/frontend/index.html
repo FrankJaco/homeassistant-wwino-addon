@@ -26,6 +26,13 @@
             --input-bg: var(--card-bg);
             --input-text: var(--text-color);
             --input-border: var(--border-color);
+            /* NEW: Variables for wine type styling */
+            --wine-red-text: #b91c1c;
+            /* Dark Red Text */
+            --wine-red-bg: #fee2e2;
+            /* Light Red Background */
+            --wine-tag-bg: #333;
+            /* Dark background for light text tags */
         }
 
         /* Dark Theme Variables */
@@ -46,6 +53,9 @@
             --input-bg: #2d3748;
             --input-text: #e2e8f0;
             --input-border: #6b7280;
+            /* NEW: Override for wine tags in dark mode */
+            --wine-tag-bg: #6b7280;
+            /* A bit lighter than card bg for contrast */
         }
 
         /* NEW: Styles for the collapsible accordion panel */
@@ -1090,28 +1100,37 @@
 
                 // New "Type & Alcohol" line logic
                 const wineTypeColors = {
-                    'Red': { color: '#A61A30' },
-                    'White': { color: '#F8D987', backgroundColor: '#333' },
-                    'Rosé': { color: '#FFC0CB', backgroundColor: '#333' },
-                    'Sparkling': { color: '#E0E0E0', backgroundColor: '#333' },
+                    'Red': {
+                        color: 'var(--wine-red-text)',
+                        backgroundColor: 'var(--wine-red-bg)',
+                    },
+                    'White': { color: '#F8D987', backgroundColor: 'var(--wine-tag-bg)' },
+                    'Rosé': { color: '#FFC0CB', backgroundColor: 'var(--wine-tag-bg)' },
+                    'Sparkling': { color: '#E0E0E0', backgroundColor: 'var(--wine-tag-bg)' },
                     'Dessert': { color: '#D4AF37' },
                     'Fortified': { color: '#8B4513' }
                 };
 
                 const typeAndAlcoholParts = [];
+
                 if (item.wine_type) {
                     const style = wineTypeColors[item.wine_type];
                     let styleString = '';
                     if (style) {
-                        styleString = `style="color:${style.color}; ${style.backgroundColor ? `background-color:${style.backgroundColor}; padding: 0 3px; border-radius: 3px;` : ''}"`;
+                        // Make tags/pills for types that have a background color defined
+                        const padding = style.backgroundColor ? 'padding: 2px 8px;' : '';
+                        const borderRadius = style.backgroundColor ? 'border-radius: 9999px;' : '';
+                        styleString = `style="font-weight: 700; color:${style.color}; ${style.backgroundColor ? `background-color:${style.backgroundColor};` : ''} ${padding} ${borderRadius}"`;
                     }
-                    typeAndAlcoholParts.push(`<span ${styleString}>${item.wine_type}</span>`);
+                    typeAndAlcoholParts.push(`<strong>Type:</strong> <span ${styleString}>${item.wine_type}</span>`);
                 }
+
                 if (item.alcohol_percent) {
-                    typeAndAlcoholParts.push(`${item.alcohol_percent.toFixed(1)}% ABV`);
+                    typeAndAlcoholParts.push(`<strong>ABV:</strong> ${item.alcohol_percent.toFixed(1)}%`);
                 }
+
                 if (typeAndAlcoholParts.length > 0) {
-                    detailsHtml += `<p><strong>Details:</strong> ${typeAndAlcoholParts.join(' &middot; ')}</p>`;
+                    detailsHtml += `<p>${typeAndAlcoholParts.join('&nbsp; | &nbsp;')}</p>`;
                 }
 
                 // Quality rating
