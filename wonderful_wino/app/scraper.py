@@ -142,19 +142,23 @@ def _perform_scrape_attempt_selenium(url: str):
     all_grape_names_collected = []
     found_grapes_in_json = False
     
-    # Look for a script tag containing a variable `__PRELOADED_STATE__`
-    # This is a more reliable source of structured data than the ld+json blobs
-    preloaded_state_script = soup.find('script', string=re.compile(r'window\.__PRELOADED_STATE__'))
+    # --- START FINAL FIX ---
+    # The most reliable data is in a JSON blob inside a <script> tag.
+    # We will prioritize this, then fall back to other methods.
+    preloaded_state_script = soup.find('script', string=re.compile(r'window\.__PRELOADED_STATE__\.vintagePageInformation'))
     if preloaded_state_script:
         logger.debug("Found __PRELOADED_STATE__ script tag. Parsing for detailed wine info.")
         script_content = preloaded_state_script.string
-        # Extract the JSON part of the script
-        json_str_match = re.search(r'window\.__PRELOADED_STATE__\s*=\s*(\{.*?\});', script_content, re.DOTALL)
+        
+        # This regex precisely targets the vintagePageInformation JSON object
+        json_str_match = re.search(r'window\.__PRELOADED_STATE__\.vintagePageInformation\s*=\s*(\{.*?\});', script_content, re.DOTALL)
         if json_str_match:
             try:
-                state_data = json.loads(json_str_match.group(1))
-                vintage_info = state_data.get('vintagePageInformation', {}).get('vintage', {})
+                # The matched group is the JSON object for the page information
+                page_info = json.loads(json_str_match.group(1))
+                vintage_info = page_info.get('vintage', {})
                 
+                # Scrape Wine Type from its ID
                 if wine_data['wine_type'] is None:
                     wine_type_id = vintage_info.get('wine', {}).get('type_id')
                     if wine_type_id == 1: wine_data['wine_type'] = 'Red'
@@ -166,6 +170,7 @@ def _perform_scrape_attempt_selenium(url: str):
                     if wine_data['wine_type']:
                          logger.debug(f"Found Wine Type from __PRELOADED_STATE__: {wine_data['wine_type']}")
 
+                # Scrape Alcohol Percentage from wine_facts
                 if wine_data['alcohol_percent'] is None:
                     alcohol = vintage_info.get('wine_facts', {}).get('alcohol')
                     if alcohol:
@@ -174,6 +179,7 @@ def _perform_scrape_attempt_selenium(url: str):
 
             except json.JSONDecodeError:
                 logger.warning("Failed to decode __PRELOADED_STATE__ JSON.")
+    # --- END FINAL FIX ---
     
     script_tags = soup.find_all('script', type='application/ld+json')
     for script in script_tags:
@@ -250,9 +256,13 @@ def _perform_scrape_attempt_selenium(url: str):
                 breadcrumb_links = breadcrumbs.find_all('a')
                 for link in breadcrumb_links:
                     link_text = link.get_text(strip=True)
-                    if link_text in WINE_TYPES:
-                        wine_data['wine_type'] = link_text
-                        logger.debug(f"Found Wine Type from breadcrumbs: {link_text}")
+                    if "wine" in link_text.lower() and any(wt in link_text for wt in WINE_TYPES):
+                         for wt in WINE_TYPES:
+                             if wt in link_text:
+                                wine_data['wine_type'] = wt
+                                logger.debug(f"Found Wine Type from breadcrumbs: {wt}")
+                                break
+                    if wine_data['wine_type']:
                         break
         except Exception as e:
             logger.debug(f"Could not parse wine type from breadcrumbs (non-critical): {e}")
@@ -260,9 +270,9 @@ def _perform_scrape_attempt_selenium(url: str):
     # Fallback for Alcohol Percentage (ABV) from wine facts table if not in JSON state
     if wine_data['alcohol_percent'] is None:
         try:
-            label_header = soup.find('th', string=re.compile(r'Alcohol content', re.I))
+            label_header = soup.find(['th', 'div'], string=re.compile(r'Alcohol content', re.I))
             if label_header:
-                value_cell = label_header.find_next_sibling('td')
+                value_cell = label_header.find_next_sibling(['td', 'div'])
                 if value_cell:
                     match = re.search(r'(\d{1,2}(\.\d{1,2})?)\s*%', value_cell.get_text())
                     if match:
