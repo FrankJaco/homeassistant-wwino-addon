@@ -1073,27 +1073,73 @@
                     : '<div class="text-gray-400 text-center w-24 h-24 flex items-center justify-center bg-gray-100">No Image</div>';
                 imageCell.appendChild(imageContainer);
 
+                // START: MODIFIED WINE DETAILS DISPLAY LOGIC
                 const detailsCell = document.createElement('td');
                 detailsCell.className = 'py-4 sm:p-4 text-sm text-gray-900 wine-details-cell w-full sm:w-auto text-center sm:text-left';
-                let detailsHtml = `<h4>${item.name || 'N/A'} ${item.vintage ? `(${item.vintage})` : '(NV)'}</h4>`;
-                if (item.varietal && item.varietal !== "Unknown Varietal") detailsHtml += `<p><strong>Varietal:</strong> ${item.varietal}</p>`;
-                const location = [item.region, item.country].filter(loc => loc && !loc.startsWith('Unknown')).join(', ');
-                if (location) detailsHtml += `<p><strong>Origin:</strong> ${location}</p>`;
 
+                let detailsHtml = `<h4>${item.name || 'N/A'} ${item.vintage ? `(${item.vintage})` : '(NV)'}</h4>`;
+
+                if (item.varietal && item.varietal !== "Unknown Varietal") {
+                    detailsHtml += `<p><strong>Varietal:</strong> ${item.varietal}</p>`;
+                }
+
+                const location = [item.region, item.country].filter(loc => loc && !loc.startsWith('Unknown')).join(', ');
+                if (location) {
+                    detailsHtml += `<p><strong>Origin:</strong> ${location}</p>`;
+                }
+
+                // New "Type & Alcohol" line logic
+                const wineTypeColors = {
+                    'Red': { color: '#A61A30' },
+                    'White': { color: '#F8D987', backgroundColor: '#333' },
+                    'Rosé': { color: '#FFC0CB', backgroundColor: '#333' },
+                    'Sparkling': { color: '#E0E0E0', backgroundColor: '#333' },
+                    'Dessert': { color: '#D4AF37' },
+                    'Fortified': { color: '#8B4513' }
+                };
+
+                const typeAndAlcoholParts = [];
+                if (item.wine_type) {
+                    const style = wineTypeColors[item.wine_type];
+                    let styleString = '';
+                    if (style) {
+                        styleString = `style="color:${style.color}; ${style.backgroundColor ? `background-color:${style.backgroundColor}; padding: 0 3px; border-radius: 3px;` : ''}"`;
+                    }
+                    typeAndAlcoholParts.push(`<span ${styleString}>${item.wine_type}</span>`);
+                }
+                if (item.alcohol_percent) {
+                    typeAndAlcoholParts.push(`${item.alcohol_percent.toFixed(1)}% ABV`);
+                }
+                if (typeAndAlcoholParts.length > 0) {
+                    detailsHtml += `<p><strong>Details:</strong> ${typeAndAlcoholParts.join(' &middot; ')}</p>`;
+                }
+
+                // Quality rating
                 let display_rating = item.personal_rating ?? item.vivino_rating;
                 if (item.personal_rating != null && item.vivino_rating != null) {
                     display_rating = (item.personal_rating + item.vivino_rating) / 2;
                 }
-                if (display_rating != null) detailsHtml += `<p><strong>Quality:</strong> ⭐ ${display_rating.toFixed(1)}</p>`;
-                if (item.cost_tier) detailsHtml += `<p><strong>Cost:</strong> ${'$'.repeat(item.cost_tier)}</p>`;
+                if (display_rating != null) {
+                    detailsHtml += `<p><strong>Quality:</strong> ⭐ ${display_rating.toFixed(1)}</p>`;
+                }
 
+                // Combined "Cost & B4B" line logic
+                const costAndB4bParts = [];
+                if (item.cost_tier) {
+                    costAndB4bParts.push(`<strong>Cost:</strong> ${'$'.repeat(item.cost_tier)}`);
+                }
                 if (item.b4b_score != null) {
                     const b4bValue = Math.round(item.b4b_score);
                     const formatted = (b4bValue > 0 ? `+${b4bValue}` : b4bValue);
                     const colorClass = b4bValue > 0 ? "text-green-600" : b4bValue < 0 ? "text-red-600" : "";
-                    detailsHtml += `<p><strong>B4B:</strong> 🎯 <span class="${colorClass} font-bold">${formatted}</span></p>`;
+                    costAndB4bParts.push(`<strong>B4B:</strong> 🎯 <span class="${colorClass} font-bold">${formatted}</span>`);
                 }
+                if (costAndB4bParts.length > 0) {
+                    detailsHtml += `<p>${costAndB4bParts.join('&nbsp; | &nbsp;')}</p>`;
+                }
+
                 detailsCell.innerHTML = detailsHtml;
+                // END: MODIFIED WINE DETAILS DISPLAY LOGIC
 
                 const actionsCell = document.createElement('td');
                 actionsCell.className = 'py-4 sm:p-4 flex flex-row justify-center items-center gap-2 w-full sm:w-auto';
