@@ -25,6 +25,8 @@ USER_AGENTS = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0'
 ]
 
+WINE_TYPES = {'Red', 'White', 'Sparkling', 'Rosé', 'Fortified', 'Dessert'}
+
 # Master list of common grapes to check for in the wine name if missing from scraped data.
 # Using a set for fast lookups. Sorted by length descending to help with sub-string matching (e.g. 'Sauvignon' vs 'Sauvignon Blanc')
 MASTER_GRAPE_LIST = sorted([
@@ -116,7 +118,8 @@ def _perform_scrape_attempt_selenium(url: str):
     wine_data = {
         'name': 'Unknown Wine', 'vintage': None, 'varietal': 'Unknown Varietal',
         'region': 'Unknown Region', 'country': 'Unknown Country',
-        'vivino_rating': None, 'image_url': None
+        'vivino_rating': None, 'image_url': None,
+        'alcohol_percent': None, 'wine_type': None
     }
 
     # Use the forgiving method to find the main heading of the page.
@@ -144,6 +147,15 @@ def _perform_scrape_attempt_selenium(url: str):
         try:
             json_ld = json.loads(script.string)
             if isinstance(json_ld, dict):
+                # Scrape for Wine Type from breadcrumbs in JSON-LD
+                if wine_data['wine_type'] is None:
+                    if 'breadcrumb' in json_ld and '@list' in json_ld['breadcrumb']:
+                        for item in json_ld['breadcrumb']['@list']:
+                            if item.get('item', {}).get('name') in WINE_TYPES:
+                                wine_data['wine_type'] = item['item']['name']
+                                logger.debug(f"Found Wine Type: {wine_data['wine_type']}")
+                                break
+                
                 is_product = json_ld.get('@type') == 'Product'
                 is_wine = json_ld.get('@type') == 'Wine'
                 if is_product:
@@ -205,6 +217,22 @@ def _perform_scrape_attempt_selenium(url: str):
         if '/wine-countries/' in href and wine_data['country'] == 'Unknown Country': wine_data['country'] = text
         elif '/wine-regions/' in href and wine_data['region'] == 'Unknown Region': wine_data['region'] = text
         elif not found_grapes_in_json and '/grapes/' in href and text and 'blend' not in text.lower(): all_grape_names_collected.append(text)
+
+    # Scrape for Alcohol Percentage (ABV)
+    try:
+        wine_facts = soup.find_all('div', class_=re.compile(r'wine-facts__item'))
+        for fact in wine_facts:
+            fact_label = fact.find('div', class_=re.compile(r'wine-facts__label'))
+            if fact_label and 'alcohol' in fact_label.text.lower():
+                fact_value = fact.find('div', class_=re.compile(r'wine-facts__value'))
+                if fact_value:
+                    match = re.search(r'(\d{1,2}(\.\d{1,2})?)', fact_value.text)
+                    if match:
+                        wine_data['alcohol_percent'] = float(match.group(1))
+                        logger.debug(f"Found Alcohol Percentage: {wine_data['alcohol_percent']}%")
+                        break
+    except Exception as e:
+        logger.debug(f"Could not parse alcohol percentage (non-critical): {e}")
 
     # Heuristics for varietal ordering and naming convention.
     if all_grape_names_collected or 'Unknown Wine' not in wine_data['name']:
