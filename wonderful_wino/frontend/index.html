@@ -26,13 +26,9 @@
             --input-bg: var(--card-bg);
             --input-text: var(--text-color);
             --input-border: var(--border-color);
-            /* NEW: Variables for wine type styling */
             --wine-red-text: #b91c1c;
-            /* Dark Red Text */
             --wine-red-bg: #fee2e2;
-            /* Light Red Background */
             --wine-tag-bg: #333;
-            /* Dark background for light text tags */
         }
 
         /* Dark Theme Variables */
@@ -53,12 +49,10 @@
             --input-bg: #2d3748;
             --input-text: #e2e8f0;
             --input-border: #6b7280;
-            /* NEW: Override for wine tags in dark mode */
             --wine-tag-bg: #6b7280;
-            /* A bit lighter than card bg for contrast */
         }
 
-        /* --- NEW: Styles for Draggable Image Focal Point Selector --- */
+        /* --- MODIFIED: Styles for Draggable Image Focal Point Selector --- */
         #focalPointEditor {
             position: relative;
             width: 100%;
@@ -67,31 +61,36 @@
             overflow: hidden;
             border: 1px solid var(--border-color);
             background-color: #f3f4f6;
-            /* A light gray for the background */
             margin-bottom: 1rem;
         }
 
         .dark-theme #focalPointEditor {
             background-color: #374151;
-            /* A darker gray for dark mode */
         }
 
         #draggableImage {
             width: 100%;
             height: 100%;
             object-fit: cover;
-            cursor: grab;
+            cursor: not-allowed;
+            /* Locked by default */
             user-select: none;
             -webkit-user-select: none;
             touch-action: none;
         }
 
-        #focalPointEditor.is-dragging #draggableImage {
+        /* Only allow grabbing when unlocked */
+        #focalPointEditor.is-unlocked #draggableImage {
+            cursor: grab;
+        }
+
+        #focalPointEditor.is-unlocked.is-dragging #draggableImage {
             cursor: grabbing;
         }
 
         #focalPointEditor::before {
-            content: 'Click and drag image to set focal point';
+            content: 'Unlock to set focal point';
+            /* Default text */
             position: absolute;
             top: 50%;
             left: 50%;
@@ -106,24 +105,31 @@
             opacity: 0;
             transition: opacity 0.2s ease-in-out;
             color: white;
+            text-align: center;
         }
 
-        #focalPointEditor:hover::before {
+        /* Show overlay on hover, but only if it's NOT unlocked */
+        #focalPointEditor:not(.is-unlocked):hover::before {
             opacity: 1;
         }
 
+        /* Change text and show on hover when it IS unlocked */
+        #focalPointEditor.is-unlocked:hover::before {
+            content: 'Click and drag to set focal point';
+            opacity: 1;
+        }
+
+        /* Hide overlay while dragging */
         #focalPointEditor.is-dragging::before {
             opacity: 0;
         }
 
-        /* --- END NEW STYLES --- */
+        /* --- END MODIFIED STYLES --- */
 
-        /* Style for the type filter buttons */
         .type-filter-button {
             padding: 0.25rem 0.75rem;
             border: 1px solid var(--border-color);
             border-radius: 9999px;
-            /* Pill shape */
             background-color: var(--button-secondary-bg);
             color: var(--button-secondary-text);
             font-weight: 500;
@@ -138,7 +144,6 @@
             border-color: var(--accent-color);
         }
 
-        /* Make emoji-only buttons a bit larger and more square */
         .type-filter-button[data-type-filter]:not([data-type-filter="all"]) {
             font-size: 1.1rem;
             width: 2.25rem;
@@ -146,7 +151,6 @@
             padding: 0;
         }
 
-        /* Styles for the collapsible accordion panel */
         .collapsible-content {
             max-height: 0;
             overflow: hidden;
@@ -155,16 +159,13 @@
 
         .is-expanded .collapsible-content {
             max-height: 1000px;
-            /* Should be larger than the content's height */
             padding-top: 1.5rem;
-            /* Equivalent to mb-6 in the original design */
         }
 
         .is-expanded #collapseIcon {
             transform: rotate(90deg);
         }
 
-        /* Styles for filter buttons */
         .filter-button {
             padding: 0.5rem 1rem;
             border: 1px solid var(--border-color);
@@ -182,7 +183,6 @@
             border-color: var(--accent-color);
         }
 
-        /* Styles for new cost tier selector */
         .cost-tier-selector span {
             cursor: pointer;
             padding: 0.5rem;
@@ -201,7 +201,6 @@
             border-color: var(--accent-color);
         }
 
-        /* Styles for the new Taste Rating selector */
         .taste-rating-selector {
             --star-color-empty: #d1d5db;
             --star-color-filled: #f59e0b;
@@ -276,7 +275,6 @@
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
         }
 
-        /* Theme variable overrides for Tailwind classes */
         .bg-white {
             background-color: var(--card-bg) !important;
             transition: background-color 0.3s ease;
@@ -474,20 +472,15 @@
             cursor: not-allowed;
         }
 
-        /* Style for readonly inputs to ensure they appear disabled/gray */
         input[readonly] {
             background-color: #f3f4f6 !important;
-            /* Tailwind gray-100 */
             color: #6b7280 !important;
-            /* Tailwind gray-500 */
             cursor: not-allowed;
         }
 
         .dark-theme input[readonly] {
             background-color: #374151 !important;
-            /* Tailwind gray-700 */
             color: #9ca3af !important;
-            /* Tailwind gray-400 */
         }
     </style>
 </head>
@@ -497,12 +490,9 @@
     <header class="text-center mb-8 px-4 w-full max-w-4xl flex justify-between items-center">
         <h1 class="text-4xl font-extrabold text-purple-800 tracking-tight">Wonderful Wino</h1>
         <div class="flex items-center gap-2">
-            <button id="settingsButton" class="icon-button" aria-label="Open Settings">
-                ⚙️
-            </button>
-            <button id="themeToggle" class="icon-button" aria-label="Toggle light/dark theme">
-                <span id="themeIcon">☀️</span>
-            </button>
+            <button id="settingsButton" class="icon-button" aria-label="Open Settings">⚙️</button>
+            <button id="themeToggle" class="icon-button" aria-label="Toggle light/dark theme"><span
+                    id="themeIcon">☀️</span></button>
         </div>
     </header>
 
@@ -512,13 +502,11 @@
                 <h2 class="text-2xl font-semibold text-gray-800">Add Wine</h2>
                 <span id="collapseIcon" class="text-2xl transform transition-transform duration-300">▶</span>
             </div>
-
             <div id="addWineContent" class="collapsible-content">
                 <div class="mb-0">
                     <p class="text-gray-700 mb-2 font-medium">Add via Vivino URL:</p>
                     <p class="text-gray-700 mb-2 text-sm">1. Search Vivino to find your wine's page. Remember to include
-                        the
-                        vintage!</p>
+                        the vintage!</p>
                     <form id="vivinoSearchForm" class="flex flex-col sm:flex-row gap-4 mb-4">
                         <input type="text" id="vivinoSearchInput" placeholder="e.g., 'Chateau Lafite 2010'"
                             class="flex-grow px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
@@ -526,16 +514,13 @@
                             class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500">Search
                             Vivino</button>
                     </form>
-
                     <p class="text-gray-700 mb-2 text-sm">2. Once you find the wine, paste its URL below:</p>
                     <form id="scanWineForm" class="flex flex-col gap-4">
                         <input type="text" id="vivinoUrlInput" placeholder="Paste Vivino URL here"
                             class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
                             required>
-
                         <p class="text-gray-700 -mb-2 text-sm">3. Optionally indicate cost tier, set quantity, then
-                            click
-                            Add From URL.</p>
+                            click Add From URL.</p>
                         <div class="flex flex-wrap gap-4 items-center">
                             <div class="flex items-center gap-2">
                                 <div id="mainCostTierSelector" class="flex items-center gap-2 cost-tier-selector">
@@ -561,7 +546,6 @@
                     </form>
                     <div id="scanMessage" class="mt-4 text-center hidden"></div>
                 </div>
-
                 <div class="mt-6 pt-6 border-t border-gray-200 text-center">
                     <button id="openEntryModalBtn"
                         class="bg-gray-200 text-gray-600 font-semibold px-6 py-2 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400">Manual
@@ -576,7 +560,6 @@
                     <h2 id="inventory-heading" class="text-2xl font-semibold text-gray-800">Wine Inventory</h2>
                     <div id="inventory-summary" class="text-sm text-gray-600 mt-1 hidden"></div>
                 </div>
-
                 <div class="flex flex-col items-start sm:items-end gap-3 w-full sm:w-auto">
                     <div class="flex flex-wrap items-center gap-4">
                         <div id="inventory-filters" class="flex items-center gap-2">
@@ -612,12 +595,9 @@
                             </button>
                             <button id="refreshInventoryBtn"
                                 class="p-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 icon-button"
-                                aria-label="Refresh Inventory" title="Refresh Inventory">
-                                🔄
-                            </button>
+                                aria-label="Refresh Inventory" title="Refresh Inventory">🔄</button>
                         </div>
                     </div>
-
                     <div id="type-filters" class="flex flex-wrap items-center gap-2">
                         <span class="text-sm font-medium text-gray-600 mr-2">Type:</span>
                         <button class="type-filter-button active" data-type-filter="all" title="All Types">All</button>
@@ -630,7 +610,6 @@
                     </div>
                 </div>
             </div>
-
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
@@ -1236,13 +1215,11 @@
                 imageContainer.onclick = () => openModal('notesModal', { wine: item });
                 imageContainer.title = item.tasting_notes ? item.tasting_notes : 'Click to add tasting notes';
 
-                // --- MODIFIED: Apply focal point to main inventory image ---
                 const focalPoint = item.image_focal_point || '50%';
                 const imageStyle = `object-position: 50% ${focalPoint};`;
                 imageContainer.innerHTML = item.image_url
                     ? `<img src="${item.image_url}" class="h-24 w-24 object-cover" alt="${escapeAttr(item.name)}" style="${imageStyle}">`
                     : '<div class="text-gray-400 text-center w-24 h-24 flex items-center justify-center bg-gray-100">No Image</div>';
-                // --- END MODIFICATION ---
 
                 imageCell.appendChild(imageContainer);
 
@@ -1563,7 +1540,7 @@
         function prepareNotesModal(wine) {
             const imageUrlInput = document.getElementById('imageUrlInput');
             const toggleBtn = document.getElementById('toggleImageUrlLock');
-            // --- NEW: Get draggable image elements ---
+            const focalPointEditor = document.getElementById('focalPointEditor');
             const draggableImage = document.getElementById('draggableImage');
 
             document.getElementById('notesVivinoUrl').value = wine.vivino_url;
@@ -1573,13 +1550,15 @@
 
             const imageUrl = wine.image_url || '';
             imageUrlInput.value = imageUrl;
-            imageUrlInput.setAttribute('readonly', true);
-            toggleBtn.textContent = '🔒';
 
-            // --- NEW: Set up draggable image ---
             draggableImage.src = imageUrl;
             const focalPoint = wine.image_focal_point || '50%';
             draggableImage.style.objectPosition = `50% ${focalPoint}`;
+
+            // Reset lock state to locked
+            imageUrlInput.setAttribute('readonly', true);
+            toggleBtn.textContent = '🔒';
+            focalPointEditor.classList.remove('is-unlocked');
 
             fetchAndDisplayConsumptionHistory(wine);
         }
@@ -1851,17 +1830,14 @@
             });
         }
 
-        // --- NEW: Function to save the focal point via API ---
         async function saveFocalPoint(vivinoUrl, focalPoint) {
             try {
                 await apiCall('api/wine/focal-point', {
                     method: 'POST',
                     body: JSON.stringify({ vivino_url: vivinoUrl, focal_point: focalPoint })
                 }, 'notesMessage');
-                // Refresh the inventory to reflect the change on the main page after modal closes
                 fetchInventory();
             } catch (error) {
-                // Error is already shown by apiCall
                 console.error("Failed to save focal point:", error);
             }
         }
@@ -1910,22 +1886,21 @@
                 document.getElementById('themeIcon').textContent = isDark ? '🌙' : '☀️';
             });
 
-            // Drag and Drop Logic for Focal Point 
+            // --- ALL DRAG-AND-DROP LOGIC HAS BEEN MODIFIED ---
             const focalPointEditor = document.getElementById('focalPointEditor');
             const draggableImage = document.getElementById('draggableImage');
             let isDragging = false;
             let startY = 0;
-            let startFocalPercent = 50; // Start with a default
+            let startFocalPercent = 50;
 
             const getPointerY = (e) => e.touches ? e.touches[0].clientY : e.clientY;
 
             const startDrag = (e) => {
+                if (!focalPointEditor.classList.contains('is-unlocked')) return;
                 e.preventDefault();
                 isDragging = true;
                 focalPointEditor.classList.add('is-dragging');
                 startY = getPointerY(e);
-
-                // Get the current focal point percentage to start from
                 const currentPosition = draggableImage.style.objectPosition || '50% 50%';
                 startFocalPercent = parseFloat(currentPosition.split(' ')[1]);
             };
@@ -1935,30 +1910,23 @@
                 e.preventDefault();
 
                 const parentHeight = focalPointEditor.clientHeight;
-                const imageHeight = draggableImage.clientHeight;
+                const renderedImageHeight = (draggableImage.naturalHeight / draggableImage.naturalWidth) * focalPointEditor.clientWidth;
 
-                if (imageHeight <= parentHeight) return;
+                if (renderedImageHeight <= parentHeight || !draggableImage.naturalHeight) return;
 
                 const currentY = getPointerY(e);
                 const deltaY = currentY - startY;
 
-                // The total pixel range the image can move
-                const travelRange = imageHeight - parentHeight;
-
-                // Convert the pixel delta into a percentage change relative to the travel range
+                const travelRange = renderedImageHeight - parentHeight;
                 const deltaPercent = (deltaY / travelRange) * 100;
 
-                // Subtract the change from the starting percentage.
-                // Dragging mouse down (positive deltaY) moves image up (higher focal percentage).
                 const newFocalPercent = startFocalPercent - deltaPercent;
-
-                // Clamp the value between 0% and 100%
                 const clampedPercent = Math.max(0, Math.min(100, newFocalPercent));
 
                 draggableImage.style.objectPosition = `50% ${clampedPercent.toFixed(2)}%`;
             };
-            
-            const endDrag = (e) => {
+
+            const endDrag = () => {
                 if (!isDragging) return;
                 isDragging = false;
                 focalPointEditor.classList.remove('is-dragging');
@@ -1973,16 +1941,12 @@
 
             focalPointEditor.addEventListener('mousedown', startDrag);
             focalPointEditor.addEventListener('touchstart', startDrag, { passive: false });
-
             window.addEventListener('mousemove', onDrag);
             window.addEventListener('touchmove', onDrag, { passive: false });
-
             window.addEventListener('mouseup', endDrag);
             window.addEventListener('touchend', endDrag);
-            // --- END NEW DRAG LOGIC ---
 
-
-            // Sort listeners
+            // --- ALL OTHER EVENT LISTENERS ---
             sortSelect.addEventListener('change', (e) => {
                 currentSortBy = e.target.value;
                 updateDisplayedInventory();
@@ -1993,7 +1957,6 @@
                 updateDisplayedInventory();
             });
 
-            // Event listener for main filters
             document.getElementById('inventory-filters').addEventListener('click', (e) => {
                 if (e.target.matches('.filter-button')) {
                     currentFilter = e.target.dataset.filter;
@@ -2005,7 +1968,6 @@
                 }
             });
 
-            // Event listener for type filters
             document.getElementById('type-filters').addEventListener('click', (e) => {
                 if (e.target.closest('.type-filter-button')) {
                     const button = e.target.closest('.type-filter-button');
@@ -2031,21 +1993,17 @@
                 e.preventDefault();
                 const vivinoUrlInput = document.getElementById('vivinoUrlInput');
                 let vivinoUrl = vivinoUrlInput.value;
-
                 const isValidVivinoWineUrl = (url) => url && url.includes('vivino.com') && /\/w\/\d+/.test(url);
-
                 if (!isValidVivinoWineUrl(vivinoUrl)) {
                     showMessage('scanMessage', "Invalid URL. Please use a specific Vivino wine page (must contain '/w/').", 'error');
                     vivinoUrlInput.value = '';
                     return;
                 }
-
                 const hasYearParam = /year=\d{4}/.test(vivinoUrl);
                 if (!hasYearParam) {
                     try {
                         const result = await promptForVintage();
                         if (result.isNv) {
-                            // User chose NV, URL remains unchanged.
                         } else if (result.vintage) {
                             const url = new URL(vivinoUrl);
                             url.searchParams.set('year', result.vintage);
@@ -2058,7 +2016,6 @@
                         return;
                     }
                 }
-
                 const payload = {
                     vivino_url: vivinoUrl,
                     quantity: parseInt(document.getElementById('quantityInput').value, 10) || 1,
@@ -2128,10 +2085,17 @@
             document.getElementById('toggleImageUrlLock').addEventListener('click', (e) => {
                 const imageUrlInput = document.getElementById('imageUrlInput');
                 const isReadonly = imageUrlInput.hasAttribute('readonly');
+
                 imageUrlInput.toggleAttribute('readonly', !isReadonly);
                 e.target.textContent = isReadonly ? '🔓' : '🔒';
-                if (!isReadonly) imageUrlInput.focus();
+
+                focalPointEditor.classList.toggle('is-unlocked', isReadonly);
+
+                if (isReadonly) {
+                    imageUrlInput.focus();
+                }
             });
+
             document.addEventListener('visibilitychange', () => {
                 if (document.visibilityState === 'visible') {
                     console.log("Tab is visible, refreshing inventory.");
