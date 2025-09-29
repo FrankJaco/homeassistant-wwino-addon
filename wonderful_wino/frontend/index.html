@@ -1910,12 +1910,12 @@
                 document.getElementById('themeIcon').textContent = isDark ? '🌙' : '☀️';
             });
 
-            // --- NEW: Drag and Drop Logic for Focal Point ---
+            // Drag and Drop Logic for Focal Point 
             const focalPointEditor = document.getElementById('focalPointEditor');
             const draggableImage = document.getElementById('draggableImage');
             let isDragging = false;
             let startY = 0;
-            let startTop = 0;
+            let startFocalPercent = 50; // Start with a default
 
             const getPointerY = (e) => e.touches ? e.touches[0].clientY : e.clientY;
 
@@ -1924,32 +1924,40 @@
                 isDragging = true;
                 focalPointEditor.classList.add('is-dragging');
                 startY = getPointerY(e);
-                startTop = draggableImage.offsetTop;
+
+                // Get the current focal point percentage to start from
+                const currentPosition = draggableImage.style.objectPosition || '50% 50%';
+                startFocalPercent = parseFloat(currentPosition.split(' ')[1]);
             };
 
             const onDrag = (e) => {
                 if (!isDragging) return;
                 e.preventDefault();
-                const currentY = getPointerY(e);
-                const deltaY = currentY - startY;
 
                 const parentHeight = focalPointEditor.clientHeight;
                 const imageHeight = draggableImage.clientHeight;
 
-                if (imageHeight <= parentHeight) return; // No need to drag if image is smaller
+                if (imageHeight <= parentHeight) return;
 
-                const maxOffset = 0;
-                const minOffset = parentHeight - imageHeight;
+                const currentY = getPointerY(e);
+                const deltaY = currentY - startY;
 
-                let newTop = Math.max(minOffset, Math.min(maxOffset, startTop + deltaY));
+                // The total pixel range the image can move
+                const travelRange = imageHeight - parentHeight;
 
-                // Calculate percentage for object-position
-                const positionY = -newTop / (imageHeight - parentHeight) * 100;
-                const clampedPositionY = Math.max(0, Math.min(100, positionY));
+                // Convert the pixel delta into a percentage change relative to the travel range
+                const deltaPercent = (deltaY / travelRange) * 100;
 
-                draggableImage.style.objectPosition = `50% ${clampedPositionY.toFixed(2)}%`;
+                // Subtract the change from the starting percentage.
+                // Dragging mouse down (positive deltaY) moves image up (higher focal percentage).
+                const newFocalPercent = startFocalPercent - deltaPercent;
+
+                // Clamp the value between 0% and 100%
+                const clampedPercent = Math.max(0, Math.min(100, newFocalPercent));
+
+                draggableImage.style.objectPosition = `50% ${clampedPercent.toFixed(2)}%`;
             };
-
+            
             const endDrag = (e) => {
                 if (!isDragging) return;
                 isDragging = false;
