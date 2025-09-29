@@ -36,7 +36,8 @@ def init_db():
                 alcohol_percent REAL,
                 wine_type TEXT,
                 added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                needs_review BOOLEAN DEFAULT FALSE
+                needs_review BOOLEAN DEFAULT FALSE,
+                image_focal_point TEXT DEFAULT '50%'
             )
         ''')
         cursor.execute('''
@@ -63,6 +64,9 @@ def init_db():
         if 'wine_type' not in columns:
             cursor.execute("ALTER TABLE wines ADD COLUMN wine_type TEXT")
             logger.info("Added 'wine_type' column to wines table.")
+        if 'image_focal_point' not in columns:
+            cursor.execute("ALTER TABLE wines ADD COLUMN image_focal_point TEXT DEFAULT '50%'")
+            logger.info("Added 'image_focal_point' column to wines table.")
 
         conn.commit()
         logger.info(f"Database initialized at {DB_PATH}")
@@ -89,6 +93,28 @@ def reinitialize_database():
         logger.error(f"Database error during reinitialization: {e}")
         if conn:
             conn.rollback()
+    finally:
+        if conn:
+            conn.close()
+
+def update_image_focal_point(vivino_url: str, focal_point: str):
+    """Updates the image focal point for a specific wine."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE wines SET image_focal_point = ? WHERE vivino_url = ?",
+            (focal_point, vivino_url)
+        )
+        conn.commit()
+        logger.info(f"Updated focal point for {vivino_url} to {focal_point}")
+        return cursor.rowcount > 0
+    except sqlite3.Error as e:
+        logger.error(f"Database error updating focal point: {e}")
+        if conn:
+            conn.rollback()
+        return False
     finally:
         if conn:
             conn.close()
@@ -154,9 +180,9 @@ def add_or_update_wine(wine_data: dict, quantity: int, cost_tier: int):
                 logger.info(f"Updated quantity only for '{wine_data['name']}' to {new_quantity} as it needs review.")
             else:
                 cursor.execute('''
-                    UPDATE wines SET 
+                    UPDATE wines SET
                         quantity = ?, name = ?, vintage = ?, varietal = ?, region = ?,
-                        country = ?, vivino_rating = ?, image_url = ?, cost_tier = ?, 
+                        country = ?, vivino_rating = ?, image_url = ?, cost_tier = ?,
                         alcohol_percent = ?, wine_type = ?, needs_review = ?
                     WHERE id = ?
                 ''', (
@@ -169,8 +195,8 @@ def add_or_update_wine(wine_data: dict, quantity: int, cost_tier: int):
         else:
             cursor.execute('''
                 INSERT INTO wines (
-                    vivino_url, name, vintage, varietal, region, country, vivino_rating, 
-                    image_url, quantity, cost_tier, personal_rating, tasting_notes, 
+                    vivino_url, name, vintage, varietal, region, country, vivino_rating,
+                    image_url, quantity, cost_tier, personal_rating, tasting_notes,
                     alcohol_percent, wine_type, needs_review
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
@@ -234,9 +260,9 @@ def update_wine_details(vivino_url, name, vintage, quantity, varietal, region, c
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute('''
-            UPDATE wines SET name = ?, vintage = ?, varietal = ?, region = ?, country = ?, 
+            UPDATE wines SET name = ?, vintage = ?, varietal = ?, region = ?, country = ?,
             quantity = ?, cost_tier = ?, personal_rating = ?, tasting_notes = ?,
-            alcohol_percent = ?, wine_type = ?, needs_review = FALSE 
+            alcohol_percent = ?, wine_type = ?, needs_review = FALSE
             WHERE vivino_url = ?
         ''', (name, vintage, varietal, region, country, quantity, cost_tier, personal_rating, tasting_notes, alcohol_percent, wine_type, vivino_url))
         conn.commit()

@@ -58,6 +58,66 @@
             /* A bit lighter than card bg for contrast */
         }
 
+        /* --- NEW: Styles for Draggable Image Focal Point Selector --- */
+        #focalPointEditor {
+            position: relative;
+            width: 100%;
+            height: 250px;
+            border-radius: 0.375rem;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            background-color: #f3f4f6;
+            /* A light gray for the background */
+            margin-bottom: 1rem;
+        }
+
+        .dark-theme #focalPointEditor {
+            background-color: #374151;
+            /* A darker gray for dark mode */
+        }
+
+        #draggableImage {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            cursor: grab;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+
+        #focalPointEditor.is-dragging #draggableImage {
+            cursor: grabbing;
+        }
+
+        #focalPointEditor::before {
+            content: 'Click and drag image to set focal point';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: var(--text-color);
+            background-color: rgba(0, 0, 0, 0.4);
+            padding: 0.5rem 1rem;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+            pointer-events: none;
+            z-index: 10;
+            opacity: 0;
+            transition: opacity 0.2s ease-in-out;
+            color: white;
+        }
+
+        #focalPointEditor:hover::before {
+            opacity: 1;
+        }
+
+        #focalPointEditor.is-dragging::before {
+            opacity: 0;
+        }
+
+        /* --- END NEW STYLES --- */
+
         /* Style for the type filter buttons */
         .type-filter-button {
             padding: 0.25rem 0.75rem;
@@ -518,7 +578,6 @@
                 </div>
 
                 <div class="flex flex-col items-start sm:items-end gap-3 w-full sm:w-auto">
-                    <!-- Row 1: Main Filters and Sorter -->
                     <div class="flex flex-wrap items-center gap-4">
                         <div id="inventory-filters" class="flex items-center gap-2">
                             <button class="filter-button active" data-filter="on_hand">On Hand</button>
@@ -559,7 +618,6 @@
                         </div>
                     </div>
 
-                    <!-- Row 2: Type Filters -->
                     <div id="type-filters" class="flex flex-wrap items-center gap-2">
                         <span class="text-sm font-medium text-gray-600 mr-2">Type:</span>
                         <button class="type-filter-button active" data-type-filter="all" title="All Types">All</button>
@@ -599,7 +657,6 @@
         <p>&copy; 2025 Wonderful-Wino. All rights reserved.</p>
     </footer>
 
-    <!-- All Modals (Help, Entry, Taste, Notes, Settings, NV Prompt) are unchanged -->
     <div id="helpModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="helpModalTitle">
         <div class="modal-content">
             <button class="modal-close-button" onclick="closeModal()">&times;</button>
@@ -753,11 +810,14 @@
             <p id="notesModalWineName" class="mb-4 text-gray-700"></p>
             <form id="notesForm">
                 <input type="hidden" id="notesVivinoUrl">
+
                 <div class="mb-4">
-                    <label for="tastingNotesInput" class="block text-sm font-medium mb-1">Tasting Notes</label>
-                    <textarea id="tastingNotesInput" rows="5" placeholder="Enter your notes here..."
-                        class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"></textarea>
+                    <label class="block text-sm font-medium mb-1">Image Preview & Focal Point</label>
+                    <div id="focalPointEditor">
+                        <img id="draggableImage" src="" alt="Wine bottle image" draggable="false">
+                    </div>
                 </div>
+
                 <div class="mb-4">
                     <div class="flex justify-between items-center">
                         <label for="imageUrlInput" class="block text-sm font-medium mb-1">Image URL</label>
@@ -768,6 +828,12 @@
                         class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
                         readonly>
                 </div>
+                <div class="mb-4">
+                    <label for="tastingNotesInput" class="block text-sm font-medium mb-1">Tasting Notes</label>
+                    <textarea id="tastingNotesInput" rows="5" placeholder="Enter your notes here..."
+                        class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"></textarea>
+                </div>
+
                 <div id="notesMessage" class="mt-4 text-center hidden"></div>
                 <div class="mt-6 flex justify-end gap-4">
                     <button type="button" onclick="closeModal()"
@@ -1079,7 +1145,6 @@
             });
         }
 
-        // NEW: Hides/shows type filter buttons based on available wine types.
         function updateFilterVisibility() {
             if (!masterInventoryList) return;
 
@@ -1099,11 +1164,9 @@
             }
         }
 
-        // Applies client-side filters and sorting, then updates the display.
         function updateDisplayedInventory() {
             let inventoryToDisplay = [...masterInventoryList];
 
-            // Apply Type Filter
             if (currentTypeFilter !== 'all') {
                 if (currentTypeFilter === 'specialty') {
                     inventoryToDisplay = inventoryToDisplay.filter(wine =>
@@ -1118,7 +1181,6 @@
             displayInventory(sortedData);
         }
 
-        // Fetches the master list for the main filter.
         async function fetchInventory() {
             const inventoryTableBody = document.getElementById('inventoryTableBody');
             inventoryTableBody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-gray-500">Loading inventory...</td></tr>';
@@ -1126,11 +1188,8 @@
                 const response = await fetch(`${BASE_URL}inventory?filter=${currentFilter}`);
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 masterInventoryList = await response.json();
-
-                // NEW: Update filter visibility based on the fetched data
                 updateFilterVisibility();
-
-                updateDisplayedInventory(); // Then filter, sort, and display.
+                updateDisplayedInventory();
             } catch (error) {
                 showMessage('inventoryMessage', `Failed to load inventory: ${error.message}`, 'error');
                 inventoryTableBody.innerHTML = '<tr><td colspan="3" class="py-4 text-center text-red-600">Error loading inventory.</td></tr>';
@@ -1176,9 +1235,15 @@
                 imageContainer.className = 'wine-image-container rounded-md overflow-hidden';
                 imageContainer.onclick = () => openModal('notesModal', { wine: item });
                 imageContainer.title = item.tasting_notes ? item.tasting_notes : 'Click to add tasting notes';
+
+                // --- MODIFIED: Apply focal point to main inventory image ---
+                const focalPoint = item.image_focal_point || '50%';
+                const imageStyle = `object-position: 50% ${focalPoint};`;
                 imageContainer.innerHTML = item.image_url
-                    ? `<img src="${item.image_url}" class="h-24 w-24 object-cover" alt="${escapeAttr(item.name)}">`
+                    ? `<img src="${item.image_url}" class="h-24 w-24 object-cover" alt="${escapeAttr(item.name)}" style="${imageStyle}">`
                     : '<div class="text-gray-400 text-center w-24 h-24 flex items-center justify-center bg-gray-100">No Image</div>';
+                // --- END MODIFICATION ---
+
                 imageCell.appendChild(imageContainer);
 
                 const detailsCell = document.createElement('td');
@@ -1296,7 +1361,6 @@
             });
         }
 
-        // All other functions (setWineQuantity, deleteWine, openModal, closeModal, etc.) remain the same
         async function setWineQuantity(vivinoUrl, newQuantity) {
             const quantity = parseInt(newQuantity, 10);
             if (isNaN(quantity) || quantity < 0) {
@@ -1499,13 +1563,24 @@
         function prepareNotesModal(wine) {
             const imageUrlInput = document.getElementById('imageUrlInput');
             const toggleBtn = document.getElementById('toggleImageUrlLock');
+            // --- NEW: Get draggable image elements ---
+            const draggableImage = document.getElementById('draggableImage');
+
             document.getElementById('notesVivinoUrl').value = wine.vivino_url;
             document.getElementById('notesModalWineName').textContent = `${wine.name} (${wine.vintage || 'NV'})`;
             document.getElementById('tastingNotesInput').value = wine.tasting_notes || '';
             document.getElementById('notesMessage').classList.add('hidden');
-            imageUrlInput.value = wine.image_url || '';
+
+            const imageUrl = wine.image_url || '';
+            imageUrlInput.value = imageUrl;
             imageUrlInput.setAttribute('readonly', true);
             toggleBtn.textContent = '🔒';
+
+            // --- NEW: Set up draggable image ---
+            draggableImage.src = imageUrl;
+            const focalPoint = wine.image_focal_point || '50%';
+            draggableImage.style.objectPosition = `50% ${focalPoint}`;
+
             fetchAndDisplayConsumptionHistory(wine);
         }
 
@@ -1721,6 +1796,7 @@
             document.getElementById('sortAscIcon').classList.toggle('hidden', currentSortDirection === 'desc');
             document.getElementById('sortDescIcon').classList.toggle('hidden', currentSortDirection === 'asc');
         }
+
         function promptForVintage() {
             return new Promise((resolve, reject) => {
                 window.nvPromptResolver = { resolve, reject };
@@ -1774,6 +1850,22 @@
                 openModal('nvPromptModal');
             });
         }
+
+        // --- NEW: Function to save the focal point via API ---
+        async function saveFocalPoint(vivinoUrl, focalPoint) {
+            try {
+                await apiCall('api/wine/focal-point', {
+                    method: 'POST',
+                    body: JSON.stringify({ vivino_url: vivinoUrl, focal_point: focalPoint })
+                }, 'notesMessage');
+                // Refresh the inventory to reflect the change on the main page after modal closes
+                fetchInventory();
+            } catch (error) {
+                // Error is already shown by apiCall
+                console.error("Failed to save focal point:", error);
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', async () => {
             const vivinoSearchForm = document.getElementById('vivinoSearchForm');
             const scanWineForm = document.getElementById('scanWineForm');
@@ -1804,7 +1896,6 @@
                 addWineSection.classList.add('is-expanded');
             }
 
-
             document.getElementById('settingsButton').addEventListener('click', () => openModal('settingsModal'));
             document.getElementById('openEntryModalBtn').addEventListener('click', () => {
                 openModal('entryModal');
@@ -1818,6 +1909,70 @@
                 localStorage.setItem('theme', isDark ? 'dark' : 'light');
                 document.getElementById('themeIcon').textContent = isDark ? '🌙' : '☀️';
             });
+
+            // --- NEW: Drag and Drop Logic for Focal Point ---
+            const focalPointEditor = document.getElementById('focalPointEditor');
+            const draggableImage = document.getElementById('draggableImage');
+            let isDragging = false;
+            let startY = 0;
+            let startTop = 0;
+
+            const getPointerY = (e) => e.touches ? e.touches[0].clientY : e.clientY;
+
+            const startDrag = (e) => {
+                e.preventDefault();
+                isDragging = true;
+                focalPointEditor.classList.add('is-dragging');
+                startY = getPointerY(e);
+                startTop = draggableImage.offsetTop;
+            };
+
+            const onDrag = (e) => {
+                if (!isDragging) return;
+                e.preventDefault();
+                const currentY = getPointerY(e);
+                const deltaY = currentY - startY;
+
+                const parentHeight = focalPointEditor.clientHeight;
+                const imageHeight = draggableImage.clientHeight;
+
+                if (imageHeight <= parentHeight) return; // No need to drag if image is smaller
+
+                const maxOffset = 0;
+                const minOffset = parentHeight - imageHeight;
+
+                let newTop = Math.max(minOffset, Math.min(maxOffset, startTop + deltaY));
+
+                // Calculate percentage for object-position
+                const positionY = -newTop / (imageHeight - parentHeight) * 100;
+                const clampedPositionY = Math.max(0, Math.min(100, positionY));
+
+                draggableImage.style.objectPosition = `50% ${clampedPositionY.toFixed(2)}%`;
+            };
+
+            const endDrag = (e) => {
+                if (!isDragging) return;
+                isDragging = false;
+                focalPointEditor.classList.remove('is-dragging');
+
+                const vivinoUrl = document.getElementById('notesVivinoUrl').value;
+                const focalPoint = draggableImage.style.objectPosition.split(' ')[1];
+
+                if (vivinoUrl && focalPoint) {
+                    saveFocalPoint(vivinoUrl, focalPoint);
+                }
+            };
+
+            focalPointEditor.addEventListener('mousedown', startDrag);
+            focalPointEditor.addEventListener('touchstart', startDrag, { passive: false });
+
+            window.addEventListener('mousemove', onDrag);
+            window.addEventListener('touchmove', onDrag, { passive: false });
+
+            window.addEventListener('mouseup', endDrag);
+            window.addEventListener('touchend', endDrag);
+            // --- END NEW DRAG LOGIC ---
+
 
             // Sort listeners
             sortSelect.addEventListener('change', (e) => {

@@ -37,6 +37,23 @@ class ReverseProxied:
 app.wsgi_app = ReverseProxied(app.wsgi_app)
 
 # --- Flask Routes ---
+
+@app.route('/api/wine/focal-point', methods=['POST'])
+def update_focal_point():
+    """Updates the focal point for a wine's image."""
+    data = request.get_json()
+    vivino_url = data.get('vivino_url')
+    focal_point = data.get('focal_point')
+
+    if not all([vivino_url, focal_point]):
+        return jsonify({"status": "error", "message": "Missing required data."}), 400
+
+    if db.update_image_focal_point(vivino_url, focal_point):
+        return jsonify({"status": "success", "message": "Focal point updated."}), 200
+    else:
+        return jsonify({"status": "error", "message": "Wine not found or DB error."}), 404
+
+
 @app.route('/api/wine/history')
 def get_wine_history():
     vivino_url = request.args.get('vivino_url')
