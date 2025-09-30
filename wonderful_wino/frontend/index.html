@@ -821,13 +821,7 @@
             <form id="notesForm">
                 <input type="hidden" id="notesVivinoUrl">
 
-                <div class="mb-4">
-                    <label class="block text-sm font-medium mb-1">Image Preview & Focal Point</label>
-                    <div id="focalPointEditor">
-                        <img id="draggableImage" src="" alt="Wine bottle image" draggable="false">
-                    </div>
-                </div>
-
+                <!-- THIS ENTIRE BLOCK was moved here from below -->
                 <div class="mb-4">
                     <div class="flex justify-between items-center">
                         <label for="imageUrlInput" class="block text-sm font-medium mb-1">Image URL</label>
@@ -838,6 +832,15 @@
                         class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
                         readonly>
                 </div>
+
+                <!-- THIS ENTIRE BLOCK was previously first, but is now second -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Image Preview & Focal Point</label>
+                    <div id="focalPointEditor">
+                        <img id="draggableImage" src="" alt="Wine bottle image" draggable="false">
+                    </div>
+                </div>
+
                 <div class="mb-4">
                     <label for="tastingNotesInput" class="block text-sm font-medium mb-1">Tasting Notes</label>
                     <textarea id="tastingNotesInput" rows="5" placeholder="Enter your notes here..."
