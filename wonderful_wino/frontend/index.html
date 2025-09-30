@@ -783,11 +783,11 @@
                     </div>
                 </div>
                 <div id="entryMessage" class="mt-4 text-center hidden"></div>
-                <!-- MODIFIED: Button layout to include "Save as New" -->
+                <!-- MODIFIED: Button layout and labels updated -->
                 <div class="mt-6 flex justify-end items-center gap-4">
-                    <button type="button" id="entrySaveAsNewBtn"
-                        class="bg-cyan-600 text-white px-4 py-2 rounded-md hover:bg-cyan-700 hidden">Save as
-                        New</button>
+                    <button type="button" id="entrySaveAsNewWineBtn"
+                        class="bg-cyan-600 text-white px-4 py-2 rounded-md hover:bg-cyan-700 hidden whitespace-nowrap">Save
+                        as New Wine</button>
                     <div class="flex-grow"></div>
                     <button type="button" onclick="closeModal()"
                         class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Cancel</button>
@@ -1077,6 +1077,7 @@
         let initialCostTierValues = {};
         let openModalElement = null;
         let lastFocusedElement = null;
+        let initialEntryFormData = {}; // --- ADDED: To track form changes for "Save as New"
 
         /**
          * A reusable wrapper for fetch API calls that handles errors,
@@ -1363,8 +1364,6 @@
                 editBtn.className = 'text-yellow-600 hover:text-yellow-900 text-xl icon-button';
                 editBtn.onclick = () => openModal('entryModal', { mode: 'edit', wine: item });
 
-                // --- REMOVED: Duplicate button is no longer created here ---
-
                 const deleteBtn = document.createElement('button');
                 deleteBtn.innerHTML = '🗑️';
                 deleteBtn.title = 'Delete Wine from Inventory';
@@ -1472,14 +1471,14 @@
             }
         });
 
-        // --- MODIFIED: `prepareEntryModal` no longer needs a 'duplicate' mode ---
+        // --- MODIFIED: `prepareEntryModal` now handles state for "Save as New Wine" ---
         function prepareEntryModal(mode = 'add', wine = {}) {
             const form = document.getElementById('entryForm');
             form.reset();
             document.getElementById('entryMessage').classList.add('hidden');
             const title = document.getElementById('entryModalTitle');
             const submitBtn = document.getElementById('entrySubmitBtn');
-            const saveAsNewBtn = document.getElementById('entrySaveAsNewBtn');
+            const saveAsNewWineBtn = document.getElementById('entrySaveAsNewWineBtn');
             const vintageInput = document.getElementById('manualVintageInput');
             const nvCheckbox = document.getElementById('nvCheckbox');
 
@@ -1489,8 +1488,8 @@
 
             if (mode === 'edit') {
                 title.textContent = 'Edit Wine';
-                submitBtn.textContent = 'Save Changes';
-                saveAsNewBtn.classList.remove('hidden'); // Show the "Save as New" button
+                submitBtn.textContent = 'Save'; // Relabeled
+                saveAsNewWineBtn.classList.remove('hidden');
 
                 document.getElementById('entryVivinoUrl').value = wine.vivino_url;
                 document.getElementById('manualImageUrlInput').value = wine.image_url || '';
@@ -1515,10 +1514,17 @@
                 document.getElementById('manualTasteRatingInput').value = rating;
                 updateStarVisuals(document.getElementById('editTasteRatingSelector'), rating, 'rated');
                 updateFeedbackText(document.getElementById('editTasteRatingFeedback'), rating);
-            } else { // This now covers 'add' mode
+
+                // --- ADDED: Store initial state and disable button ---
+                initialEntryFormData = getEntryFormData();
+                saveAsNewWineBtn.disabled = true;
+                saveAsNewWineBtn.title = 'Change a field to enable saving as a new wine';
+
+            } else { // 'add' mode
                 title.textContent = 'Add Wine Manually';
                 submitBtn.textContent = 'Add Wine';
-                saveAsNewBtn.classList.add('hidden'); // Hide "Save as New" button
+                saveAsNewWineBtn.classList.add('hidden');
+                initialEntryFormData = {}; // Clear initial data
 
                 document.getElementById('entryVivinoUrl').value = '';
                 document.getElementById('manualImageUrlInput').value = '';
@@ -1893,6 +1899,19 @@
             };
         }
 
+        // --- ADDED: Function to check if form data has changed from its initial state ---
+        function checkFormChanges() {
+            const saveAsNewWineBtn = document.getElementById('entrySaveAsNewWineBtn');
+            if (!saveAsNewWineBtn || saveAsNewWineBtn.classList.contains('hidden')) return;
+
+            const currentFormData = getEntryFormData();
+            // Compare stringified versions for a simple deep comparison.
+            const hasChanged = JSON.stringify(currentFormData) !== JSON.stringify(initialEntryFormData);
+
+            saveAsNewWineBtn.disabled = !hasChanged;
+            saveAsNewWineBtn.title = hasChanged ? 'Save the current details as a new wine entry' : 'Change a field to enable saving as a new wine';
+        }
+
 
         document.addEventListener('DOMContentLoaded', async () => {
             const vivinoSearchForm = document.getElementById('vivinoSearchForm');
@@ -1902,7 +1921,7 @@
             const notesForm = document.getElementById('notesForm');
             const sortSelect = document.getElementById('sortSelect');
             const sortDirectionToggle = document.getElementById('sortDirectionToggle');
-            const saveAsNewBtn = document.getElementById('entrySaveAsNewBtn'); // --- ADDED: New button reference
+            const saveAsNewWineBtn = document.getElementById('entrySaveAsNewWineBtn');
 
             const savedTheme = localStorage.getItem('theme');
             if (savedTheme === 'dark') document.body.classList.add('dark-theme');
@@ -1940,7 +1959,13 @@
                 document.getElementById('themeIcon').textContent = isDark ? '🌙' : '☀️';
             });
 
-            // --- ALL DRAG-AND-DROP LOGIC HAS BEEN MODIFIED ---
+            // --- ADDED: Event listeners for checking form changes ---
+            entryForm.addEventListener('input', checkFormChanges);
+            document.getElementById('costTierSelector').addEventListener('click', () => setTimeout(checkFormChanges, 0));
+            document.getElementById('editTasteRatingSelector').addEventListener('click', () => setTimeout(checkFormChanges, 0));
+            document.getElementById('nvCheckbox').addEventListener('change', checkFormChanges);
+
+            // --- ALL DRAG-AND-DROP LOGIC ---
             const focalPointEditor = document.getElementById('focalPointEditor');
             const draggableImage = document.getElementById('draggableImage');
             let isDragging = false;
@@ -2096,15 +2121,10 @@
                 } catch (error) { /* Error shown by apiCall */ }
             });
 
-            // --- ADDED: Event listener for the new "Save as New" button ---
-            saveAsNewBtn.addEventListener('click', async function (e) {
+            saveAsNewWineBtn.addEventListener('click', async function (e) {
                 e.preventDefault();
-                // Get all data from the form
                 const payload = getEntryFormData();
-                // IMPORTANT: Do NOT include the vivino_url, so the backend treats it as a new wine
-
                 try {
-                    // Always call the 'add-manual-wine' endpoint for this action
                     await apiCall('add-manual-wine', { method: 'POST', body: JSON.stringify(payload) }, 'entryMessage', this);
                     fetchInventory();
                     setTimeout(closeModal, 1500);
