@@ -885,11 +885,7 @@ function checkFormChanges() {
     saveAsNewWineBtn.title = hasChanged ? 'Save the current details as a new wine entry' : 'Change a field to enable saving as a new wine';
 }
 
-
-document.addEventListener('DOMContentLoaded', async () => {
-    // Load components first
-    await loadHTML('components/add-wine.html', document.getElementById('addWineSection'));
-
+function setupEventListeners() {
     const vivinoSearchForm = document.getElementById('vivinoSearchForm');
     const scanWineForm = document.getElementById('scanWineForm');
     const entryForm = document.getElementById('entryForm');
@@ -899,16 +895,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const sortDirectionToggle = document.getElementById('sortDirectionToggle');
     const saveAsNewWineBtn = document.getElementById('entrySaveAsNewWineBtn');
 
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark') document.body.classList.add('dark-theme');
-    document.getElementById('themeIcon').textContent = savedTheme === 'dark' ? '🌙' : '☀️';
-    updateSortIcons();
-    setupVintageControls();
-    setupCostTierSelector('mainCostTierSelector', 'mainCostTierInput');
-    setupCostTierSelector('costTierSelector', 'manualCostTierInput');
-    setupStarRating(document.getElementById('tasteRatingSelector'), document.getElementById('tasteRatingInput'), document.getElementById('tasteRatingFeedback'));
-    setupStarRating(document.getElementById('editTasteRatingSelector'), document.getElementById('manualTasteRatingInput'), document.getElementById('editTasteRatingFeedback'));
-
+    // Setup for dynamically loaded components
     const addWineSection = document.getElementById('addWineSection');
     const addWineHeader = document.getElementById('addWineHeader');
 
@@ -920,19 +907,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (localStorage.getItem('addWinePanelState') === 'expanded') {
         addWineSection.classList.add('is-expanded');
     }
-
+     // Event listeners for static elements
     document.getElementById('settingsButton').addEventListener('click', () => openModal('settingsModal'));
-    document.getElementById('openEntryModalBtn').addEventListener('click', () => {
-        openModal('entryModal');
-        const manualVintageInput = document.getElementById('manualVintageInput');
-        const currentYear = new Date().getFullYear();
-        manualVintageInput.value = currentYear - 3;
-    });
     document.getElementById('themeToggle').addEventListener('click', () => {
         document.body.classList.toggle('dark-theme');
         const isDark = document.body.classList.contains('dark-theme');
         localStorage.setItem('theme', isDark ? 'dark' : 'light');
         document.getElementById('themeIcon').textContent = isDark ? '🌙' : '☀️';
+    });
+
+    // Event listeners for dynamically loaded elements
+    document.getElementById('openEntryModalBtn').addEventListener('click', () => {
+        openModal('entryModal');
+        const manualVintageInput = document.getElementById('manualVintageInput');
+        const currentYear = new Date().getFullYear();
+        manualVintageInput.value = currentYear - 3;
     });
 
     // --- ADDED: Event listeners for checking form changes ---
@@ -1148,14 +1137,42 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
+    document.getElementById('refreshInventoryBtn').addEventListener('click', fetchInventory);
+}
+
+
+document.addEventListener('DOMContentLoaded', async () => {
+    // Load components first
+    await Promise.all([
+        loadHTML('components/add-wine.html', document.getElementById('addWineSection')),
+        loadHTML('components/inventory.html', document.getElementById('inventorySection'))
+    ]);
+
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') document.body.classList.add('dark-theme');
+    document.getElementById('themeIcon').textContent = savedTheme === 'dark' ? '🌙' : '☀️';
+
+    // After components are loaded, setup everything that depends on them
+    updateSortIcons();
+    setupVintageControls();
+    setupCostTierSelector('mainCostTierSelector', 'mainCostTierInput');
+    setupCostTierSelector('costTierSelector', 'manualCostTierInput');
+    setupStarRating(document.getElementById('tasteRatingSelector'), document.getElementById('tasteRatingInput'), document.getElementById('tasteRatingFeedback'));
+    setupStarRating(document.getElementById('editTasteRatingSelector'), document.getElementById('manualTasteRatingInput'), document.getElementById('editTasteRatingFeedback'));
+    
+    // Setup all event listeners for the whole application
+    setupEventListeners();
+
+    // Initial data fetch
+    await fetchSettings();
+    fetchInventory();
+
+    // Handle visibility changes
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
             console.log("Tab is visible, refreshing inventory.");
             fetchInventory();
         }
     });
-    document.getElementById('refreshInventoryBtn').addEventListener('click', fetchInventory);
-    await fetchSettings();
-    fetchInventory();
 });
 
