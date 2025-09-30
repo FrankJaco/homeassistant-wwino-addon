@@ -744,20 +744,24 @@
                             max="100" class="mt-1 block w-full border rounded-md p-2">
                     </div>
                     <div class="sm:col-span-2">
-                        <label for="manualQuantityInput" class="block text-sm font-medium">Quantity *</label>
-                        <input type="number" id="manualQuantityInput" min="0" value="1"
-                            class="mt-1 block w-full border rounded-md p-2" required>
-                    </div>
-                    <div class="sm:col-span-2">
-                        <label class="block text-sm font-medium">Cost Tier</label>
-                        <div id="costTierSelector" class="flex items-center gap-2 mt-1 cost-tier-selector">
-                            <span data-value="1" title="e.g., Under $8">$</span>
-                            <span data-value="2" title="e.g., $8 - $15">$$</span>
-                            <span data-value="3" title="e.g., $15 - $25">$$$</span>
-                            <span data-value="4" title="e.g., $25 - $40">$$$$</span>
-                            <span data-value="5" title="e.g., Over $40">$$$$$</span>
+                        <div class="flex flex-col sm:flex-row sm:items-start sm:gap-6">
+                            <div>
+                                <label for="manualQuantityInput" class="block text-sm font-medium">Quantity *</label>
+                                <input type="number" id="manualQuantityInput" min="0" value="1"
+                                    class="mt-1 block w-24 border rounded-md p-2" required>
+                            </div>
+                            <div class="mt-4 sm:mt-0">
+                                <label class="block text-sm font-medium">Cost Tier</label>
+                                <div id="costTierSelector" class="flex items-center gap-2 mt-1 cost-tier-selector">
+                                    <span data-value="1" title="e.g., Under $8">$</span>
+                                    <span data-value="2" title="e.g., $8 - $15">$$</span>
+                                    <span data-value="3" title="e.g., $15 - $25">$$$</span>
+                                    <span data-value="4" title="e.g., $25 - $40">$$$$</span>
+                                    <span data-value="5" title="e.g., Over $40">$$$$$</span>
+                                </div>
+                                <input type="hidden" id="manualCostTierInput">
+                            </div>
                         </div>
-                        <input type="hidden" id="manualCostTierInput">
                     </div>
                     <div class="sm:col-span-2">
                         <label class="block text-sm font-medium">Taste Rating</label>
