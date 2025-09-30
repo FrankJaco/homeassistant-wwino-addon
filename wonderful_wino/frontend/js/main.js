@@ -32,7 +32,7 @@ let appSettings = {};
 let initialCostTierValues = {};
 let openModalElement = null;
 let lastFocusedElement = null;
-let initialEntryFormData = {}; // --- ADDED: To track form changes for "Save as New"
+let initialEntryFormData = {};
 
 /**
  * A reusable wrapper for fetch API calls that handles errors,
@@ -464,7 +464,6 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// --- MODIFIED: `prepareEntryModal` now handles state for "Save as New Wine" ---
 function prepareEntryModal(mode = 'add', wine = {}) {
     const form = document.getElementById('entryForm');
     if (!form) return;
@@ -529,8 +528,10 @@ function prepareEntryModal(mode = 'add', wine = {}) {
 }
 
 function prepareTasteModal(wine) {
-    document.getElementById('tasteVivinoUrl').value = wine.vivino_url;
-    document.getElementById('tasteModalWineName').textContent = `${wine.name} (${wine.vintage || 'NV'})`;
+    const vivinoUrl = document.getElementById('tasteVivinoUrl');
+    const wineName = document.getElementById('tasteModalWineName');
+    if (vivinoUrl) vivinoUrl.value = wine.vivino_url;
+    if (wineName) wineName.textContent = `${wine.name} (${wine.vintage || 'NV'})`;
     resetTasteStars();
 }
 
@@ -629,8 +630,12 @@ function setupVintageControls() {
     });
 }
 
-function setupStarRating(selectorEl, inputEl, feedbackEl) {
-    if (!selectorEl || !inputEl || !feedbackEl) return;
+function setupStarRating(selectorId, inputId, feedbackId) {
+    const selectorEl = document.getElementById(selectorId);
+    const inputEl = document.getElementById(inputId);
+    const feedbackEl = document.getElementById(feedbackId);
+    if (!selectorEl || !inputEl) return;
+    
     selectorEl.addEventListener('mousemove', e => {
         if (!e.target.matches('span')) return;
         const star = e.target;
@@ -659,6 +664,7 @@ function setupStarRating(selectorEl, inputEl, feedbackEl) {
     });
 }
 
+
 function updateStarVisuals(selectorEl, rating, stateClass) {
     if (!selectorEl) return;
     selectorEl.querySelectorAll('span').forEach((star, index) => {
@@ -677,7 +683,7 @@ function resetTasteStars() {
     const inputEl = document.getElementById('tasteRatingInput');
     const selectorEl = document.getElementById('tasteRatingSelector');
     const feedbackEl = document.getElementById('tasteRatingFeedback');
-    inputEl.value = '';
+    if(inputEl) inputEl.value = '';
     updateStarVisuals(selectorEl, 0, 'rated');
     updateFeedbackText(feedbackEl, 0);
 }
@@ -696,6 +702,7 @@ function setupCostTierSelector(selectorId, inputId) {
 }
 
 function updateCostTierDisplay(selectorEl, inputEl, selectedValue) {
+    if (!selectorEl || !inputEl) return;
     inputEl.value = selectedValue || '';
     selectorEl.querySelectorAll('span').forEach(span => {
         span.classList.toggle('selected', span.dataset.value == selectedValue);
@@ -719,10 +726,17 @@ function updateMainCostTierSelector(selectedValue) {
 }
 
 function updateTiers() {
-    const t1 = parseFloat(document.getElementById('tier1').value) || 0;
-    const t2Right = parseFloat(document.getElementById('tier2Right').value) || 0;
-    const t3Right = parseFloat(document.getElementById('tier3Right').value) || 0;
-    const t4Right = parseFloat(document.getElementById('tier4Right').value) || 0;
+    const t1Input = document.getElementById('tier1');
+    const t2RightInput = document.getElementById('tier2Right');
+    const t3RightInput = document.getElementById('tier3Right');
+    const t4RightInput = document.getElementById('tier4Right');
+    if (!t1Input || !t2RightInput || !t3RightInput || !t4RightInput) return;
+
+    const t1 = parseFloat(t1Input.value) || 0;
+    const t2Right = parseFloat(t2RightInput.value) || 0;
+    const t3Right = parseFloat(t3RightInput.value) || 0;
+    const t4Right = parseFloat(t4RightInput.value) || 0;
+    
     document.getElementById('tier2Left').value = t1;
     document.getElementById('tier3Left').value = t2Right;
     document.getElementById('tier4Left').value = t3Right;
@@ -733,6 +747,7 @@ function updateTiers() {
 function validateTiers(values) {
     const errorEl = document.getElementById('costTierError');
     const saveBtn = document.getElementById('saveCostTiersBtn');
+    if (!errorEl || !saveBtn) return;
     const valid = values.slice(1).every((value, i) => value > values[i]);
     saveBtn.disabled = !valid;
     saveBtn.title = valid ? "" : "Fix ranges before saving";
@@ -742,6 +757,7 @@ function validateTiers(values) {
 
 function checkCostTierChanges() {
     const btn = document.getElementById('costTierResetBtn');
+    if (!btn) return;
     const currentValues = {
         t1: document.getElementById('tier1').value,
         t2r: document.getElementById('tier2Right').value,
@@ -804,8 +820,6 @@ async function fetchSettings() {
         if (!response.ok) throw new Error('Failed to fetch settings');
         appSettings = await response.json();
         updateCostTierTooltips();
-        // Settings modal might not be loaded, so we don't populate fields here.
-        // It's done when the modal is opened.
     } catch (error) {
         console.error('Error fetching settings:', error);
     }
@@ -835,6 +849,8 @@ function promptForVintage() {
         const applyVintageForm = document.getElementById('applyVintageForm');
         const vintageInput = document.getElementById('nvPromptVintageInput');
         const cancelBtn = document.getElementById('nvPromptCancelBtn');
+        if (!confirmNvBtn || !applyVintageForm || !vintageInput || !cancelBtn) return reject('Modal elements not found');
+
         const currentYear = new Date().getFullYear();
         vintageInput.min = "1900";
         vintageInput.max = currentYear;
@@ -881,21 +897,28 @@ async function saveFocalPoint(vivinoUrl, focalPoint) {
 }
 
 function getEntryFormData() {
+    const getElementValue = (id, parser) => {
+        const el = document.getElementById(id);
+        if (!el || el.value === '') return null;
+        return parser(el.value);
+    };
+
     return {
-        name: document.getElementById('manualNameInput').value,
-        vintage: document.getElementById('nvCheckbox').checked ? null : parseInt(document.getElementById('manualVintageInput').value, 10),
-        quantity: parseInt(document.getElementById('manualQuantityInput').value, 10),
-        varietal: document.getElementById('manualVarietalInput').value,
-        region: document.getElementById('manualRegionInput').value,
-        country: document.getElementById('manualCountryInput').value,
-        wine_type: document.getElementById('manualWineTypeInput').value || null,
-        alcohol_percent: parseFloat(document.getElementById('manualAlcoholInput').value) || null,
-        cost_tier: parseInt(document.getElementById('manualCostTierInput').value, 10) || null,
-        personal_rating: parseFloat(document.getElementById('manualTasteRatingInput').value) || null,
-        tasting_notes: document.getElementById('manualTastingNotesInput').value,
-        image_url: document.getElementById('manualImageUrlInput').value,
+        name: getElementValue('manualNameInput', String),
+        vintage: document.getElementById('nvCheckbox')?.checked ? null : getElementValue('manualVintageInput', v => parseInt(v, 10)),
+        quantity: getElementValue('manualQuantityInput', v => parseInt(v, 10)),
+        varietal: getElementValue('manualVarietalInput', String),
+        region: getElementValue('manualRegionInput', String),
+        country: getElementValue('manualCountryInput', String),
+        wine_type: getElementValue('manualWineTypeInput', String) || null,
+        alcohol_percent: getElementValue('manualAlcoholInput', v => parseFloat(v)) || null,
+        cost_tier: getElementValue('manualCostTierInput', v => parseInt(v, 10)) || null,
+        personal_rating: getElementValue('manualTasteRatingInput', v => parseFloat(v)) || null,
+        tasting_notes: getElementValue('manualTastingNotesInput', String),
+        image_url: getElementValue('manualImageUrlInput', String),
     };
 }
+
 
 function checkFormChanges() {
     const saveAsNewWineBtn = document.getElementById('entrySaveAsNewWineBtn');
@@ -955,7 +978,7 @@ function setupEventListeners() {
         if (e.target.closest('#refreshInventoryBtn')) {
             fetchInventory();
         }
-        if (e.target.closest('#costTierSelector') || e.target.closest('#editTasteRatingSelector')) {
+        if (e.target.closest('.cost-tier-selector') || e.target.closest('.taste-rating-selector')) {
              setTimeout(checkFormChanges, 0);
         }
         if (e.target.id === 'entrySaveAsNewWineBtn') {
@@ -995,13 +1018,15 @@ function setupEventListeners() {
         e.preventDefault();
         switch (e.target.id) {
             case 'vivinoSearchForm': {
-                const query = document.getElementById('vivinoSearchInput').value;
-                window.open(`${VIVINO_SEARCH_URL}${encodeURIComponent(query)}`, '_blank');
-                const button = e.target.querySelector('button[type="submit"]');
-                const originalText = button.textContent;
-                button.textContent = 'Opening...';
-                setTimeout(() => { button.textContent = originalText; }, 1500);
-                e.target.reset();
+                const queryInput = document.getElementById('vivinoSearchInput');
+                if (queryInput) {
+                    window.open(`${VIVINO_SEARCH_URL}${encodeURIComponent(queryInput.value)}`, '_blank');
+                    const button = e.target.querySelector('button[type="submit"]');
+                    const originalText = button.textContent;
+                    button.textContent = 'Opening...';
+                    setTimeout(() => { button.textContent = originalText; }, 1500);
+                    e.target.reset();
+                }
                 break;
             }
             case 'scanWineForm': {
@@ -1013,18 +1038,17 @@ function setupEventListeners() {
                     vivinoUrlInput.value = '';
                     return;
                 }
-                const hasYearParam = /year=\d{4}/.test(vivinoUrl);
-                if (!hasYearParam) {
+                if (!/year=\d{4}/.test(vivinoUrl)) {
                     try {
                         const result = await promptForVintage();
-                        if (result.isNv) {} 
-                        else if (result.vintage) {
+                        if (result.vintage) {
                             const url = new URL(vivinoUrl);
                             url.searchParams.set('year', result.vintage);
                             vivinoUrl = url.toString();
                             vivinoUrlInput.value = vivinoUrl;
                         }
                     } catch (error) {
+                        if(error !== 'cancelled') console.error(error);
                         showMessage('scanMessage', 'Action cancelled.', 'info');
                         vivinoUrlInput.focus();
                         return;
@@ -1149,7 +1173,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         loadHTML('components/inventory.html', document.getElementById('inventorySection')),
         loadHTML('components/manual-entry-modal.html', document.getElementById('modalContainer'), true),
         loadHTML('components/notes-modal.html', document.getElementById('modalContainer'), true),
-        loadHTML('components/settings-modal.html', document.getElementById('modalContainer'), true)
+        loadHTML('components/settings-modal.html', document.getElementById('modalContainer'), true),
+        loadHTML('components/help-modal.html', document.getElementById('modalContainer'), true),
+        loadHTML('components/taste-modal.html', document.getElementById('modalContainer'), true),
+        loadHTML('components/nv-prompt-modal.html', document.getElementById('modalContainer'), true)
     ]);
 
     const savedTheme = localStorage.getItem('theme');
@@ -1158,23 +1185,21 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     setupEventListeners();
     
-    // Initial data fetch needs to happen after setup
     await fetchSettings();
     fetchInventory();
 
-    // Restore collapsible panel state after components are loaded
     if (localStorage.getItem('addWinePanelState') === 'expanded') {
         const addWineSection = document.getElementById('addWineSection');
         if (addWineSection) addWineSection.classList.add('is-expanded');
     }
 
-    // Call setup functions for components that are now loaded
     updateSortIcons();
     setupVintageControls();
     setupCostTierSelector('mainCostTierSelector', 'mainCostTierInput');
     setupCostTierSelector('costTierSelector', 'manualCostTierInput');
-    setupStarRating(document.getElementById('tasteRatingSelector'), document.getElementById('tasteRatingInput'), document.getElementById('tasteRatingFeedback'));
-    setupStarRating(document.getElementById('editTasteRatingSelector'), document.getElementById('manualTasteRatingInput'), document.getElementById('editTasteRatingFeedback'));
+    setupStarRating('tasteRatingSelector', 'tasteRatingInput', 'tasteRatingFeedback');
+    setupStarRating('editTasteRatingSelector', 'manualTasteRatingInput', 'editTasteRatingFeedback');
+
 
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {

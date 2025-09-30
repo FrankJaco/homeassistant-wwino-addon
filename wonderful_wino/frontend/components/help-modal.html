@@ -1,0 +1,28 @@
+<div id="helpModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="helpModalTitle">
+    <div class="modal-content">
+        <button class="modal-close-button" onclick="closeModal()">&times;</button>
+        <h3 id="helpModalTitle" class="text-xl font-semibold mb-4">Maintenance Help</h3>
+        <p class="text-sm">
+            This section provides tools to manage your wine inventory database and its synchronization with the Home
+            Assistant ToDo list.
+        </p>
+        <ul class="list-disc pl-5 mt-3 text-sm space-y-4">
+            <li><strong>Backup Database:</strong> Creates a safe copy of your entire wine inventory, stored as
+                `wonderful_wino_backup.db` in your Home Assistant `/share/wwino/` folder.</li>
+            <li><strong>Restore Database:</strong> <span class="font-bold text-orange-600">WARNING:</span> This will
+                completely overwrite your current inventory with the backup file. Any changes since your last backup
+                will be lost.</li>
+            <li><strong>Sync DB→ToDo:</strong> Syncs on-hand wines in the database to the ToDo list. This is a
+                one-way sync; items
+                on the ToDo list won't be added to the database. To remove items from the ToDo list that are no
+                longer on-hand,
+                simply complete (consume) them.</li>
+            <li><strong>Reset DB:</strong> <span class="font-bold text-orange-600">WARNING:</span> This action
+                permanently deletes ALL wine data and cannot be undone.</li>
+        </ul>
+        <div class="mt-6 text-right">
+            <button onclick="closeModal()"
+                class="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">Close</button>
+        </div>
+    </div>
+</div>
