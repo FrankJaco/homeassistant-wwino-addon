@@ -89,57 +89,6 @@
         </div>
     </div>
 
-    <div id="notesModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="notesModalTitle">
-        <div class="modal-content">
-            <button class="modal-close-button" onclick="closeModal()">&times;</button>
-            <h3 id="notesModalTitle" class="text-xl font-semibold mb-2">Tasting Notes & Image</h3>
-            <p id="notesModalWineName" class="mb-4 text-gray-700"></p>
-            <form id="notesForm">
-                <input type="hidden" id="notesVivinoUrl">
-
-                <!-- THIS ENTIRE BLOCK was moved here from below -->
-                <div class="mb-4">
-                    <div class="flex justify-between items-center">
-                        <label for="imageUrlInput" class="block text-sm font-medium mb-1">Image URL</label>
-                        <button type="button" id="toggleImageUrlLock"
-                            class="text-gray-500 hover:text-gray-700 focus:outline-none">🔒</button>
-                    </div>
-                    <input type="text" id="imageUrlInput" placeholder="Paste new image URL here"
-                        class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                        readonly>
-                </div>
-
-                <!-- THIS ENTIRE BLOCK was previously first, but is now second -->
-                <div class="mb-4">
-                    <label class="block text-sm font-medium mb-1">Image Preview & Focal Point</label>
-                    <div id="focalPointEditor">
-                        <img id="draggableImage" src="" alt="Wine bottle image" draggable="false">
-                    </div>
-                </div>
-
-                <div class="mb-4">
-                    <label for="tastingNotesInput" class="block text-sm font-medium mb-1">Tasting Notes</label>
-                    <textarea id="tastingNotesInput" rows="5" placeholder="Enter your notes here..."
-                        class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"></textarea>
-                </div>
-
-                <div id="notesMessage" class="mt-4 text-center hidden"></div>
-                <div class="mt-6 flex justify-end gap-4">
-                    <button type="button" onclick="closeModal()"
-                        class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Cancel</button>
-                    <button type="submit" id="notesSubmitBtn"
-                        class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Save Changes</button>
-                </div>
-            </form>
-            <hr class="my-6 border-gray-300">
-            <div>
-                <h4 class="text-lg font-medium text-gray-800 mb-3">Consumption Log</h4>
-                <div id="consumptionLogContainer" class="text-sm text-gray-700 space-y-2 max-h-48 overflow-y-auto">
-                </div>
-            </div>
-        </div>
-    </div>
-
     <div id="settingsModal" class="modal-overlay hidden" role="dialog" aria-modal="true"
         aria-labelledby="settingsModalTitle">
         <div class="modal-content">
