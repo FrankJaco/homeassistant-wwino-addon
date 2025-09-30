@@ -133,9 +133,13 @@
             background-color: var(--button-secondary-bg);
             color: var(--button-secondary-text);
             font-weight: 500;
-            transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+            transition: background-color 0.2s, color 0.2s, border-color 0.2s, transform 0.2s ease;
             cursor: pointer;
             font-size: 0.875rem;
+        }
+
+        .type-filter-button:hover {
+            transform: scale(1.05);
         }
 
         .type-filter-button.active {
@@ -166,6 +170,17 @@
             transform: rotate(90deg);
         }
 
+        /* --- ADDED: Hover effect for the collapse icon --- */
+        #addWineHeader:hover #collapseIcon {
+            transform: scale(1.2);
+        }
+
+        .is-expanded #addWineHeader:hover #collapseIcon {
+            transform: rotate(90deg) scale(1.2);
+        }
+
+        /* --- END ADDED --- */
+
         .filter-button {
             padding: 0.5rem 1rem;
             border: 1px solid var(--border-color);
@@ -173,9 +188,16 @@
             background-color: var(--button-secondary-bg);
             color: var(--button-secondary-text);
             font-weight: 500;
-            transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+            transition: background-color 0.2s, color 0.2s, border-color 0.2s, transform 0.2s ease;
             cursor: pointer;
         }
+
+        /* --- ADDED: Hover effect for filter buttons --- */
+        .filter-button:hover {
+            transform: scale(1.05);
+        }
+
+        /* --- END ADDED --- */
 
         .filter-button.active {
             background-color: var(--accent-color);
@@ -460,11 +482,12 @@
             background-color: var(--button-secondary-bg) !important;
             color: var(--button-secondary-text) !important;
             border-color: var(--border-color) !important;
-            transition: all 0.3s ease;
+            transition: all 0.3s ease, transform 0.2s ease;
         }
 
         #sortDirectionToggle:hover {
             background-color: var(--button-secondary-hover-bg) !important;
+            transform: scale(1.2);
         }
 
         button:disabled {
