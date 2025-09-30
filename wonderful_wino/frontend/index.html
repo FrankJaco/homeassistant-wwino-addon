@@ -783,7 +783,12 @@
                     </div>
                 </div>
                 <div id="entryMessage" class="mt-4 text-center hidden"></div>
-                <div class="mt-6 flex justify-end gap-4">
+                <!-- MODIFIED: Button layout to include "Save as New" -->
+                <div class="mt-6 flex justify-end items-center gap-4">
+                    <button type="button" id="entrySaveAsNewBtn"
+                        class="bg-cyan-600 text-white px-4 py-2 rounded-md hover:bg-cyan-700 hidden">Save as
+                        New</button>
+                    <div class="flex-grow"></div>
                     <button type="button" onclick="closeModal()"
                         class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Cancel</button>
                     <button type="submit" id="entrySubmitBtn"
@@ -1358,11 +1363,7 @@
                 editBtn.className = 'text-yellow-600 hover:text-yellow-900 text-xl icon-button';
                 editBtn.onclick = () => openModal('entryModal', { mode: 'edit', wine: item });
 
-                const duplicateBtn = document.createElement('button');
-                duplicateBtn.innerHTML = '⧉';
-                duplicateBtn.title = 'Copy Wine (e.g. for new vintage)';
-                duplicateBtn.className = 'text-cyan-600 hover:text-cyan-900 text-xl';
-                duplicateBtn.onclick = () => openModal('entryModal', { mode: 'duplicate', wine: item });
+                // --- REMOVED: Duplicate button is no longer created here ---
 
                 const deleteBtn = document.createElement('button');
                 deleteBtn.innerHTML = '🗑️';
@@ -1370,7 +1371,7 @@
                 deleteBtn.className = 'text-red-600 hover:text-red-900 text-xl icon-button';
                 deleteBtn.onclick = () => deleteWine(item.vivino_url);
 
-                actionsCell.append(consumeBtn, qtyInput, editBtn, duplicateBtn, deleteBtn);
+                actionsCell.append(consumeBtn, qtyInput, editBtn, deleteBtn);
                 row.append(imageCell, detailsCell, actionsCell);
                 container.appendChild(row);
             });
@@ -1471,12 +1472,14 @@
             }
         });
 
+        // --- MODIFIED: `prepareEntryModal` no longer needs a 'duplicate' mode ---
         function prepareEntryModal(mode = 'add', wine = {}) {
             const form = document.getElementById('entryForm');
             form.reset();
             document.getElementById('entryMessage').classList.add('hidden');
             const title = document.getElementById('entryModalTitle');
             const submitBtn = document.getElementById('entrySubmitBtn');
+            const saveAsNewBtn = document.getElementById('entrySaveAsNewBtn');
             const vintageInput = document.getElementById('manualVintageInput');
             const nvCheckbox = document.getElementById('nvCheckbox');
 
@@ -1487,7 +1490,10 @@
             if (mode === 'edit') {
                 title.textContent = 'Edit Wine';
                 submitBtn.textContent = 'Save Changes';
+                saveAsNewBtn.classList.remove('hidden'); // Show the "Save as New" button
+
                 document.getElementById('entryVivinoUrl').value = wine.vivino_url;
+                document.getElementById('manualImageUrlInput').value = wine.image_url || '';
                 document.getElementById('manualTastingNotesInput').value = wine.tasting_notes || '';
                 document.getElementById('manualNameInput').value = wine.name;
                 if (wine.vintage) {
@@ -1509,28 +1515,17 @@
                 document.getElementById('manualTasteRatingInput').value = rating;
                 updateStarVisuals(document.getElementById('editTasteRatingSelector'), rating, 'rated');
                 updateFeedbackText(document.getElementById('editTasteRatingFeedback'), rating);
-            } else {
-                title.textContent = mode === 'duplicate' ? 'Duplicate Wine' : 'Add Wine Manually';
+            } else { // This now covers 'add' mode
+                title.textContent = 'Add Wine Manually';
                 submitBtn.textContent = 'Add Wine';
+                saveAsNewBtn.classList.add('hidden'); // Hide "Save as New" button
+
                 document.getElementById('entryVivinoUrl').value = '';
+                document.getElementById('manualImageUrlInput').value = '';
                 document.getElementById('manualQuantityInput').value = 1;
+                updateCostTierSelector(null);
                 updateStarVisuals(document.getElementById('editTasteRatingSelector'), 0, 'rated');
                 updateFeedbackText(document.getElementById('editTasteRatingFeedback'), 0);
-
-                if (mode === 'duplicate') {
-                    document.getElementById('manualImageUrlInput').value = wine.image_url || '';
-                    document.getElementById('manualNameInput').value = wine.name;
-                    document.getElementById('manualVarietalInput').value = wine.varietal !== 'Unknown Varietal' ? wine.varietal : '';
-                    document.getElementById('manualRegionInput').value = wine.region !== 'Unknown Region' ? wine.region : '';
-                    document.getElementById('manualCountryInput').value = wine.country !== 'Unknown Country' ? wine.country : '';
-                    document.getElementById('manualWineTypeInput').value = wine.wine_type || '';
-                    document.getElementById('manualAlcoholInput').value = wine.alcohol_percent || '';
-                    updateCostTierSelector(wine.cost_tier);
-                    vintageInput.value = '';
-                    vintageInput.focus();
-                } else {
-                    updateCostTierSelector(null);
-                }
             }
         }
 
@@ -1880,6 +1875,25 @@
             }
         }
 
+        // --- ADDED: Helper function to gather form data to reduce code duplication ---
+        function getEntryFormData() {
+            return {
+                name: document.getElementById('manualNameInput').value,
+                vintage: document.getElementById('nvCheckbox').checked ? null : parseInt(document.getElementById('manualVintageInput').value, 10),
+                quantity: parseInt(document.getElementById('manualQuantityInput').value, 10),
+                varietal: document.getElementById('manualVarietalInput').value,
+                region: document.getElementById('manualRegionInput').value,
+                country: document.getElementById('manualCountryInput').value,
+                wine_type: document.getElementById('manualWineTypeInput').value || null,
+                alcohol_percent: parseFloat(document.getElementById('manualAlcoholInput').value) || null,
+                cost_tier: parseInt(document.getElementById('manualCostTierInput').value, 10) || null,
+                personal_rating: parseFloat(document.getElementById('manualTasteRatingInput').value) || null,
+                tasting_notes: document.getElementById('manualTastingNotesInput').value,
+                image_url: document.getElementById('manualImageUrlInput').value,
+            };
+        }
+
+
         document.addEventListener('DOMContentLoaded', async () => {
             const vivinoSearchForm = document.getElementById('vivinoSearchForm');
             const scanWineForm = document.getElementById('scanWineForm');
@@ -1888,6 +1902,8 @@
             const notesForm = document.getElementById('notesForm');
             const sortSelect = document.getElementById('sortSelect');
             const sortDirectionToggle = document.getElementById('sortDirectionToggle');
+            const saveAsNewBtn = document.getElementById('entrySaveAsNewBtn'); // --- ADDED: New button reference
+
             const savedTheme = localStorage.getItem('theme');
             if (savedTheme === 'dark') document.body.classList.add('dark-theme');
             document.getElementById('themeIcon').textContent = savedTheme === 'dark' ? '🌙' : '☀️';
@@ -2070,24 +2086,26 @@
             entryForm.addEventListener('submit', async function (e) {
                 e.preventDefault();
                 const isEditMode = !!document.getElementById('entryVivinoUrl').value;
-                const payload = {
-                    name: document.getElementById('manualNameInput').value,
-                    vintage: document.getElementById('nvCheckbox').checked ? null : parseInt(document.getElementById('manualVintageInput').value, 10),
-                    quantity: parseInt(document.getElementById('manualQuantityInput').value, 10),
-                    varietal: document.getElementById('manualVarietalInput').value,
-                    region: document.getElementById('manualRegionInput').value,
-                    country: document.getElementById('manualCountryInput').value,
-                    wine_type: document.getElementById('manualWineTypeInput').value || null,
-                    alcohol_percent: parseFloat(document.getElementById('manualAlcoholInput').value) || null,
-                    cost_tier: parseInt(document.getElementById('manualCostTierInput').value, 10) || null,
-                    personal_rating: parseFloat(document.getElementById('manualTasteRatingInput').value) || null,
-                    tasting_notes: document.getElementById('manualTastingNotesInput').value,
-                    image_url: document.getElementById('manualImageUrlInput').value,
-                };
+                const payload = getEntryFormData();
                 if (isEditMode) payload.vivino_url = document.getElementById('entryVivinoUrl').value;
 
                 try {
                     await apiCall(isEditMode ? 'edit-wine' : 'add-manual-wine', { method: 'POST', body: JSON.stringify(payload) }, 'entryMessage', this.querySelector('button[type="submit"]'));
+                    fetchInventory();
+                    setTimeout(closeModal, 1500);
+                } catch (error) { /* Error shown by apiCall */ }
+            });
+
+            // --- ADDED: Event listener for the new "Save as New" button ---
+            saveAsNewBtn.addEventListener('click', async function (e) {
+                e.preventDefault();
+                // Get all data from the form
+                const payload = getEntryFormData();
+                // IMPORTANT: Do NOT include the vivino_url, so the backend treats it as a new wine
+
+                try {
+                    // Always call the 'add-manual-wine' endpoint for this action
+                    await apiCall('add-manual-wine', { method: 'POST', body: JSON.stringify(payload) }, 'entryMessage', this);
                     fetchInventory();
                     setTimeout(closeModal, 1500);
                 } catch (error) { /* Error shown by apiCall */ }
