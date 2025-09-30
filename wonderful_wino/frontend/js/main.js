@@ -66,15 +66,22 @@ async function apiCall(endpoint, options = {}, messageElementId, button) {
 
 /**
  * Fetches HTML content from a URL and injects it into a specified element.
+ * @param {string} url - The URL of the HTML file to load.
+ * @param {HTMLElement} element - The element to inject the HTML into.
+ * @param {boolean} [append=false] - If true, appends the HTML instead of replacing the content.
  */
-async function loadHTML(url, element) {
+async function loadHTML(url, element, append = false) {
     try {
         const response = await fetch(url);
         if (!response.ok) {
             throw new Error(`Failed to load HTML from ${url}: ${response.statusText}`);
         }
         const text = await response.text();
-        element.innerHTML = text;
+        if (append) {
+            element.insertAdjacentHTML('beforeend', text);
+        } else {
+            element.innerHTML = text;
+        }
     } catch (error) {
         console.error(error);
         element.innerHTML = `<p class="text-red-500 text-center">Error loading component.</p>`;
@@ -406,7 +413,10 @@ function closeModal() {
     if (!openModalElement) return;
     const modalToClose = openModalElement;
     openModalElement = null;
-    document.getElementById('manualVintageInput').value = '';
+    const vintageInput = document.getElementById('manualVintageInput');
+    if (vintageInput) {
+        vintageInput.value = '';
+    }
     modalToClose.classList.add('hidden');
 
     if (modalToClose.id === 'helpModal' && window.fromSettings) {
@@ -599,6 +609,7 @@ function openHelpFromSettings() {
 function setupVintageControls() {
     const vintageInput = document.getElementById('manualVintageInput');
     const nvCheckbox = document.getElementById('nvCheckbox');
+    if (!vintageInput || !nvCheckbox) return;
     vintageInput.max = new Date().getFullYear() + 5;
     nvCheckbox.addEventListener('change', () => {
         vintageInput.disabled = nvCheckbox.checked;
@@ -609,6 +620,7 @@ function setupVintageControls() {
 }
 
 function setupStarRating(selectorEl, inputEl, feedbackEl) {
+    if (!selectorEl || !inputEl || !feedbackEl) return;
     selectorEl.addEventListener('mousemove', e => {
         if (!e.target.matches('span')) return;
         const star = e.target;
@@ -638,6 +650,7 @@ function setupStarRating(selectorEl, inputEl, feedbackEl) {
 }
 
 function updateStarVisuals(selectorEl, rating, stateClass) {
+    if (!selectorEl) return;
     selectorEl.querySelectorAll('span').forEach((star, index) => {
         const starValue = index + 1;
         star.className = '';
@@ -662,6 +675,7 @@ function resetTasteStars() {
 function setupCostTierSelector(selectorId, inputId) {
     const selector = document.getElementById(selectorId);
     const input = document.getElementById(inputId);
+    if (!selector || !input) return;
     selector.addEventListener('click', (e) => {
         if (e.target.matches('span')) {
             const value = e.target.dataset.value;
@@ -886,28 +900,7 @@ function checkFormChanges() {
 }
 
 function setupEventListeners() {
-    const vivinoSearchForm = document.getElementById('vivinoSearchForm');
-    const scanWineForm = document.getElementById('scanWineForm');
-    const entryForm = document.getElementById('entryForm');
-    const tasteForm = document.getElementById('tasteForm');
-    const notesForm = document.getElementById('notesForm');
-    const sortSelect = document.getElementById('sortSelect');
-    const sortDirectionToggle = document.getElementById('sortDirectionToggle');
-    const saveAsNewWineBtn = document.getElementById('entrySaveAsNewWineBtn');
-
-    // Setup for dynamically loaded components
-    const addWineSection = document.getElementById('addWineSection');
-    const addWineHeader = document.getElementById('addWineHeader');
-
-    addWineHeader.addEventListener('click', () => {
-        const isExpanded = addWineSection.classList.toggle('is-expanded');
-        localStorage.setItem('addWinePanelState', isExpanded ? 'expanded' : 'collapsed');
-    });
-
-    if (localStorage.getItem('addWinePanelState') === 'expanded') {
-        addWineSection.classList.add('is-expanded');
-    }
-     // Event listeners for static elements
+    // Event listeners for static elements that are always present
     document.getElementById('settingsButton').addEventListener('click', () => openModal('settingsModal'));
     document.getElementById('themeToggle').addEventListener('click', () => {
         document.body.classList.toggle('dark-theme');
@@ -916,228 +909,256 @@ function setupEventListeners() {
         document.getElementById('themeIcon').textContent = isDark ? '🌙' : '☀️';
     });
 
-    // Event listeners for dynamically loaded elements
-    document.getElementById('openEntryModalBtn').addEventListener('click', () => {
-        openModal('entryModal');
-        const manualVintageInput = document.getElementById('manualVintageInput');
-        const currentYear = new Date().getFullYear();
-        manualVintageInput.value = currentYear - 3;
+    // Event listeners for dynamically loaded components
+    // We use event delegation on a static parent element (like 'body' or 'main')
+    document.body.addEventListener('click', (e) => {
+        // Add Wine Section
+        if (e.target.closest('#addWineHeader')) {
+            const addWineSection = document.getElementById('addWineSection');
+            const isExpanded = addWineSection.classList.toggle('is-expanded');
+            localStorage.setItem('addWinePanelState', isExpanded ? 'expanded' : 'collapsed');
+        }
+        if (e.target.id === 'openEntryModalBtn') {
+            openModal('entryModal');
+            const manualVintageInput = document.getElementById('manualVintageInput');
+            const currentYear = new Date().getFullYear();
+            manualVintageInput.value = currentYear - 3;
+        }
+        // Inventory Section
+        if (e.target.closest('#inventory-filters')) {
+            if (e.target.matches('.filter-button')) {
+                currentFilter = e.target.dataset.filter;
+                document.querySelectorAll('#inventory-filters .filter-button').forEach(btn => btn.classList.remove('active'));
+                e.target.classList.add('active');
+                const headingText = `Wine ${currentFilter.replace('_', ' ')}`;
+                document.getElementById('inventory-heading').textContent = headingText.charAt(0).toUpperCase() + headingText.slice(1);
+                fetchInventory();
+            }
+        }
+        if (e.target.closest('#type-filters')) {
+            if (e.target.closest('.type-filter-button')) {
+                const button = e.target.closest('.type-filter-button');
+                currentTypeFilter = button.dataset.typeFilter;
+                document.querySelectorAll('#type-filters .type-filter-button').forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                updateDisplayedInventory();
+            }
+        }
+         if (e.target.id === 'sortDirectionToggle') {
+            currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+            updateSortIcons();
+            updateDisplayedInventory();
+        }
+        if (e.target.id === 'refreshInventoryBtn') {
+            fetchInventory();
+        }
+        // Manual Entry Modal
+        if (e.target.closest('#costTierSelector') || e.target.closest('#editTasteRatingSelector')) {
+             setTimeout(checkFormChanges, 0);
+        }
+        if (e.target.id === 'entrySaveAsNewWineBtn') {
+            const payload = getEntryFormData();
+            apiCall('add-manual-wine', { method: 'POST', body: JSON.stringify(payload) }, 'entryMessage', e.target)
+                .then(() => {
+                    fetchInventory();
+                    setTimeout(closeModal, 1500);
+                })
+                .catch(err => console.error(err));
+        }
+
+        // Notes Modal
+        if (e.target.id === 'toggleImageUrlLock') {
+             const imageUrlInput = document.getElementById('imageUrlInput');
+             const focalPointEditor = document.getElementById('focalPointEditor');
+             const isReadonly = imageUrlInput.hasAttribute('readonly');
+             imageUrlInput.toggleAttribute('readonly', !isReadonly);
+             e.target.textContent = isReadonly ? '🔓' : '🔒';
+             focalPointEditor.classList.toggle('is-unlocked', isReadonly);
+             if (isReadonly) {
+                 imageUrlInput.focus();
+             }
+        }
     });
 
-    // --- ADDED: Event listeners for checking form changes ---
-    entryForm.addEventListener('input', checkFormChanges);
-    document.getElementById('costTierSelector').addEventListener('click', () => setTimeout(checkFormChanges, 0));
-    document.getElementById('editTasteRatingSelector').addEventListener('click', () => setTimeout(checkFormChanges, 0));
-    document.getElementById('nvCheckbox').addEventListener('change', checkFormChanges);
+    document.body.addEventListener('change', (e) => {
+        if (e.target.id === 'sortSelect') {
+            currentSortBy = e.target.value;
+            updateDisplayedInventory();
+        }
+        if (e.target.id === 'nvCheckbox') {
+            checkFormChanges();
+        }
+    });
+     document.body.addEventListener('input', (e) => {
+        if (e.target.closest('#entryForm')) {
+            checkFormChanges();
+        }
+    });
+    
+    document.body.addEventListener('submit', async (e) => {
+        if (e.target.id === 'vivinoSearchForm') {
+            e.preventDefault();
+            const query = document.getElementById('vivinoSearchInput').value;
+            window.open(`${VIVINO_SEARCH_URL}${encodeURIComponent(query)}`, '_blank');
+            const button = e.target.querySelector('button[type="submit"]');
+            const originalText = button.textContent;
+            button.textContent = 'Opening...';
+            setTimeout(() => { button.textContent = originalText; }, 1500);
+            e.target.reset();
+        }
+        if (e.target.id === 'scanWineForm') {
+             e.preventDefault();
+            const vivinoUrlInput = document.getElementById('vivinoUrlInput');
+            let vivinoUrl = vivinoUrlInput.value;
+            const isValidVivinoWineUrl = (url) => url && url.includes('vivino.com') && /\/w\/\d+/.test(url);
+            if (!isValidVivinoWineUrl(vivinoUrl)) {
+                showMessage('scanMessage', "Invalid URL. Please use a specific Vivino wine page (must contain '/w/').", 'error');
+                vivinoUrlInput.value = '';
+                return;
+            }
+            const hasYearParam = /year=\d{4}/.test(vivinoUrl);
+            if (!hasYearParam) {
+                try {
+                    const result = await promptForVintage();
+                    if (result.isNv) {
+                    } else if (result.vintage) {
+                        const url = new URL(vivinoUrl);
+                        url.searchParams.set('year', result.vintage);
+                        vivinoUrl = url.toString();
+                        vivinoUrlInput.value = vivinoUrl;
+                    }
+                } catch (error) {
+                    showMessage('scanMessage', 'Action cancelled.', 'info');
+                    vivinoUrlInput.focus();
+                    return;
+                }
+            }
+            const payload = {
+                vivino_url: vivinoUrl,
+                quantity: parseInt(document.getElementById('quantityInput').value, 10) || 1,
+                cost_tier: parseInt(document.getElementById('mainCostTierInput').value, 10) || null
+            };
+            try {
+                await apiCall('scan-wine', { method: 'POST', body: JSON.stringify(payload) }, 'scanMessage', e.target.querySelector('button[type="submit"]'));
+                e.target.reset();
+                updateMainCostTierSelector(null);
+                fetchInventory();
+            } catch (error) { /* Error shown by apiCall */ }
+        }
+        if (e.target.id === 'entryForm') {
+            e.preventDefault();
+            const isEditMode = !!document.getElementById('entryVivinoUrl').value;
+            const payload = getEntryFormData();
+            if (isEditMode) payload.vivino_url = document.getElementById('entryVivinoUrl').value;
+
+            try {
+                await apiCall(isEditMode ? 'edit-wine' : 'add-manual-wine', { method: 'POST', body: JSON.stringify(payload) }, 'entryMessage', e.target.querySelector('button[type="submit"]'));
+                fetchInventory();
+                setTimeout(closeModal, 1500);
+            } catch (error) { /* Error shown by apiCall */ }
+        }
+        if (e.target.id === 'tasteForm') {
+             e.preventDefault();
+            const payload = {
+                vivino_url: document.getElementById('tasteVivinoUrl').value,
+                personal_rating: parseFloat(document.getElementById('tasteRatingInput').value) || null
+            };
+            try {
+                await apiCall('inventory/wine/consume', { method: 'POST', body: JSON.stringify(payload) }, 'inventoryMessage', e.target.querySelector('button[type="submit"]'));
+                closeModal();
+                fetchInventory();
+            } catch (error) { /* Error shown by apiCall */ }
+        }
+         if (e.target.id === 'notesForm') {
+             e.preventDefault();
+            const payload = {
+                vivino_url: document.getElementById('notesVivinoUrl').value,
+                tasting_notes: document.getElementById('tastingNotesInput').value,
+                image_url: document.getElementById('imageUrlInput').value
+            };
+            try {
+                await apiCall('api/wine/notes', { method: 'POST', body: JSON.stringify(payload) }, 'notesMessage', e.target.querySelector('button[type="submit"]'));
+                fetchInventory();
+                setTimeout(closeModal, 1500);
+            } catch (error) { /* Error shown by apiCall */ }
+        }
+    });
 
     // --- ALL DRAG-AND-DROP LOGIC ---
-    const focalPointEditor = document.getElementById('focalPointEditor');
-    const draggableImage = document.getElementById('draggableImage');
     let isDragging = false;
     let startY = 0;
     let startFocalPercent = 50;
-
     const getPointerY = (e) => e.touches ? e.touches[0].clientY : e.clientY;
-
-    const startDrag = (e) => {
+    
+    document.body.addEventListener('mousedown', (e) => {
+        if (e.target.id !== 'draggableImage') return;
+        const focalPointEditor = document.getElementById('focalPointEditor');
         if (!focalPointEditor.classList.contains('is-unlocked')) return;
         e.preventDefault();
         isDragging = true;
         focalPointEditor.classList.add('is-dragging');
         startY = getPointerY(e);
-        const currentPosition = draggableImage.style.objectPosition || '50% 50%';
+        const currentPosition = e.target.style.objectPosition || '50% 50%';
         startFocalPercent = parseFloat(currentPosition.split(' ')[1]);
-    };
+    });
+     document.body.addEventListener('touchstart', (e) => {
+        if (e.target.id !== 'draggableImage') return;
+        const focalPointEditor = document.getElementById('focalPointEditor');
+        if (!focalPointEditor.classList.contains('is-unlocked')) return;
+        e.preventDefault();
+        isDragging = true;
+        focalPointEditor.classList.add('is-dragging');
+        startY = getPointerY(e);
+        const currentPosition = e.target.style.objectPosition || '50% 50%';
+        startFocalPercent = parseFloat(currentPosition.split(' ')[1]);
+    }, { passive: false });
 
-    const onDrag = (e) => {
+    window.addEventListener('mousemove', (e) => {
         if (!isDragging) return;
         e.preventDefault();
-
+        const focalPointEditor = document.getElementById('focalPointEditor');
+        const draggableImage = document.getElementById('draggableImage');
         const parentHeight = focalPointEditor.clientHeight;
         const renderedImageHeight = (draggableImage.naturalHeight / draggableImage.naturalWidth) * focalPointEditor.clientWidth;
-
         if (renderedImageHeight <= parentHeight || !draggableImage.naturalHeight) return;
-
         const currentY = getPointerY(e);
         const deltaY = currentY - startY;
-
         const travelRange = renderedImageHeight - parentHeight;
         const deltaPercent = (deltaY / travelRange) * 100;
-
         const newFocalPercent = startFocalPercent - deltaPercent;
         const clampedPercent = Math.max(0, Math.min(100, newFocalPercent));
-
         draggableImage.style.objectPosition = `50% ${clampedPercent.toFixed(2)}%`;
-    };
+    });
+    window.addEventListener('touchmove', (e) => {
+         if (!isDragging) return;
+        e.preventDefault();
+        const focalPointEditor = document.getElementById('focalPointEditor');
+        const draggableImage = document.getElementById('draggableImage');
+        const parentHeight = focalPointEditor.clientHeight;
+        const renderedImageHeight = (draggableImage.naturalHeight / draggableImage.naturalWidth) * focalPointEditor.clientWidth;
+        if (renderedImageHeight <= parentHeight || !draggableImage.naturalHeight) return;
+        const currentY = getPointerY(e);
+        const deltaY = currentY - startY;
+        const travelRange = renderedImageHeight - parentHeight;
+        const deltaPercent = (deltaY / travelRange) * 100;
+        const newFocalPercent = startFocalPercent - deltaPercent;
+        const clampedPercent = Math.max(0, Math.min(100, newFocalPercent));
+        draggableImage.style.objectPosition = `50% ${clampedPercent.toFixed(2)}%`;
+    }, { passive: false });
 
     const endDrag = () => {
         if (!isDragging) return;
         isDragging = false;
+        const focalPointEditor = document.getElementById('focalPointEditor');
         focalPointEditor.classList.remove('is-dragging');
-
         const vivinoUrl = document.getElementById('notesVivinoUrl').value;
-        const focalPoint = draggableImage.style.objectPosition.split(' ')[1];
-
+        const focalPoint = document.getElementById('draggableImage').style.objectPosition.split(' ')[1];
         if (vivinoUrl && focalPoint) {
             saveFocalPoint(vivinoUrl, focalPoint);
         }
     };
-
-    focalPointEditor.addEventListener('mousedown', startDrag);
-    focalPointEditor.addEventListener('touchstart', startDrag, { passive: false });
-    window.addEventListener('mousemove', onDrag);
-    window.addEventListener('touchmove', onDrag, { passive: false });
     window.addEventListener('mouseup', endDrag);
     window.addEventListener('touchend', endDrag);
-
-    // --- ALL OTHER EVENT LISTENERS ---
-    sortSelect.addEventListener('change', (e) => {
-        currentSortBy = e.target.value;
-        updateDisplayedInventory();
-    });
-    sortDirectionToggle.addEventListener('click', () => {
-        currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
-        updateSortIcons();
-        updateDisplayedInventory();
-    });
-
-    document.getElementById('inventory-filters').addEventListener('click', (e) => {
-        if (e.target.matches('.filter-button')) {
-            currentFilter = e.target.dataset.filter;
-            document.querySelectorAll('#inventory-filters .filter-button').forEach(btn => btn.classList.remove('active'));
-            e.target.classList.add('active');
-            const headingText = `Wine ${currentFilter.replace('_', ' ')}`;
-            document.getElementById('inventory-heading').textContent = headingText.charAt(0).toUpperCase() + headingText.slice(1);
-            fetchInventory();
-        }
-    });
-
-    document.getElementById('type-filters').addEventListener('click', (e) => {
-        if (e.target.closest('.type-filter-button')) {
-            const button = e.target.closest('.type-filter-button');
-            currentTypeFilter = button.dataset.typeFilter;
-            document.querySelectorAll('#type-filters .type-filter-button').forEach(btn => btn.classList.remove('active'));
-            button.classList.add('active');
-            updateDisplayedInventory();
-        }
-    });
-
-    vivinoSearchForm.addEventListener('submit', function (e) {
-        e.preventDefault();
-        const query = document.getElementById('vivinoSearchInput').value;
-        window.open(`${VIVINO_SEARCH_URL}${encodeURIComponent(query)}`, '_blank');
-        const button = this.querySelector('button[type="submit"]');
-        const originalText = button.textContent;
-        button.textContent = 'Opening...';
-        setTimeout(() => { button.textContent = originalText; }, 1500);
-        this.reset();
-    });
-
-    scanWineForm.addEventListener('submit', async function (e) {
-        e.preventDefault();
-        const vivinoUrlInput = document.getElementById('vivinoUrlInput');
-        let vivinoUrl = vivinoUrlInput.value;
-        const isValidVivinoWineUrl = (url) => url && url.includes('vivino.com') && /\/w\/\d+/.test(url);
-        if (!isValidVivinoWineUrl(vivinoUrl)) {
-            showMessage('scanMessage', "Invalid URL. Please use a specific Vivino wine page (must contain '/w/').", 'error');
-            vivinoUrlInput.value = '';
-            return;
-        }
-        const hasYearParam = /year=\d{4}/.test(vivinoUrl);
-        if (!hasYearParam) {
-            try {
-                const result = await promptForVintage();
-                if (result.isNv) {
-                } else if (result.vintage) {
-                    const url = new URL(vivinoUrl);
-                    url.searchParams.set('year', result.vintage);
-                    vivinoUrl = url.toString();
-                    vivinoUrlInput.value = vivinoUrl;
-                }
-            } catch (error) {
-                showMessage('scanMessage', 'Action cancelled.', 'info');
-                vivinoUrlInput.focus();
-                return;
-            }
-        }
-        const payload = {
-            vivino_url: vivinoUrl,
-            quantity: parseInt(document.getElementById('quantityInput').value, 10) || 1,
-            cost_tier: parseInt(document.getElementById('mainCostTierInput').value, 10) || null
-        };
-        try {
-            await apiCall('scan-wine', { method: 'POST', body: JSON.stringify(payload) }, 'scanMessage', this.querySelector('button[type="submit"]'));
-            this.reset();
-            updateMainCostTierSelector(null);
-            fetchInventory();
-        } catch (error) { /* Error shown by apiCall */ }
-    });
-
-    entryForm.addEventListener('submit', async function (e) {
-        e.preventDefault();
-        const isEditMode = !!document.getElementById('entryVivinoUrl').value;
-        const payload = getEntryFormData();
-        if (isEditMode) payload.vivino_url = document.getElementById('entryVivinoUrl').value;
-
-        try {
-            await apiCall(isEditMode ? 'edit-wine' : 'add-manual-wine', { method: 'POST', body: JSON.stringify(payload) }, 'entryMessage', this.querySelector('button[type="submit"]'));
-            fetchInventory();
-            setTimeout(closeModal, 1500);
-        } catch (error) { /* Error shown by apiCall */ }
-    });
-
-    saveAsNewWineBtn.addEventListener('click', async function (e) {
-        e.preventDefault();
-        const payload = getEntryFormData();
-        try {
-            await apiCall('add-manual-wine', { method: 'POST', body: JSON.stringify(payload) }, 'entryMessage', this);
-            fetchInventory();
-            setTimeout(closeModal, 1500);
-        } catch (error) { /* Error shown by apiCall */ }
-    });
-
-    tasteForm.addEventListener('submit', async function (e) {
-        e.preventDefault();
-        const payload = {
-            vivino_url: document.getElementById('tasteVivinoUrl').value,
-            personal_rating: parseFloat(document.getElementById('tasteRatingInput').value) || null
-        };
-        try {
-            await apiCall('inventory/wine/consume', { method: 'POST', body: JSON.stringify(payload) }, 'inventoryMessage', this.querySelector('button[type="submit"]'));
-            closeModal();
-            fetchInventory();
-        } catch (error) { /* Error shown by apiCall */ }
-    });
-
-    notesForm.addEventListener('submit', async function (e) {
-        e.preventDefault();
-        const payload = {
-            vivino_url: document.getElementById('notesVivinoUrl').value,
-            tasting_notes: document.getElementById('tastingNotesInput').value,
-            image_url: document.getElementById('imageUrlInput').value
-        };
-        try {
-            await apiCall('api/wine/notes', { method: 'POST', body: JSON.stringify(payload) }, 'notesMessage', this.querySelector('button[type="submit"]'));
-            fetchInventory();
-            setTimeout(closeModal, 1500);
-        } catch (error) { /* Error shown by apiCall */ }
-    });
-
-    document.getElementById('toggleImageUrlLock').addEventListener('click', (e) => {
-        const imageUrlInput = document.getElementById('imageUrlInput');
-        const isReadonly = imageUrlInput.hasAttribute('readonly');
-
-        imageUrlInput.toggleAttribute('readonly', !isReadonly);
-        e.target.textContent = isReadonly ? '🔓' : '🔒';
-
-        focalPointEditor.classList.toggle('is-unlocked', isReadonly);
-
-        if (isReadonly) {
-            imageUrlInput.focus();
-        }
-    });
-
-    document.getElementById('refreshInventoryBtn').addEventListener('click', fetchInventory);
 }
 
 
@@ -1145,24 +1166,33 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Load components first
     await Promise.all([
         loadHTML('components/add-wine.html', document.getElementById('addWineSection')),
-        loadHTML('components/inventory.html', document.getElementById('inventorySection'))
+        loadHTML('components/inventory.html', document.getElementById('inventorySection')),
+        loadHTML('components/manual-entry-modal.html', document.getElementById('modalContainer'), true),
     ]);
 
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'dark') document.body.classList.add('dark-theme');
     document.getElementById('themeIcon').textContent = savedTheme === 'dark' ? '🌙' : '☀️';
 
-    // After components are loaded, setup everything that depends on them
+    // After components are loaded, setup functions that depend on them
     updateSortIcons();
+
+    // Setup all event listeners for the whole application
+    setupEventListeners();
+
+    // Since the content is dynamic, we call setup functions inside the listener setup
+    // to ensure elements exist. We can also call them after load.
     setupVintageControls();
     setupCostTierSelector('mainCostTierSelector', 'mainCostTierInput');
     setupCostTierSelector('costTierSelector', 'manualCostTierInput');
     setupStarRating(document.getElementById('tasteRatingSelector'), document.getElementById('tasteRatingInput'), document.getElementById('tasteRatingFeedback'));
     setupStarRating(document.getElementById('editTasteRatingSelector'), document.getElementById('manualTasteRatingInput'), document.getElementById('editTasteRatingFeedback'));
-    
-    // Setup all event listeners for the whole application
-    setupEventListeners();
 
+    // Restore collapsible panel state
+    if (localStorage.getItem('addWinePanelState') === 'expanded') {
+        document.getElementById('addWineSection').classList.add('is-expanded');
+    }
+    
     // Initial data fetch
     await fetchSettings();
     fetchInventory();
