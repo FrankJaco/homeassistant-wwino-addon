@@ -160,7 +160,7 @@ function updateFilterVisibility() {
     if (roseFilter) roseFilter.classList.toggle('hidden', !availableTypes.has('Rosé'));
     const sparklingFilter = document.querySelector('[data-type-filter="Sparkling"]');
     if (sparklingFilter) sparklingFilter.classList.toggle('hidden', !availableTypes.has('Sparkling'));
-    
+
     const hasSpecialty = availableTypes.has('Dessert') || availableTypes.has('Fortified');
     const specialtyFilter = document.querySelector('[data-type-filter="specialty"]');
     if (specialtyFilter) specialtyFilter.classList.toggle('hidden', !hasSpecialty);
@@ -635,7 +635,7 @@ function setupStarRating(selectorId, inputId, feedbackId) {
     const inputEl = document.getElementById(inputId);
     const feedbackEl = document.getElementById(feedbackId);
     if (!selectorEl || !inputEl) return;
-    
+
     selectorEl.addEventListener('mousemove', e => {
         if (!e.target.matches('span')) return;
         const star = e.target;
@@ -683,7 +683,7 @@ function resetTasteStars() {
     const inputEl = document.getElementById('tasteRatingInput');
     const selectorEl = document.getElementById('tasteRatingSelector');
     const feedbackEl = document.getElementById('tasteRatingFeedback');
-    if(inputEl) inputEl.value = '';
+    if (inputEl) inputEl.value = '';
     updateStarVisuals(selectorEl, 0, 'rated');
     updateFeedbackText(feedbackEl, 0);
 }
@@ -736,7 +736,7 @@ function updateTiers() {
     const t2Right = parseFloat(t2RightInput.value) || 0;
     const t3Right = parseFloat(t3RightInput.value) || 0;
     const t4Right = parseFloat(t4RightInput.value) || 0;
-    
+
     document.getElementById('tier2Left').value = t1;
     document.getElementById('tier3Left').value = t2Right;
     document.getElementById('tier4Left').value = t3Right;
@@ -806,11 +806,11 @@ function populateCostTierFieldsFromSettings() {
     const tier1 = document.getElementById('tier1');
     if (tier1) tier1.value = parseValue(appSettings.cost_tier_1_label, /Under \$([\d.]+)/) ?? DEFAULT_COST_TIERS.t1;
     const tier2Right = document.getElementById('tier2Right');
-    if(tier2Right) tier2Right.value = parseValue(appSettings.cost_tier_2_label, / - \$([\d.]+)/) ?? DEFAULT_COST_TIERS.t2r;
+    if (tier2Right) tier2Right.value = parseValue(appSettings.cost_tier_2_label, / - \$([\d.]+)/) ?? DEFAULT_COST_TIERS.t2r;
     const tier3Right = document.getElementById('tier3Right');
-    if(tier3Right) tier3Right.value = parseValue(appSettings.cost_tier_3_label, / - \$([\d.]+)/) ?? DEFAULT_COST_TIERS.t3r;
+    if (tier3Right) tier3Right.value = parseValue(appSettings.cost_tier_3_label, / - \$([\d.]+)/) ?? DEFAULT_COST_TIERS.t3r;
     const tier4Right = document.getElementById('tier4Right');
-    if(tier4Right) tier4Right.value = parseValue(appSettings.cost_tier_4_label, / - \$([\d.]+)/) ?? DEFAULT_COST_TIERS.t4r;
+    if (tier4Right) tier4Right.value = parseValue(appSettings.cost_tier_4_label, / - \$([\d.]+)/) ?? DEFAULT_COST_TIERS.t4r;
     updateTiers();
 }
 
@@ -837,8 +837,8 @@ function updateCostTierTooltips() {
 function updateSortIcons() {
     const ascIcon = document.getElementById('sortAscIcon');
     const descIcon = document.getElementById('sortDescIcon');
-    if(ascIcon) ascIcon.classList.toggle('hidden', currentSortDirection === 'desc');
-    if(descIcon) descIcon.classList.toggle('hidden', currentSortDirection === 'asc');
+    if (ascIcon) ascIcon.classList.toggle('hidden', currentSortDirection === 'desc');
+    if (descIcon) descIcon.classList.toggle('hidden', currentSortDirection === 'asc');
 }
 
 function promptForVintage() {
@@ -979,7 +979,7 @@ function setupEventListeners() {
             fetchInventory();
         }
         if (e.target.closest('.cost-tier-selector') || e.target.closest('.taste-rating-selector')) {
-             setTimeout(checkFormChanges, 0);
+            setTimeout(checkFormChanges, 0);
         }
         if (e.target.id === 'entrySaveAsNewWineBtn') {
             const payload = getEntryFormData();
@@ -988,13 +988,13 @@ function setupEventListeners() {
                 .catch(err => console.error(err));
         }
         if (e.target.id === 'toggleImageUrlLock') {
-             const imageUrlInput = document.getElementById('imageUrlInput');
-             const focalPointEditor = document.getElementById('focalPointEditor');
-             const isReadonly = imageUrlInput.hasAttribute('readonly');
-             imageUrlInput.toggleAttribute('readonly', !isReadonly);
-             e.target.textContent = isReadonly ? '🔓' : '🔒';
-             focalPointEditor.classList.toggle('is-unlocked', isReadonly);
-             if (isReadonly) { imageUrlInput.focus(); }
+            const imageUrlInput = document.getElementById('imageUrlInput');
+            const focalPointEditor = document.getElementById('focalPointEditor');
+            const isReadonly = imageUrlInput.hasAttribute('readonly');
+            imageUrlInput.toggleAttribute('readonly', !isReadonly);
+            e.target.textContent = isReadonly ? '🔓' : '🔒';
+            focalPointEditor.classList.toggle('is-unlocked', isReadonly);
+            if (isReadonly) { imageUrlInput.focus(); }
         }
     });
 
@@ -1008,12 +1008,12 @@ function setupEventListeners() {
         }
     });
 
-     document.body.addEventListener('input', (e) => {
+    document.body.addEventListener('input', (e) => {
         if (e.target.closest('#entryForm')) {
             checkFormChanges();
         }
     });
-    
+
     document.body.addEventListener('submit', async (e) => {
         e.preventDefault();
         switch (e.target.id) {
@@ -1032,9 +1032,19 @@ function setupEventListeners() {
             case 'scanWineForm': {
                 const vivinoUrlInput = document.getElementById('vivinoUrlInput');
                 let vivinoUrl = vivinoUrlInput.value;
-                const isValidVivinoWineUrl = (url) => url && url.includes('vivino.com') && /\/w\/\d+/.test(url);
+                const isValidVivinoWineUrl = (url) => {
+                    if (!url) return false;
+                    try {
+                        const parsedUrl = new URL(url);
+                        const isHostValid = parsedUrl.hostname === 'www.vivino.com' || parsedUrl.hostname === 'vivino.com';
+                        const isPathValid = /\/w\/\d+/.test(parsedUrl.pathname);
+                        return isHostValid && isPathValid;
+                    } catch (e) {
+                        return false;
+                    }
+                };
                 if (!isValidVivinoWineUrl(vivinoUrl)) {
-                    showMessage('scanMessage', "Invalid URL. Please use a specific Vivino wine page (must contain '/w/').", 'error');
+                    showMessage('scanMessage', "Invalid URL. Please use a specific Vivino wine page (e.g., https://www.vivino.com/...).", 'error');
                     vivinoUrlInput.value = '';
                     return;
                 }
@@ -1048,7 +1058,7 @@ function setupEventListeners() {
                             vivinoUrlInput.value = vivinoUrl;
                         }
                     } catch (error) {
-                        if(error !== 'cancelled') console.error(error);
+                        if (error !== 'cancelled') console.error(error);
                         showMessage('scanMessage', 'Action cancelled.', 'info');
                         vivinoUrlInput.focus();
                         return;
@@ -1064,7 +1074,7 @@ function setupEventListeners() {
                     e.target.reset();
                     updateMainCostTierSelector(null);
                     fetchInventory();
-                } catch (error) {}
+                } catch (error) { }
                 break;
             }
             case 'entryForm': {
@@ -1075,7 +1085,7 @@ function setupEventListeners() {
                     await apiCall(isEditMode ? 'edit-wine' : 'add-manual-wine', { method: 'POST', body: JSON.stringify(payload) }, 'entryMessage', e.target.querySelector('button[type="submit"]'));
                     fetchInventory();
                     setTimeout(closeModal, 1500);
-                } catch (error) {}
+                } catch (error) { }
                 break;
             }
             case 'tasteForm': {
@@ -1087,7 +1097,7 @@ function setupEventListeners() {
                     await apiCall('inventory/wine/consume', { method: 'POST', body: JSON.stringify(payload) }, 'inventoryMessage', e.target.querySelector('button[type="submit"]'));
                     closeModal();
                     fetchInventory();
-                } catch (error) {}
+                } catch (error) { }
                 break;
             }
             case 'notesForm': {
@@ -1100,7 +1110,7 @@ function setupEventListeners() {
                     await apiCall('api/wine/notes', { method: 'POST', body: JSON.stringify(payload) }, 'notesMessage', e.target.querySelector('button[type="submit"]'));
                     fetchInventory();
                     setTimeout(closeModal, 1500);
-                } catch (error) {}
+                } catch (error) { }
                 break;
             }
         }
@@ -1110,7 +1120,7 @@ function setupEventListeners() {
     let startY = 0;
     let startFocalPercent = 50;
     const getPointerY = (e) => e.touches ? e.touches[0].clientY : e.clientY;
-    
+
     const startDrag = (e) => {
         if (e.target.id !== 'draggableImage') return;
         const focalPointEditor = document.getElementById('focalPointEditor');
@@ -1129,11 +1139,11 @@ function setupEventListeners() {
         const focalPointEditor = document.getElementById('focalPointEditor');
         const draggableImage = document.getElementById('draggableImage');
         if (!focalPointEditor || !draggableImage) return;
-        
+
         const parentHeight = focalPointEditor.clientHeight;
         const renderedImageHeight = (draggableImage.naturalHeight / draggableImage.naturalWidth) * focalPointEditor.clientWidth;
         if (renderedImageHeight <= parentHeight || !draggableImage.naturalHeight) return;
-        
+
         const currentY = getPointerY(e);
         const deltaY = currentY - startY;
         const travelRange = renderedImageHeight - parentHeight;
@@ -1149,14 +1159,14 @@ function setupEventListeners() {
         const focalPointEditor = document.getElementById('focalPointEditor');
         const vivinoUrl = document.getElementById('notesVivinoUrl');
         const focalPoint = document.getElementById('draggableImage');
-        
+
         if (focalPointEditor) focalPointEditor.classList.remove('is-dragging');
-        
+
         if (vivinoUrl && focalPoint && vivinoUrl.value && focalPoint.style.objectPosition) {
             saveFocalPoint(vivinoUrl.value, focalPoint.style.objectPosition.split(' ')[1]);
         }
     };
-    
+
     document.body.addEventListener('mousedown', startDrag);
     document.body.addEventListener('touchstart', startDrag, { passive: false });
     window.addEventListener('mousemove', onDrag, { passive: false });
@@ -1184,7 +1194,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('themeIcon').textContent = savedTheme === 'dark' ? '🌙' : '☀️';
 
     setupEventListeners();
-    
+
     await fetchSettings();
     fetchInventory();
 
