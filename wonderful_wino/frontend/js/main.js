@@ -64,6 +64,24 @@ async function apiCall(endpoint, options = {}, messageElementId, button) {
     }
 }
 
+/**
+ * Fetches HTML content from a URL and injects it into a specified element.
+ */
+async function loadHTML(url, element) {
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`Failed to load HTML from ${url}: ${response.statusText}`);
+        }
+        const text = await response.text();
+        element.innerHTML = text;
+    } catch (error) {
+        console.error(error);
+        element.innerHTML = `<p class="text-red-500 text-center">Error loading component.</p>`;
+    }
+}
+
+
 function showMessage(elementId, text, type = 'info', isModal = false) {
     const messageEl = document.getElementById(elementId);
     if (!messageEl) return;
@@ -869,6 +887,9 @@ function checkFormChanges() {
 
 
 document.addEventListener('DOMContentLoaded', async () => {
+    // Load components first
+    await loadHTML('components/add-wine.html', document.getElementById('addWineSection'));
+
     const vivinoSearchForm = document.getElementById('vivinoSearchForm');
     const scanWineForm = document.getElementById('scanWineForm');
     const entryForm = document.getElementById('entryForm');
@@ -1137,3 +1158,4 @@ document.addEventListener('DOMContentLoaded', async () => {
     await fetchSettings();
     fetchInventory();
 });
+
