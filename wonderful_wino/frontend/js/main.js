@@ -958,20 +958,38 @@ function setupEventListeners() {
     });
 
     document.body.addEventListener('click', (e) => {
-        // Updated logic: Collapse the panel if the header is clicked, but NOT the manual entry button inside it.
-        if (e.target.closest('#addWineHeader') && !e.target.closest('#openEntryModalBtn')) {
+        // Handle "Add via Vivino" button click
+        if (e.target.id === 'addViaVivinoBtn') {
+            const addWineSection = document.getElementById('addWineSection');
+            const manualBtn = document.getElementById('openEntryModalBtn');
+            if (addWineSection && manualBtn) {
+                addWineSection.classList.add('is-expanded');
+                localStorage.setItem('addWinePanelState', 'expanded');
+                manualBtn.disabled = true;
+            }
+        } 
+        // Handle clicks on the header area/icon to toggle the panel
+        else if (e.target.closest('#addWineHeader') && !e.target.closest('button')) {
             const addWineSection = document.getElementById('addWineSection');
             if (addWineSection) {
                 const isExpanded = addWineSection.classList.toggle('is-expanded');
                 localStorage.setItem('addWinePanelState', isExpanded ? 'expanded' : 'collapsed');
+
+                // If the panel is now collapsed, ensure the manual button is enabled.
+                if (!isExpanded) {
+                    const manualBtn = document.getElementById('openEntryModalBtn');
+                    if (manualBtn) manualBtn.disabled = false;
+                }
             }
-        }
-        if (e.target.closest('#openEntryModalBtn')) {
+        } 
+        // Handle "Add Manually" button click
+        else if (e.target.id === 'openEntryModalBtn') {
             openModal('entryModal');
             const manualVintageInput = document.getElementById('manualVintageInput');
             const currentYear = new Date().getFullYear();
             if (manualVintageInput) manualVintageInput.value = currentYear - 3;
         }
+
         if (e.target.closest('#inventory-filters') && e.target.matches('.filter-button')) {
             currentFilter = e.target.dataset.filter;
             document.querySelectorAll('#inventory-filters .filter-button').forEach(btn => btn.classList.remove('active'));
@@ -1244,3 +1262,4 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 });
+
