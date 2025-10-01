@@ -52,21 +52,34 @@ def init_db():
                 wine_id INTEGER NOT NULL,
                 consumed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 personal_rating REAL,
+                log_type TEXT DEFAULT 'consumed' NOT NULL,
+                cost_tier INTEGER,
                 FOREIGN KEY (wine_id) REFERENCES wines (id) ON DELETE CASCADE
             )
         ''')
-        # Check if new columns exist and add them if they don't
+        
+        # Check if new columns exist in wines table and add them if they don't
         cursor.execute("PRAGMA table_info(wines)")
-        columns = [column['name'] for column in cursor.fetchall()]
-        if 'alcohol_percent' not in columns:
+        wines_columns = [column['name'] for column in cursor.fetchall()]
+        if 'alcohol_percent' not in wines_columns:
             cursor.execute("ALTER TABLE wines ADD COLUMN alcohol_percent REAL")
             logger.info("Added 'alcohol_percent' column to wines table.")
-        if 'wine_type' not in columns:
+        if 'wine_type' not in wines_columns:
             cursor.execute("ALTER TABLE wines ADD COLUMN wine_type TEXT")
             logger.info("Added 'wine_type' column to wines table.")
-        if 'image_focal_point' not in columns:
+        if 'image_focal_point' not in wines_columns:
             cursor.execute("ALTER TABLE wines ADD COLUMN image_focal_point TEXT DEFAULT '50%'")
             logger.info("Added 'image_focal_point' column to wines table.")
+
+        # Check if new columns exist in consumption_history table and add them if they don't
+        cursor.execute("PRAGMA table_info(consumption_history)")
+        ch_columns = [column['name'] for column in cursor.fetchall()]
+        if 'log_type' not in ch_columns:
+            cursor.execute("ALTER TABLE consumption_history ADD COLUMN log_type TEXT DEFAULT 'consumed' NOT NULL")
+            logger.info("Added 'log_type' column to consumption_history table.")
+        if 'cost_tier' not in ch_columns:
+            cursor.execute("ALTER TABLE consumption_history ADD COLUMN cost_tier INTEGER")
+            logger.info("Added 'cost_tier' column to consumption_history table.")
 
         conn.commit()
         logger.info(f"Database initialized at {DB_PATH}")
@@ -126,7 +139,7 @@ def add_consumption_record(wine_id, personal_rating):
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO consumption_history (wine_id, personal_rating) VALUES (?, ?)",
+            "INSERT INTO consumption_history (wine_id, personal_rating, log_type) VALUES (?, ?, 'consumed')",
             (wine_id, personal_rating)
         )
         conn.commit()
@@ -205,7 +218,12 @@ def add_or_update_wine(wine_data: dict, quantity: int, cost_tier: int):
                 wine_data.get('image_url'), quantity, cost_tier, None, None,
                 wine_data.get('alcohol_percent'), wine_data.get('wine_type'), needs_review_flag
             ))
-            logger.info(f"New wine '{wine_data.get('name')}' inserted with quantity {quantity}.")
+            new_wine_id = cursor.lastrowid
+            cursor.execute('''
+                INSERT INTO consumption_history (wine_id, log_type, cost_tier)
+                VALUES (?, 'acquired', ?)
+            ''', (new_wine_id, cost_tier))
+            logger.info(f"New wine '{wine_data.get('name')}' inserted with quantity {quantity} and logged 'acquired' event.")
 
         conn.commit()
         return True
