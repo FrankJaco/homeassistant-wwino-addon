@@ -33,6 +33,9 @@ let initialCostTierValues = {};
 let openModalElement = null;
 let lastFocusedElement = null;
 let initialEntryFormData = {};
+let consumptionLogSortOrder = 'desc'; // 'desc' for newest first, 'asc' for oldest first
+let currentWineForLog = null; // Store the wine object whose log is being viewed
+
 
 /**
  * A reusable wrapper for fetch API calls that handles errors,
@@ -535,9 +538,10 @@ function prepareTasteModal(wine) {
     resetTasteStars();
 }
 
-async function fetchAndDisplayConsumptionHistory(wine) {
+async function fetchAndDisplayConsumptionHistory(wine, sortOrder = 'desc') {
     const container = document.getElementById('consumptionLogContainer');
     if (!container) return;
+    currentWineForLog = wine; // Store the wine for re-sorting
     container.innerHTML = '<p>Loading history...</p>';
     try {
         const response = await fetch(`${BASE_URL}api/wine/history?vivino_url=${encodeURIComponent(wine.vivino_url)}`);
@@ -545,7 +549,11 @@ async function fetchAndDisplayConsumptionHistory(wine) {
             const errorData = await response.json();
             throw new Error(errorData.error || 'Could not fetch history.');
         }
-        const history = await response.json();
+        let history = await response.json();
+
+        if (sortOrder === 'asc') {
+            history.reverse();
+        }
 
         if (history.length === 0) {
             container.innerHTML = '<p>No history recorded for this wine.</p>';
@@ -570,7 +578,7 @@ async function fetchAndDisplayConsumptionHistory(wine) {
                     <span class="text-gray-500">${rating}</span>
                 `;
             }
-            return `<div class="flex justify-between items-center py-1 border-b border-gray-200">${logEntryHtml}</div>`;
+            return `<div class="flex justify-between items-center py-1 border-b border-gray-200 dark:border-gray-600">${logEntryHtml}</div>`;
         }).join('');
 
 
@@ -604,7 +612,7 @@ function prepareNotesModal(wine) {
     toggleBtn.textContent = '🔒';
     focalPointEditor.classList.remove('is-unlocked');
 
-    fetchAndDisplayConsumptionHistory(wine);
+    fetchAndDisplayConsumptionHistory(wine, consumptionLogSortOrder);
 }
 
 function prepareSettingsModal() {
@@ -1006,6 +1014,12 @@ function setupEventListeners() {
              e.target.textContent = isReadonly ? '🔓' : '🔒';
              focalPointEditor.classList.toggle('is-unlocked', isReadonly);
              if (isReadonly) { imageUrlInput.focus(); }
+        }
+        if (e.target.id === 'logSortToggleBtn') {
+            consumptionLogSortOrder = consumptionLogSortOrder === 'desc' ? 'asc' : 'desc';
+            if (currentWineForLog) {
+                fetchAndDisplayConsumptionHistory(currentWineForLog, consumptionLogSortOrder);
+            }
         }
     });
 
