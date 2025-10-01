@@ -948,6 +948,23 @@ function checkFormChanges() {
     saveAsNewWineBtn.title = hasChanged ? 'Save the current details as a new wine entry' : 'Change a field to enable saving as a new wine';
 }
 
+function updateVivinoUrlButtonState() {
+    const vivinoUrlInput = document.getElementById('vivinoUrlInput');
+    const submitBtn = document.querySelector('#scanWineForm button[type="submit"]');
+
+    if (!vivinoUrlInput || !submitBtn) return;
+
+    if (vivinoUrlInput.value.trim() === '') {
+        submitBtn.textContent = 'Cancel';
+        submitBtn.classList.remove('bg-purple-600', 'hover:bg-purple-700', 'text-white');
+        submitBtn.classList.add('bg-gray-200', 'hover:bg-gray-300', 'text-gray-600');
+    } else {
+        submitBtn.textContent = 'Add from URL';
+        submitBtn.classList.remove('bg-gray-200', 'hover:bg-gray-300', 'text-gray-600');
+        submitBtn.classList.add('bg-purple-600', 'hover:bg-purple-700', 'text-white');
+    }
+}
+
 function setupEventListeners() {
     document.getElementById('settingsButton').addEventListener('click', () => openModal('settingsModal'));
     document.getElementById('themeToggle').addEventListener('click', () => {
@@ -966,6 +983,7 @@ function setupEventListeners() {
                 addWineSection.classList.add('is-expanded');
                 localStorage.setItem('addWinePanelState', 'expanded');
                 manualBtn.disabled = true;
+                updateVivinoUrlButtonState();
             }
         } 
         // Handle clicks on the header area/icon to toggle the panel
@@ -1053,6 +1071,9 @@ function setupEventListeners() {
     });
 
      document.body.addEventListener('input', (e) => {
+        if (e.target.id === 'vivinoUrlInput') {
+            updateVivinoUrlButtonState();
+        }
         if (e.target.closest('#entryForm')) {
             checkFormChanges();
         }
@@ -1074,6 +1095,21 @@ function setupEventListeners() {
                 break;
             }
             case 'scanWineForm': {
+                const submitBtn = e.target.querySelector('button[type="submit"]');
+                if (submitBtn.textContent === 'Cancel') {
+                    const addWineSection = document.getElementById('addWineSection');
+                    const manualBtn = document.getElementById('openEntryModalBtn');
+
+                    if (addWineSection) {
+                        addWineSection.classList.remove('is-expanded');
+                        localStorage.setItem('addWinePanelState', 'collapsed');
+                    }
+                    if (manualBtn) {
+                        manualBtn.disabled = false;
+                    }
+                    break;
+                }
+
                 const vivinoUrlInput = document.getElementById('vivinoUrlInput');
                 let vivinoUrl = vivinoUrlInput.value;
                 const isValidVivinoWineUrl = (url) => {
@@ -1244,7 +1280,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (localStorage.getItem('addWinePanelState') === 'expanded') {
         const addWineSection = document.getElementById('addWineSection');
-        if (addWineSection) addWineSection.classList.add('is-expanded');
+        if (addWineSection) {
+            addWineSection.classList.add('is-expanded');
+            const manualBtn = document.getElementById('openEntryModalBtn');
+            if(manualBtn) manualBtn.disabled = true;
+            updateVivinoUrlButtonState();
+        }
     }
 
     updateSortIcons();
