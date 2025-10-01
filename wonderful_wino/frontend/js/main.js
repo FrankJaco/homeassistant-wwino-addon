@@ -972,11 +972,21 @@ function checkFormChanges() {
     saveAsNewWineBtn.title = hasChanged ? 'Save the current details as a new wine entry' : 'Change a field to enable saving as a new wine';
 }
 
+function updateCollapseIcon() {
+    const addWineSection = document.getElementById('addWineSection');
+    const collapseIcon = document.getElementById('collapseIcon');
+    if (addWineSection && collapseIcon) {
+        const isExpanded = addWineSection.classList.contains('is-expanded');
+        collapseIcon.style.transform = isExpanded ? 'rotate(90deg)' : 'rotate(0deg)';
+    }
+}
+
 function collapseAddWinePanel() {
     const addWineSection = document.getElementById('addWineSection');
     if (addWineSection && addWineSection.classList.contains('is-expanded')) {
         addWineSection.classList.remove('is-expanded');
         localStorage.setItem('addWinePanelState', 'collapsed');
+        updateCollapseIcon();
     }
     clearTimeout(panelCollapseTimer);
     panelCollapseTimer = null;
@@ -1009,20 +1019,42 @@ function setupEventListeners() {
     });
 
     document.body.addEventListener('click', (e) => {
-        // Handle "Add via Vivino URL" click
-        if (e.target.id === 'addViaVivinoBtn') {
+        // Handle header click to toggle panel
+        if (e.target.closest('#addWineHeader')) {
+            // Prevent buttons inside the header from also triggering this
+            if (e.target.matches('button, .help-icon')) {
+                return;
+            }
             const addWineSection = document.getElementById('addWineSection');
             if (addWineSection) {
-                if (addWineSection.classList.contains('is-expanded')) {
-                    // If already open, just reset the form
+                const isNowExpanded = addWineSection.classList.toggle('is-expanded');
+                localStorage.setItem('addWinePanelState', isNowExpanded ? 'expanded' : 'collapsed');
+                updateCollapseIcon();
+
+                if (isNowExpanded) {
                     resetVivinoPanel();
-                    startPanelCollapseTimer(); // Reset the timer
+                    startPanelCollapseTimer();
                 } else {
+                    clearTimeout(panelCollapseTimer);
+                    panelCollapseTimer = null;
+                }
+            }
+        }
+        // Handle "Add via Vivino URL" click
+        else if (e.target.id === 'addViaVivinoBtn') {
+            const addWineSection = document.getElementById('addWineSection');
+            if (addWineSection) {
+                if (!addWineSection.classList.contains('is-expanded')) {
                     // If closed, expand and reset
                     addWineSection.classList.add('is-expanded');
                     localStorage.setItem('addWinePanelState', 'expanded');
                     resetVivinoPanel();
                     startPanelCollapseTimer();
+                    updateCollapseIcon();
+                } else {
+                    // If already open, just reset
+                    resetVivinoPanel();
+                    startPanelCollapseTimer(); // Also reset timer on this interaction
                 }
             }
         }
@@ -1319,6 +1351,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Ensure panel is always closed on startup by removing local storage check
     localStorage.removeItem('addWinePanelState');
+    updateCollapseIcon();
 
     updateSortIcons();
     setupVintageControls();
