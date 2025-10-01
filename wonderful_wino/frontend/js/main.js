@@ -1019,12 +1019,65 @@ function setupEventListeners() {
     });
 
     document.body.addEventListener('click', (e) => {
-        // Handle header click to toggle panel
-        if (e.target.closest('#addWineHeader')) {
-            // Prevent buttons inside the header from also triggering this
-            if (e.target.matches('button, .help-icon')) {
+        const addWineHeader = e.target.closest('#addWineHeader');
+
+        if (addWineHeader) {
+            // Specific button/icon clicks inside the header
+            if (e.target.id === 'addViaVivinoBtn') {
+                const addWineSection = document.getElementById('addWineSection');
+                if (addWineSection) {
+                    if (!addWineSection.classList.contains('is-expanded')) {
+                        addWineSection.classList.add('is-expanded');
+                        localStorage.setItem('addWinePanelState', 'expanded');
+                        resetVivinoPanel();
+                        startPanelCollapseTimer();
+                        updateCollapseIcon();
+                    } else {
+                        resetVivinoPanel();
+                        startPanelCollapseTimer();
+                    }
+                }
                 return;
             }
+             if (e.target.id === 'openEntryModalBtn') {
+                const openTheModal = () => {
+                    openModal('entryModal');
+                    const manualVintageInput = document.getElementById('manualVintageInput');
+                    const currentYear = new Date().getFullYear();
+                    if (manualVintageInput) manualVintageInput.value = currentYear - 3;
+                };
+    
+                const addWineSection = document.getElementById('addWineSection');
+                if (addWineSection && addWineSection.classList.contains('is-expanded')) {
+                    collapseAddWinePanel();
+                    setTimeout(openTheModal, 500); // Wait for animation
+                } else {
+                    openTheModal();
+                }
+                return;
+            }
+            if (e.target.id === 'otherToolsBtn') {
+                const openTheModal = () => openModal('otherToolsModal');
+                
+                const addWineSection = document.getElementById('addWineSection');
+                if (addWineSection && addWineSection.classList.contains('is-expanded')) {
+                    collapseAddWinePanel();
+                    setTimeout(openTheModal, 500); // Wait for animation
+                } else {
+                    openTheModal();
+                }
+                return;
+            }
+             if (e.target.id === 'manualHelpIcon') {
+                openModal('helpModal', { topic: 'manual' });
+                return;
+            }
+             if (e.target.id === 'vivinoHelpIcon') {
+                openModal('helpModal', { topic: 'vivino' });
+                return;
+            }
+
+            // General click on header (not on a button/icon) to toggle
             const addWineSection = document.getElementById('addWineSection');
             if (addWineSection) {
                 const isNowExpanded = addWineSection.classList.toggle('is-expanded');
@@ -1040,62 +1093,7 @@ function setupEventListeners() {
                 }
             }
         }
-        // Handle "Add via Vivino URL" click
-        else if (e.target.id === 'addViaVivinoBtn') {
-            const addWineSection = document.getElementById('addWineSection');
-            if (addWineSection) {
-                if (!addWineSection.classList.contains('is-expanded')) {
-                    // If closed, expand and reset
-                    addWineSection.classList.add('is-expanded');
-                    localStorage.setItem('addWinePanelState', 'expanded');
-                    resetVivinoPanel();
-                    startPanelCollapseTimer();
-                    updateCollapseIcon();
-                } else {
-                    // If already open, just reset
-                    resetVivinoPanel();
-                    startPanelCollapseTimer(); // Also reset timer on this interaction
-                }
-            }
-        }
-        // Handle "Add Manually" button click
-        else if (e.target.id === 'openEntryModalBtn') {
-            const openTheModal = () => {
-                openModal('entryModal');
-                const manualVintageInput = document.getElementById('manualVintageInput');
-                const currentYear = new Date().getFullYear();
-                if (manualVintageInput) manualVintageInput.value = currentYear - 3;
-            };
-
-            const addWineSection = document.getElementById('addWineSection');
-            if (addWineSection && addWineSection.classList.contains('is-expanded')) {
-                collapseAddWinePanel();
-                setTimeout(openTheModal, 500); // Wait for animation
-            } else {
-                openTheModal();
-            }
-        }
-        // Handle "Other Tools" button click
-        else if (e.target.id === 'otherToolsBtn') {
-            const openTheModal = () => openModal('otherToolsModal');
-            
-            const addWineSection = document.getElementById('addWineSection');
-            if (addWineSection && addWineSection.classList.contains('is-expanded')) {
-                collapseAddWinePanel();
-                setTimeout(openTheModal, 500); // Wait for animation
-            } else {
-                openTheModal();
-            }
-        }
-        // Handle help icon clicks
-        else if (e.target.id === 'manualHelpIcon') {
-            openModal('helpModal', { topic: 'manual' });
-        }
-        else if (e.target.id === 'vivinoHelpIcon') {
-            openModal('helpModal', { topic: 'vivino' });
-        }
-
-
+        
         if (e.target.closest('#inventory-filters') && e.target.matches('.filter-button')) {
             currentFilter = e.target.dataset.filter;
             document.querySelectorAll('#inventory-filters .filter-button').forEach(btn => btn.classList.remove('active'));
@@ -1373,5 +1371,4 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 });
-" in the document.
 
