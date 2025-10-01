@@ -35,6 +35,7 @@ let lastFocusedElement = null;
 let initialEntryFormData = {};
 let consumptionLogSortOrder = 'desc'; // 'desc' for newest first, 'asc' for oldest first
 let currentWineForLog = null; // Store the wine object whose log is being viewed
+let panelCollapseTimer = null; // To hold the inactivity timer
 
 
 /**
@@ -971,6 +972,22 @@ function checkFormChanges() {
     saveAsNewWineBtn.title = hasChanged ? 'Save the current details as a new wine entry' : 'Change a field to enable saving as a new wine';
 }
 
+function collapseAddWinePanel() {
+    const addWineSection = document.getElementById('addWineSection');
+    if (addWineSection && addWineSection.classList.contains('is-expanded')) {
+        addWineSection.classList.remove('is-expanded');
+        localStorage.setItem('addWinePanelState', 'collapsed');
+        updateVivinoButtonState();
+    }
+    clearTimeout(panelCollapseTimer);
+    panelCollapseTimer = null;
+}
+
+function startPanelCollapseTimer() {
+    clearTimeout(panelCollapseTimer);
+    panelCollapseTimer = setTimeout(collapseAddWinePanel, 180000); // 180 seconds
+}
+
 function updateVivinoButtonState() {
     const addWineSection = document.getElementById('addWineSection');
     const vivinoBtn = document.getElementById('addViaVivinoBtn');
@@ -1030,22 +1047,19 @@ function setupEventListeners() {
 
                 if (isNowExpanded) {
                     updateVivinoUrlButtonState();
+                    startPanelCollapseTimer(); // Start the timer on expand
+                } else {
+                    clearTimeout(panelCollapseTimer); // Clear timer on manual collapse
+                    panelCollapseTimer = null;
                 }
             }
         }
         // Handle Cancel button click in the Vivino URL form
         else if (e.target.matches('#scanWineForm button') && e.target.textContent === 'Cancel') {
-            const addWineSection = document.getElementById('addWineSection');
-
-            if (addWineSection) {
-                addWineSection.classList.remove('is-expanded');
-                localStorage.setItem('addWinePanelState', 'collapsed');
-            }
-            updateVivinoButtonState();
+            collapseAddWinePanel();
         }
         // Handle "Add Manually" button click
         else if (e.target.id === 'openEntryModalBtn') {
-            const addWineSection = document.getElementById('addWineSection');
             const openTheModal = () => {
                 openModal('entryModal');
                 const manualVintageInput = document.getElementById('manualVintageInput');
@@ -1053,12 +1067,22 @@ function setupEventListeners() {
                 if (manualVintageInput) manualVintageInput.value = currentYear - 3;
             };
 
+            const addWineSection = document.getElementById('addWineSection');
             if (addWineSection && addWineSection.classList.contains('is-expanded')) {
-                addWineSection.classList.remove('is-expanded');
-                localStorage.setItem('addWinePanelState', 'collapsed');
-                updateVivinoButtonState();
-                // Match the 500ms transition duration in the CSS
-                setTimeout(openTheModal, 500);
+                collapseAddWinePanel();
+                setTimeout(openTheModal, 500); // Wait for animation
+            } else {
+                openTheModal();
+            }
+        }
+        // Handle "Other Tools" button click
+        else if (e.target.id === 'otherToolsBtn') {
+            const openTheModal = () => openModal('otherToolsModal');
+            
+            const addWineSection = document.getElementById('addWineSection');
+            if (addWineSection && addWineSection.classList.contains('is-expanded')) {
+                collapseAddWinePanel();
+                setTimeout(openTheModal, 500); // Wait for animation
             } else {
                 openTheModal();
             }
@@ -1069,9 +1093,6 @@ function setupEventListeners() {
         }
         else if (e.target.id === 'vivinoHelpIcon') {
             openModal('helpModal', { topic: 'vivino' });
-        }
-        else if (e.target.id === 'otherToolsBtn') {
-            openModal('otherToolsModal');
         }
 
 
@@ -1162,9 +1183,6 @@ function setupEventListeners() {
                 break;
             }
             case 'scanWineForm': {
-                // The cancel logic is now handled by a 'click' event listener,
-                // so we only need to handle the submission logic here.
-
                 const vivinoUrlInput = document.getElementById('vivinoUrlInput');
                 let vivinoUrl = vivinoUrlInput.value;
                 const isValidVivinoWineUrl = (url) => {
@@ -1209,6 +1227,7 @@ function setupEventListeners() {
                     e.target.reset();
                     updateMainCostTierSelector(null);
                     fetchInventory();
+                    startPanelCollapseTimer(); // Reset timer after successful add
                 } catch (error) {}
                 break;
             }
@@ -1334,13 +1353,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     await fetchSettings();
     fetchInventory();
 
-    if (localStorage.getItem('addWinePanelState') === 'expanded') {
-        const addWineSection = document.getElementById('addWineSection');
-        if (addWineSection) {
-            addWineSection.classList.add('is-expanded');
-            updateVivinoUrlButtonState();
-        }
-    }
+    // Ensure panel is always closed on startup by removing local storage check
+    localStorage.removeItem('addWinePanelState');
 
     updateVivinoButtonState();
     updateSortIcons();
@@ -1350,6 +1364,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupStarRating('tasteRatingSelector', 'tasteRatingInput', 'tasteRatingFeedback');
     setupStarRating('editTasteRatingSelector', 'manualTasteRatingInput', 'editTasteRatingFeedback');
 
+    const addWineContent = document.getElementById('addWineContent');
+    if (addWineContent) {
+        addWineContent.addEventListener('input', startPanelCollapseTimer);
+        addWineContent.addEventListener('click', startPanelCollapseTimer);
+    }
 
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
