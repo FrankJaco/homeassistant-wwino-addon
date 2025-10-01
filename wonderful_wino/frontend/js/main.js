@@ -10,7 +10,7 @@ if (typeof window !== 'undefined' && typeof window.__ingress_url !== 'undefined'
     if (BASE_URL !== '' && !BASE_URL.endsWith('/')) { BASE_URL += '/'; }
 }
 
-const VIVINO_SEARCH_URL = '[https://www.vivino.com/search/wines?q=](https://www.vivino.com/search/wines?q=)';
+const VIVINO_SEARCH_URL = 'https://www.vivino.com/search/wines?q=';
 const DEFAULT_COST_TIERS = { t1: 10, t2r: 20, t3r: 35, t4r: 50 };
 
 // Emoji map for consistency with backend
@@ -1118,7 +1118,7 @@ function setupEventListeners() {
                     if (!url) return false;
                     try {
                         const parsedUrl = new URL(url);
-                        const isHostValid = parsedUrl.hostname === '[www.vivino.com](https://www.vivino.com)' || parsedUrl.hostname === 'vivino.com';
+                        const isHostValid = parsedUrl.hostname === 'www.vivino.com' || parsedUrl.hostname === 'vivino.com';
                         const isPathValid = /\/w\/\d+/.test(parsedUrl.pathname);
                         return isHostValid && isPathValid;
                     } catch (e) {
@@ -1126,7 +1126,7 @@ function setupEventListeners() {
                     }
                 };
                 if (!isValidVivinoWineUrl(vivinoUrl)) {
-                    showMessage('scanMessage', "Invalid URL. Please use a specific Vivino wine page (e.g., [https://www.vivino.com/](https://www.vivino.com/)...).", 'error');
+                    showMessage('scanMessage', "Invalid URL. Please use a specific Vivino wine page (e.g., https://www.vivino.com/...).", 'error');
                     vivinoUrlInput.value = '';
                     return;
                 }
