@@ -405,7 +405,8 @@ function openModal(modalId, options = {}) {
         case 'tasteModal': prepareTasteModal(options.wine); break;
         case 'notesModal': prepareNotesModal(options.wine); break;
         case 'settingsModal': prepareSettingsModal(); break;
-        case 'helpModal': prepareHelpModal(options.fromSettings); break;
+        case 'helpModal': prepareHelpModal(options); break;
+        case 'otherToolsModal': /* No prep needed */ break;
     }
 
     modalEl.classList.remove('hidden');
@@ -627,13 +628,35 @@ function prepareSettingsModal() {
     document.getElementById('settingsMessage').classList.add('hidden');
 }
 
-function prepareHelpModal(fromSettings = false) {
-    window.fromSettings = fromSettings;
+function prepareHelpModal(options = {}) {
+    const titleEl = document.getElementById('helpModalTitle');
+    const maintenanceContent = document.getElementById('maintenance-help-content');
+    const manualContent = document.getElementById('manual-help-content');
+    const vivinoContent = document.getElementById('vivino-help-content');
+
+    // Hide all content sections first
+    maintenanceContent.classList.add('hidden');
+    manualContent.classList.add('hidden');
+    vivinoContent.classList.add('hidden');
+
+    // Show the correct section and set title
+    if (options.topic === 'manual') {
+        titleEl.textContent = 'Manual Entry Help';
+        manualContent.classList.remove('hidden');
+    } else if (options.topic === 'vivino') {
+        titleEl.textContent = 'Vivino URL Help';
+        vivinoContent.classList.remove('hidden');
+    } else {
+        // Default to maintenance help
+        titleEl.textContent = 'Maintenance Help';
+        maintenanceContent.classList.remove('hidden');
+    }
 }
+
 
 function openHelpFromSettings() {
     closeModal();
-    openModal('helpModal', { fromSettings: true });
+    openModal('helpModal'); // Opens default maintenance help
 }
 
 function setupVintageControls() {
@@ -1035,11 +1058,22 @@ function setupEventListeners() {
                 localStorage.setItem('addWinePanelState', 'collapsed');
                 updateVivinoButtonState();
                 // Match the 500ms transition duration in the CSS
-                setTimeout(openTheModal, 500); 
+                setTimeout(openTheModal, 500);
             } else {
                 openTheModal();
             }
         }
+        // Handle help icon clicks
+        else if (e.target.id === 'manualHelpIcon') {
+            openModal('helpModal', { topic: 'manual' });
+        }
+        else if (e.target.id === 'vivinoHelpIcon') {
+            openModal('helpModal', { topic: 'vivino' });
+        }
+        else if (e.target.id === 'otherToolsBtn') {
+            openModal('otherToolsModal');
+        }
+
 
         if (e.target.closest('#inventory-filters') && e.target.matches('.filter-button')) {
             currentFilter = e.target.dataset.filter;
@@ -1286,6 +1320,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         loadHTML('components/notes-modal.html', document.getElementById('modalContainer'), true),
         loadHTML('components/settings-modal.html', document.getElementById('modalContainer'), true),
         loadHTML('components/help-modal.html', document.getElementById('modalContainer'), true),
+        loadHTML('components/other-tools-modal.html', document.getElementById('modalContainer'), true),
         loadHTML('components/taste-modal.html', document.getElementById('modalContainer'), true),
         loadHTML('components/nv-prompt-modal.html', document.getElementById('modalContainer'), true)
     ]);
@@ -1303,8 +1338,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const addWineSection = document.getElementById('addWineSection');
         if (addWineSection) {
             addWineSection.classList.add('is-expanded');
-            const manualBtn = document.getElementById('openEntryModalBtn');
-            if(manualBtn) manualBtn.disabled = true;
             updateVivinoUrlButtonState();
         }
     }
