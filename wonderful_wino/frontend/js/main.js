@@ -959,16 +959,18 @@ function updateVivinoButtonState() {
 
 function updateVivinoUrlButtonState() {
     const vivinoUrlInput = document.getElementById('vivinoUrlInput');
-    const submitBtn = document.querySelector('#scanWineForm button[type="submit"]');
+    const submitBtn = document.querySelector('#scanWineForm button');
 
     if (!vivinoUrlInput || !submitBtn) return;
 
     if (vivinoUrlInput.value.trim() === '') {
         submitBtn.textContent = 'Cancel';
+        submitBtn.type = 'button';
         submitBtn.classList.remove('bg-purple-600', 'hover:bg-purple-700', 'text-white');
         submitBtn.classList.add('bg-gray-200', 'hover:bg-gray-300', 'text-gray-600');
     } else {
         submitBtn.textContent = 'Add from URL';
+        submitBtn.type = 'submit';
         submitBtn.classList.remove('bg-gray-200', 'hover:bg-gray-300', 'text-gray-600');
         submitBtn.classList.add('bg-purple-600', 'hover:bg-purple-700', 'text-white');
     }
@@ -1000,6 +1002,20 @@ function setupEventListeners() {
                     updateVivinoUrlButtonState();
                 }
             }
+        }
+        // Handle Cancel button click in the Vivino URL form
+        else if (e.target.matches('#scanWineForm button') && e.target.textContent === 'Cancel') {
+            const addWineSection = document.getElementById('addWineSection');
+            const manualBtn = document.getElementById('openEntryModalBtn');
+
+            if (addWineSection) {
+                addWineSection.classList.remove('is-expanded');
+                localStorage.setItem('addWinePanelState', 'collapsed');
+            }
+            if (manualBtn) {
+                manualBtn.disabled = false;
+            }
+            updateVivinoButtonState();
         }
         // Handle "Add Manually" button click
         else if (e.target.id === 'openEntryModalBtn') {
@@ -1096,21 +1112,8 @@ function setupEventListeners() {
                 break;
             }
             case 'scanWineForm': {
-                const submitBtn = e.target.querySelector('button[type="submit"]');
-                if (submitBtn.textContent === 'Cancel') {
-                    const addWineSection = document.getElementById('addWineSection');
-                    const manualBtn = document.getElementById('openEntryModalBtn');
-
-                    if (addWineSection) {
-                        addWineSection.classList.remove('is-expanded');
-                        localStorage.setItem('addWinePanelState', 'collapsed');
-                    }
-                    if (manualBtn) {
-                        manualBtn.disabled = false;
-                    }
-                    updateVivinoButtonState();
-                    break;
-                }
+                // The cancel logic is now handled by a 'click' event listener,
+                // so we only need to handle the submission logic here.
 
                 const vivinoUrlInput = document.getElementById('vivinoUrlInput');
                 let vivinoUrl = vivinoUrlInput.value;
@@ -1306,4 +1309,5 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 });
+
 
