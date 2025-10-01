@@ -958,14 +958,15 @@ function setupEventListeners() {
     });
 
     document.body.addEventListener('click', (e) => {
-        if (e.target.closest('#addWineHeader')) {
+        // Updated logic: Collapse the panel if the header is clicked, but NOT the manual entry button inside it.
+        if (e.target.closest('#addWineHeader') && !e.target.closest('#openEntryModalBtn')) {
             const addWineSection = document.getElementById('addWineSection');
             if (addWineSection) {
                 const isExpanded = addWineSection.classList.toggle('is-expanded');
                 localStorage.setItem('addWinePanelState', isExpanded ? 'expanded' : 'collapsed');
             }
         }
-        if (e.target.id === 'openEntryModalBtn') {
+        if (e.target.closest('#openEntryModalBtn')) {
             openModal('entryModal');
             const manualVintageInput = document.getElementById('manualVintageInput');
             const currentYear = new Date().getFullYear();
@@ -1243,4 +1244,3 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 });
-
