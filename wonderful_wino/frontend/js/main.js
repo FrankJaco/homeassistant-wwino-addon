@@ -10,7 +10,7 @@ if (typeof window !== 'undefined' && typeof window.__ingress_url !== 'undefined'
     if (BASE_URL !== '' && !BASE_URL.endsWith('/')) { BASE_URL += '/'; }
 }
 
-const VIVINO_SEARCH_URL = 'https://www.vivino.com/search/wines?q=';
+const VIVINO_SEARCH_URL = '[https://www.vivino.com/search/wines?q=](https://www.vivino.com/search/wines?q=)';
 const DEFAULT_COST_TIERS = { t1: 10, t2r: 20, t3r: 35, t4r: 50 };
 
 // Emoji map for consistency with backend
@@ -948,6 +948,15 @@ function checkFormChanges() {
     saveAsNewWineBtn.title = hasChanged ? 'Save the current details as a new wine entry' : 'Change a field to enable saving as a new wine';
 }
 
+function updateVivinoButtonState() {
+    const addWineSection = document.getElementById('addWineSection');
+    const vivinoBtn = document.getElementById('addViaVivinoBtn');
+    if (addWineSection && vivinoBtn) {
+        const isExpanded = addWineSection.classList.contains('is-expanded');
+        vivinoBtn.textContent = isExpanded ? 'Collapse Panel' : 'Add via Vivino URL';
+    }
+}
+
 function updateVivinoUrlButtonState() {
     const vivinoUrlInput = document.getElementById('vivinoUrlInput');
     const submitBtn = document.querySelector('#scanWineForm button[type="submit"]');
@@ -975,31 +984,23 @@ function setupEventListeners() {
     });
 
     document.body.addEventListener('click', (e) => {
-        // Handle "Add via Vivino" button click
+        // Handle "Add via Vivino URL" / "Collapse Panel" button click
         if (e.target.id === 'addViaVivinoBtn') {
             const addWineSection = document.getElementById('addWineSection');
             const manualBtn = document.getElementById('openEntryModalBtn');
-            if (addWineSection && manualBtn) {
-                addWineSection.classList.add('is-expanded');
-                localStorage.setItem('addWinePanelState', 'expanded');
-                manualBtn.disabled = true;
-                updateVivinoUrlButtonState();
-            }
-        } 
-        // Handle clicks on the header area/icon to toggle the panel
-        else if (e.target.closest('#addWineHeader') && !e.target.closest('button')) {
-            const addWineSection = document.getElementById('addWineSection');
-            if (addWineSection) {
-                const isExpanded = addWineSection.classList.toggle('is-expanded');
-                localStorage.setItem('addWinePanelState', isExpanded ? 'expanded' : 'collapsed');
 
-                // If the panel is now collapsed, ensure the manual button is enabled.
-                if (!isExpanded) {
-                    const manualBtn = document.getElementById('openEntryModalBtn');
-                    if (manualBtn) manualBtn.disabled = false;
+            if (addWineSection && manualBtn) {
+                const isNowExpanded = addWineSection.classList.toggle('is-expanded');
+                localStorage.setItem('addWinePanelState', isNowExpanded ? 'expanded' : 'collapsed');
+                manualBtn.disabled = isNowExpanded;
+                updateVivinoButtonState();
+
+                // If we just expanded it, update the inner button state
+                if (isNowExpanded) {
+                    updateVivinoUrlButtonState();
                 }
             }
-        } 
+        }
         // Handle "Add Manually" button click
         else if (e.target.id === 'openEntryModalBtn') {
             openModal('entryModal');
@@ -1107,6 +1108,7 @@ function setupEventListeners() {
                     if (manualBtn) {
                         manualBtn.disabled = false;
                     }
+                    updateVivinoButtonState();
                     break;
                 }
 
@@ -1116,7 +1118,7 @@ function setupEventListeners() {
                     if (!url) return false;
                     try {
                         const parsedUrl = new URL(url);
-                        const isHostValid = parsedUrl.hostname === 'www.vivino.com' || parsedUrl.hostname === 'vivino.com';
+                        const isHostValid = parsedUrl.hostname === '[www.vivino.com](https://www.vivino.com)' || parsedUrl.hostname === 'vivino.com';
                         const isPathValid = /\/w\/\d+/.test(parsedUrl.pathname);
                         return isHostValid && isPathValid;
                     } catch (e) {
@@ -1124,7 +1126,7 @@ function setupEventListeners() {
                     }
                 };
                 if (!isValidVivinoWineUrl(vivinoUrl)) {
-                    showMessage('scanMessage', "Invalid URL. Please use a specific Vivino wine page (e.g., https://www.vivino.com/...).", 'error');
+                    showMessage('scanMessage', "Invalid URL. Please use a specific Vivino wine page (e.g., [https://www.vivino.com/](https://www.vivino.com/)...).", 'error');
                     vivinoUrlInput.value = '';
                     return;
                 }
@@ -1288,6 +1290,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
+    updateVivinoButtonState();
     updateSortIcons();
     setupVintageControls();
     setupCostTierSelector('mainCostTierSelector', 'mainCostTierInput');
