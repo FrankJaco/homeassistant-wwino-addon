@@ -977,7 +977,6 @@ function collapseAddWinePanel() {
     if (addWineSection && addWineSection.classList.contains('is-expanded')) {
         addWineSection.classList.remove('is-expanded');
         localStorage.setItem('addWinePanelState', 'collapsed');
-        updateVivinoButtonState();
     }
     clearTimeout(panelCollapseTimer);
     panelCollapseTimer = null;
@@ -988,43 +987,16 @@ function startPanelCollapseTimer() {
     panelCollapseTimer = setTimeout(collapseAddWinePanel, 180000); // 180 seconds
 }
 
-function updateVivinoButtonState() {
-    const addWineSection = document.getElementById('addWineSection');
-    const vivinoBtn = document.getElementById('addViaVivinoBtn');
-    if (addWineSection && vivinoBtn) {
-        const isExpanded = addWineSection.classList.contains('is-expanded');
-        vivinoBtn.textContent = isExpanded ? 'Collapse Panel' : 'Via Vivino URL';
+function resetVivinoPanel() {
+    const searchInput = document.getElementById('vivinoSearchInput');
+    const urlInput = document.getElementById('vivinoUrlInput');
+    const quantityInput = document.getElementById('quantityInput');
 
-        // Remove all color classes
-        vivinoBtn.classList.remove('bg-blue-500', 'hover:bg-blue-600', 'bg-gray-200', 'hover:bg-gray-300', 'text-white', 'text-gray-600');
+    if (searchInput) searchInput.value = '';
+    if (urlInput) urlInput.value = '';
+    if (quantityInput) quantityInput.value = '1';
 
-        if (isExpanded) {
-            // Style for "Collapse Panel"
-            vivinoBtn.classList.add('bg-gray-200', 'hover:bg-gray-300', 'text-gray-600');
-        } else {
-            // Style for "Via Vivino URL"
-            vivinoBtn.classList.add('bg-blue-500', 'hover:bg-blue-600', 'text-white');
-        }
-    }
-}
-
-function updateVivinoUrlButtonState() {
-    const vivinoUrlInput = document.getElementById('vivinoUrlInput');
-    const submitBtn = document.querySelector('#scanWineForm button');
-
-    if (!vivinoUrlInput || !submitBtn) return;
-
-    if (vivinoUrlInput.value.trim() === '') {
-        submitBtn.textContent = 'Cancel';
-        submitBtn.type = 'button';
-        submitBtn.classList.remove('bg-purple-600', 'hover:bg-purple-700', 'text-white');
-        submitBtn.classList.add('bg-gray-200', 'hover:bg-gray-300', 'text-gray-600');
-    } else {
-        submitBtn.textContent = 'Add from URL';
-        submitBtn.type = 'submit';
-        submitBtn.classList.remove('bg-gray-200', 'hover:bg-gray-300', 'text-gray-600');
-        submitBtn.classList.add('bg-purple-600', 'hover:bg-purple-700', 'text-white');
-    }
+    updateMainCostTierSelector(null);
 }
 
 function setupEventListeners() {
@@ -1037,26 +1009,22 @@ function setupEventListeners() {
     });
 
     document.body.addEventListener('click', (e) => {
-        // Handle "Add via Vivino URL" / "Collapse Panel" button click
+        // Handle "Add via Vivino URL" click
         if (e.target.id === 'addViaVivinoBtn') {
             const addWineSection = document.getElementById('addWineSection');
             if (addWineSection) {
-                const isNowExpanded = addWineSection.classList.toggle('is-expanded');
-                localStorage.setItem('addWinePanelState', isNowExpanded ? 'expanded' : 'collapsed');
-                updateVivinoButtonState();
-
-                if (isNowExpanded) {
-                    updateVivinoUrlButtonState();
-                    startPanelCollapseTimer(); // Start the timer on expand
+                if (addWineSection.classList.contains('is-expanded')) {
+                    // If already open, just reset the form
+                    resetVivinoPanel();
+                    startPanelCollapseTimer(); // Reset the timer
                 } else {
-                    clearTimeout(panelCollapseTimer); // Clear timer on manual collapse
-                    panelCollapseTimer = null;
+                    // If closed, expand and reset
+                    addWineSection.classList.add('is-expanded');
+                    localStorage.setItem('addWinePanelState', 'expanded');
+                    resetVivinoPanel();
+                    startPanelCollapseTimer();
                 }
             }
-        }
-        // Handle Cancel button click in the Vivino URL form
-        else if (e.target.matches('#scanWineForm button') && e.target.textContent === 'Cancel') {
-            collapseAddWinePanel();
         }
         // Handle "Add Manually" button click
         else if (e.target.id === 'openEntryModalBtn') {
@@ -1159,9 +1127,6 @@ function setupEventListeners() {
     });
 
      document.body.addEventListener('input', (e) => {
-        if (e.target.id === 'vivinoUrlInput') {
-            updateVivinoUrlButtonState();
-        }
         if (e.target.closest('#entryForm')) {
             checkFormChanges();
         }
@@ -1224,8 +1189,7 @@ function setupEventListeners() {
                 };
                 try {
                     await apiCall('scan-wine', { method: 'POST', body: JSON.stringify(payload) }, 'scanMessage', e.target.querySelector('button[type="submit"]'));
-                    e.target.reset();
-                    updateMainCostTierSelector(null);
+                    resetVivinoPanel();
                     fetchInventory();
                     startPanelCollapseTimer(); // Reset timer after successful add
                 } catch (error) {}
@@ -1356,7 +1320,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Ensure panel is always closed on startup by removing local storage check
     localStorage.removeItem('addWinePanelState');
 
-    updateVivinoButtonState();
     updateSortIcons();
     setupVintageControls();
     setupCostTierSelector('mainCostTierSelector', 'mainCostTierInput');
