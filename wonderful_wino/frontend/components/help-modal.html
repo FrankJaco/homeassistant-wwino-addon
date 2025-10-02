@@ -1,13 +1,12 @@
 <div id="helpModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="helpModalTitle">
     <div class="modal-content">
         <button class="modal-close-button" onclick="closeModal()">&times;</button>
-        <h3 id="helpModalTitle" class="text-xl font-semibold mb-4">Help</h3>
+        <h3 id="helpModalTitle" class="text-xl font-semibold mb-4 text-purple-800">Help</h3>
 
-        <!-- Existing Maintenance Help Content -->
+        <!-- Maintenance Help Content -->
         <div id="maintenance-help-content">
             <p class="text-sm">
-                This section provides tools to manage your wine inventory database and its synchronization with the
-                Home
+                This section provides tools to manage your wine inventory database and its synchronization with the Home
                 Assistant ToDo list.
             </p>
             <ul class="list-disc pl-5 mt-3 text-sm space-y-4">
@@ -26,31 +25,39 @@
             </ul>
         </div>
 
-        <!-- Manual Entry Help -->
+        <!-- Manual Entry Help Content -->
         <div id="manual-help-content" class="hidden">
-            <h4 class="text-lg font-bold text-purple-700 mb-2">Adding a Wine Manually</h4>
-            <p>
-                This option is best for wines that are not listed on Vivino or for when you want to enter all the
-                details yourself.
-            </p>
-            <p class="mt-2">
-                Clicking "Manually" will open a form where you can type in the wine's name, vintage, varietal, region,
-                and other details.
+            <h4 class="text-lg font-semibold text-purple-800 mb-2">Adding a Wine Manually</h4>
+            <p class="text-sm">
+                This is the best option for wines that are not found on Vivino or
+                for when you want to enter all the details yourself.
+                Clicking “Manually” opens a form where you
+                can enter the wine’s name, vintage, varietal, region, and other
+                details. Only the wine name, vintage (or “no-vintage”), and
+                quantity are required. Everything else is optional and can be edited
+                later.
             </p>
         </div>
 
-        <!-- Vivino URL Help -->
+        <!-- Vivino URL Help Content -->
         <div id="vivino-help-content" class="hidden">
-            <h4 class="text-lg font-bold text-purple-700 mb-2">Adding via Vivino URL</h4>
-            <p>
-                This method uses a Vivino web page URL to automatically scrape the wine's details, saving you from
-                typing them all in.
+            <h4 class="text-lg font-semibold text-purple-800 mb-2">Adding via Vivino URL</h4>
+            <p class="text-sm mb-3">
+                This method uses a Vivino web page URL to automatically obtain
+                publicly available wine details, saving you from typing them all in.
             </p>
-            <ol class="list-decimal list-inside mt-2 space-y-1">
-                <li>Click "Search Vivino" to find your wine on their site.</li>
-                <li>Copy the URL from your browser's address bar once you are on the correct wine page (including the
-                    vintage).</li>
-                <li>Paste the URL into the textbox and click "Add from URL".</li>
+            <ol class="list-decimal pl-5 text-sm space-y-2">
+                <li>In the textbox next to the "Search Vivino" button,
+                    enter your wine's name and vintage (e.g., Bogle Phantom 2020), then
+                    click "Search Vivino."</li>
+                <li>Make sure the URL you copy is for the exact wine page—not a
+                    search results page with multiple options. Navigate fully to your
+                    wine before copying the URL from your browser's address bar.</li>
+                <li>Paste that URL into the textbox next to the "Add from URL"
+                    button in Wonderful Wino.</li>
+                <li>Optionally select a cost tier, confirm or adjust the bottle
+                    quantity, then click "Add from URL" to add the wine to your
+                    inventory.</li>
             </ol>
         </div>
 
