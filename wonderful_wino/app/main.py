@@ -51,7 +51,6 @@ def update_focal_point():
     else:
         return jsonify({"status": "error", "message": "Wine not found or DB error."}), 404
 
-
 @app.route('/api/wine/history')
 def get_wine_history():
     vivino_url = request.args.get('vivino_url')
@@ -434,12 +433,8 @@ def serve_static(path):
 
 if __name__ == '__main__':
     db.init_db()
-     # Get port from environment variable, with a default of 5000
-    # Environment variables are strings, so we must cast to int
-    port = int(os.environ.get("PORT", 5000))
-    logger.info(f"Starting Wonderful Wino on port {port} with log level {config.LOG_LEVEL}")
+    logger.info(f"Starting Wonderful Wino on port 5000 with log level {config.LOG_LEVEL}")
     print("\n---> NOTE: The following 'WARNING' is a standard benign message from the internal web server.\n"
           "---> It is normal and expected for a Home Assistant add-on and can be safely ignored.\n")
-    # --- MODIFICATION ---
-    # Use the port variable here instead of the hardcoded value
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=5000)
+
