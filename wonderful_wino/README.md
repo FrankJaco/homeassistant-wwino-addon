@@ -14,11 +14,11 @@ We know many "WWinos" out there are already familiar with the wwondeful [Vivino]
 Beyond the Wonderful Wino Addon and its GUI, there are currently two additional tools to help streamline adding wine to your inventory after a visit to your favorite wine merchant: For those users of the Chrome Browser, there is the [Wonderful Wino Chrome Extension](https://github.com/FrankJaco/wwino-chrome-extension). And for Android phone users who utilize the Vivino App there is the [Wonderful Wino Helper App](https://github.com/FrankJaco/wwino-android-helper). More info regarding these additional tools can be found on their respective Github repository pages.
 
 ## Wonderful Wino's "Optional" Prerequisites:
-1. [Local ToDo list integration:](https://www.home-assistant.io/integrations/local_todo/) Permits the wines stored in the Wonderful Wino database to be accessed via a ToDo list. The user can see his wine along with essential wine facts in a compact form. Also the user can perform a subset of wine inventory tasks such as informing WWino that you consumed a bottle (which removes it from inventory and permits you to optionally rate the wine you just drank.
+1. [Local ToDo list integration:](https://www.home-assistant.io/integrations/local_todo/) Permits the wines stored in the Wonderful Wino database to be accessed via a ToDo list. The user can see his wine along with essential wine facts in a compact form. Also the user can perform a subset of wine inventory tasks such as informing WWino that you consumed a bottle (which removes it from inventory and permits you to optionally rate the wine you just drank. If you plan on exposing your wine collection to you voice assistant, the ToDo list is required.
 
 **Once you have the Local ToDo list integration installed, create a ToDo list for your wine. If you want to keep things easy, use the default name of "My Wine"**
 
-If you intend to use the ToDo list (which I absolutely strongly recommend you do) your configuration.yaml file needs a small addition. Using FileEditor or VSCode addons carefully add this to your configuration.yaml. And practice safe "yamling" by checking the configuration first in Developer Tools.
+If you intend to use the ToDo list (which I absolutely strongly recommend you do) your configuration.yaml file needs a small addition. Using the FileEditor or VSCode addons to caref add this to your configuration.yaml. And practice safe "yamling" by checking the configuration first in Developer Tools.
 
     # Wonderful-Wino Stuff
     rest_command:
@@ -52,8 +52,8 @@ In the Configuration tab:
 
 **HOME_ASSISTANT_URL:**
 `http://homeassistant.local:8123 
-`  or `http://<your HA IP address>:8123` 
-(This should be the **local** URL)
+`  **OR** `http://<your HA IP address>:8123` 
+(This should be the URL you use when you are on your home network (without http**s**:)
 
   **HA_LONG_LIVED_TOKEN:**
 	*To create a Home Assistant Long Lived Token...*
@@ -72,7 +72,7 @@ Set this to the entity ID for your wine's ToDo list. Usually `todo.my_wine`
 Click **Save** in lower right corner of this panel. 
 This completes the Addon configuration. We are now ready to start the addon.
 
-Go back to the Info tab, select your startup options. **Add to Side Bar** is strongly recommended at least at first. You may want to check the log to ensure a proper first start. It should look something like this...
+Go back to the Info tab, select your startup options. **Add to Side Bar** is strongly recommended at least at first. Click **Start**. You may want to check the log to ensure a proper first start. It should look something like this...
 
     Starting Wonderful Wino backend...
     2025-10-03 12:21:09,021 - app.db - INFO - Database initialized at /share/wwino/wine_inventory.db
@@ -92,4 +92,63 @@ Go back to the Info tab, select your startup options. **Add to Side Bar** is str
     2025-10-03 12:21:09,024 - werkzeug - INFO - Press CTRL+C to quit
 
 
- dffd
+## ToDo list Automation
+When properly configured, your wines along with some of their metadata will be visible in your ToDo list. 
+
+
+NEED LAST CONSUMED wiNE HELPE
+
+    alias: "Wonderful-Wino: Prep for Wine Rating, then consume via ToDo"
+    description: On consumption of a wine, it prepares the UI for an optional rating.
+    triggers:
+      - entity_id: todo.my_wine
+        trigger: state
+    conditions:
+      - condition: template
+        value_template: >-
+          {{ trigger.from_state is not none and trigger.to_state is not none and
+          trigger.from_state.state is not none and trigger.to_state.state is not
+          none and trigger.from_state.state | int(-1) is number and
+          trigger.to_state.state | int(-1) is number }}
+      - condition: template
+        value_template: >-
+          {{ trigger.to_state.state | int(-1) < trigger.from_state.state | int(-1)
+          }}
+    actions:
+      - target:
+          entity_id: "{{ list_entity }}"
+        data:
+          status: completed
+        response_variable: completed_wines
+        action: todo.get_items
+      - repeat:
+          for_each: "{{ completed_wines[list_entity]['items'] }}"
+          sequence:
+            - data:
+                name: Wonderful Wino
+                message: "🍷 Consumed: {{ repeat.item.summary }}"
+              action: logbook.log
+            - target:
+                entity_id: input_text.last_consumed_wine
+              data:
+                value: "{{ repeat.item.summary }}"
+              action: input_text.set_value
+            - target:
+                entity_id: input_number.taste_rating
+              data:
+                value: 0
+              action: input_number.set_value
+            - target:
+                entity_id:
+                  - input_boolean.show_rating_card
+              action: input_boolean.turn_on
+              data: {}
+            - target:
+                entity_id: "{{ list_entity }}"
+              data:
+                item: "{{ repeat.item.uid }}"
+              action: todo.remove_item
+    mode: queued
+    variables:
+      list_entity: todo.my_wine
+
