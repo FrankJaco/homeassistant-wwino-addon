@@ -42,5 +42,4 @@ ports:
   "5000/tcp": "!config host_port"
 ports_description:
   "5000/tcp": "Optional: Exposes the web server on your host network for direct access."
-webui: "http://[HOST]:[PORT:5000]"
 
