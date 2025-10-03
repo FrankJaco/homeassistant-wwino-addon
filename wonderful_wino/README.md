@@ -35,7 +35,7 @@ If you intend to use the ToDo list (which I absolutely strongly recommend you do
             {% endif %}
           }
 
-**Don't forget to put in your Home Assistant's IP address where indicated and restart Home Assistant for the change to take effect.*** We will add a Home Assistant automation later to fully enable the ToDo functionality and provide some dashboard ideas as well.
+**Don't forget to put in your Home Assistant's IP address where indicated and restart Home Assistant for the change to take effect.***  Once restarted, you will have a new service called `rest_command.wine_consumed_webhook` that can be used in your scripts and automations. We will add a Home Assistant automation later to fully enable the ToDo functionality and provide some dashboard ideas as well.
 
 
 2.  A functioning [Home Assistant Voice Assistant](https://www.home-assistant.io/voice_control/) enhanced with AI. (I personally use the [Google Gemini](https://www.home-assistant.io/integrations/google_generative_ai_conversation/) integration.) When your AI is enabled and properly configured, your wine facts are just a question away. *How many Cabs do I have? What is my oldest vintage? Which wine is rated the highest?* 
@@ -66,13 +66,30 @@ In the Configuration tab:
 (You also could optionally back this up somewhere, but if it is ever lost a new one can be generated and the Wonderful Wino Configuration updated.)
 
 **TODO_LIST_ENTITY_ID**
-Set this to the entity ID for your wine's ToDo list. Usually **todo.my_wine**
+Set this to the entity ID for your wine's ToDo list. Usually `todo.my_wine`
 
 
-Click **Save**
+Click **Save** in lower right corner of this panel. 
 This completes the Addon configuration. We are now ready to start the addon.
 
-Go back to the Info and choice the st
+Go back to the Info tab, select your startup options. **Add to Side Bar** is strongly recommended at least at first. You may want to check the log to ensure a proper first start. It should look something like this...
 
- 
+    Starting Wonderful Wino backend...
+    2025-10-03 12:21:09,021 - app.db - INFO - Database initialized at /share/wwino/wine_inventory.db
+    2025-10-03 12:21:09,021 - __main__ - INFO - Starting Wonderful Wino on port 5000 with log level INFO
+    ---> NOTE: The following 'WARNING' is a standard benign message from the internal web server.
+    ---> It is normal and expected for a Home Assistant add-on and can be safely ignored.
+     * Serving Flask app 'main'
+     * Debug mode: off
+    2025-10-03 12:21:09,023 - werkzeug - INFO - WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+     * Running on all addresses (0.0.0.0)
+     * Running on http://127.0.0.1:5000
+     * Running on http://172.30.33.13:5000
+    2025-10-03 12:21:09,024 - werkzeug - INFO - Press CTRL+C to quit
+     * Running on all addresses (0.0.0.0)
+     * Running on http://127.0.0.1:5000
+     * Running on http://172.30.33.13:5000
+    2025-10-03 12:21:09,024 - werkzeug - INFO - Press CTRL+C to quit
 
+
+ dffd
