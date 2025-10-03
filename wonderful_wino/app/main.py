@@ -6,7 +6,6 @@ from . import config, db, ha_service, scraper, formatting
 import re
 from urllib.parse import urlparse, urlunparse, parse_qs
 
-# --- MODIFIED: Logging Configuration ---
 # Quieten down the very verbose output from underlying libraries
 logging.getLogger('selenium').setLevel(logging.WARNING)
 logging.getLogger('urllib3').setLevel(logging.WARNING)
@@ -14,7 +13,6 @@ logging.getLogger('urllib3').setLevel(logging.WARNING)
 # Configure the root logger for the application
 logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"),
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-# --- END MODIFIED SECTION ---
 
 logger = logging.getLogger(__name__)
 app = Flask(__name__, static_folder="../frontend", static_url_path="")
@@ -436,7 +434,12 @@ def serve_static(path):
 
 if __name__ == '__main__':
     db.init_db()
-    logger.info(f"Starting Wonderful Wino on port 5000 with log level {config.LOG_LEVEL}")
+     # Get port from environment variable, with a default of 5000
+    # Environment variables are strings, so we must cast to int
+    port = int(os.environ.get("PORT", 5000))
+    logger.info(f"Starting Wonderful Wino on port {port} with log level {config.LOG_LEVEL}")
     print("\n---> NOTE: The following 'WARNING' is a standard benign message from the internal web server.\n"
           "---> It is normal and expected for a Home Assistant add-on and can be safely ignored.\n")
-    app.run(host='0.0.0.0', port=5000)
+    # --- MODIFICATION ---
+    # Use the port variable here instead of the hardcoded value
+    app.run(host='0.0.0.0', port=port)
