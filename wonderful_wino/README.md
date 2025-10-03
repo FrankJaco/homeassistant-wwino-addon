@@ -18,25 +18,24 @@ Beyond the Wonderful Wino Addon and its GUI, there are currently two additional 
 
 **Once you have the Local ToDo list integration installed, create a ToDo list for your wine. If you want to keep things easy, use the default name of "My Wine"**
 
-If you intend to use the ToDo list (which I absolutely strongly recommend you do) your configuration.yaml file needs a small addition:
-	
+If you intend to use the ToDo list (which I absolutely strongly recommend you do) your configuration.yaml file needs a small addition. Using FileEditor or VSCode addons carefully add this to your configuration.yaml. And practice safe "yamling" by checking the configuration first in Developer Tools.
 
-    Wonderful-Wino Stuff
-        rest_command:
-          wine_consumed_webhook:
-            url: "http://<your HA IP address>:5000/api/consume-wine"
-            method: POST
-            content_type: "application/json"
-            payload: >
-              {
-                "item": "{{ item }}",
-                "timestamp": "{{ now().isoformat() }}"
-                {% if rating | float(0) > 0 %}
-                ,"rating": {{ rating }}
-                {% endif %}
-              }
+    # Wonderful-Wino Stuff
+    rest_command:
+      wine_consumed_webhook:
+        url: "http://192.168.68.101:5000/api/consume-wine"
+        method: POST
+        content_type: "application/json"
+        payload: >
+          {
+            "item": "{{ item }}",
+            "timestamp": "{{ now().isoformat() }}"
+            {% if rating | float(0) > 0 %}
+            ,"rating": {{ rating }}
+            {% endif %}
+          }
 
-***Don't forget to put in your Home Assistant's IP address where indicated and restart Home Assistant for the change to take effect.*** We will add a Home Assistant automation later to fully enable the ToDo functionality and provide some dashboard ideas as well.
+**Don't forget to put in your Home Assistant's IP address where indicated and restart Home Assistant for the change to take effect.*** We will add a Home Assistant automation later to fully enable the ToDo functionality and provide some dashboard ideas as well.
 
 
 2.  A functioning [Home Assistant Voice Assistant](https://www.home-assistant.io/voice_control/) enhanced with AI. (I personally use the [Google Gemini](https://www.home-assistant.io/integrations/google_generative_ai_conversation/) integration.) When your AI is enabled and properly configured, your wine facts are just a question away. *How many Cabs do I have? What is my oldest vintage? Which wine is rated the highest?* 
@@ -71,9 +70,9 @@ Set this to the entity ID for your wine's ToDo list. Usually **todo.my_wine**
 
 
 Click **Save**
-This completes the Addon configuration. 
+This completes the Addon configuration. We are now ready to start the addon.
 
-Go back to the Info Tab, 
+Go back to the Info and choice the st
 
  
 
