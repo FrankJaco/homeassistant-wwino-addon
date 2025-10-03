@@ -18,7 +18,32 @@ I personally regularly use it to provide food-wine pairing information using the
 
  3. **Samba Share addon:** Allows for the easy backup of the Wonderful Wino database. Also, having it makes it possible to override the thumbnail image of your wine bottle to one of your own if desired. 
 
-Now with the Prerequisites out of the way, let's get to the configuration.
+***Now with the "Optional" Prerequisites out of the way, let's get to the configuration.***
 
 
 ## Addon Configuration:
+
+In the Configuration tab:
+
+**HOME_ASSISTANT_URL:**
+http://homeassistant.local:8123  or http://192.168.x.x:8123 
+(This should be the **local** URL)
+
+  **HA_LONG_LIVED_TOKEN:**
+  *To create a Home Assistant Long Lived Token...*
+  
+1. Click on your user account profile (bottom of the Home Assistant sidebar on the left)
+2. Select the "Security" tab and scroll to its bottom
+3. In the **Long-lived access tokens** section and click **Create Token**
+4. Name it **WWino** (or anything else you want) and click **OK**
+5. Copy the token and paste it in the Wonderful Wino configuration's HA_LONG_LIVED_TOKEN textbox.
+(You also could optionally back this up somewhere, but if it is ever lost a new one can be generated and the Wonderful Wino Configuration updated.)
+
+**TODO_LIST_ENTITY_ID**
+Set this to the entity ID for your wine's ToDo list. Usually **todo.my_wine**
+
+
+Click **Save**
+This completes the Addon configuration. 
+
+ 
