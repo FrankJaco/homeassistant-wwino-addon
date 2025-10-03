@@ -18,12 +18,12 @@ Beyond the Wonderful Wino Addon and its GUI, there are currently two additional 
 
 **Once you have the Local ToDo list integration installed, create a ToDo list for your wine. If you want to keep things easy, use the default name of "My Wine"**
 
-If you intend to use the ToDo list (which I absolutely strongly recommend you do) your configuration.yaml file needs a small addition. Using the FileEditor or VSCode addons to caref add this to your configuration.yaml. And practice safe "yamling" by checking the configuration first in Developer Tools.
+If you intend to use the ToDo list (which I absolutely strongly recommend you do) your configuration.yaml file needs a small addition. Using the FileEditor or VSCode addons to add this to your Home Assistant configuration.yaml. And do practice safe "yamling" by checking the configuration first in Developer Tools before restarting!
 
     # Wonderful-Wino Stuff
     rest_command:
       wine_consumed_webhook:
-        url: "http://192.168.68.101:5000/api/consume-wine"
+        url: "http://<your HA IP>:5000/api/consume-wine"
         method: POST
         content_type: "application/json"
         payload: >
@@ -35,11 +35,11 @@ If you intend to use the ToDo list (which I absolutely strongly recommend you do
             {% endif %}
           }
 
-**Don't forget to put in your Home Assistant's IP address where indicated and restart Home Assistant for the change to take effect.***  Once restarted, you will have a new service called `rest_command.wine_consumed_webhook` that can be used in your scripts and automations. We will add a Home Assistant automation later to fully enable the ToDo functionality and provide some dashboard ideas as well.
+**Don't forget to put in your Home Assistant's IP address where indicated and restart Home Assistant for the change to take effect.***  Once restarted, you will have a new service called `rest_command.wine_consumed_webhook` that can be used in your scripts and automations. We will add a Home Assistant automation, Helper, and a dashboard later to fully enable the ToDo functionality.
 
 
 2.  A functioning [Home Assistant Voice Assistant](https://www.home-assistant.io/voice_control/) enhanced with AI. (I personally use the [Google Gemini](https://www.home-assistant.io/integrations/google_generative_ai_conversation/) integration.) When your AI is enabled and properly configured, your wine facts are just a question away. *How many Cabs do I have? What is my oldest vintage? Which wine is rated the highest?* 
-I regularly use it to provide food-wine pairing information using the actual wine within my collection. *Hey Nabu, we are having Veal Saltimbocca with roasted fingerling potatoes as a main course and a charcuterie board for an appetizer. What wine from my collection would pair best with this?*  Or even... *I am serving hamburgers and hot dogs to a bunch of friends. What wine would you recommend that I have in my collection which won’t break the bank, will pair well with the meal?* It is like having a personal sommelier available at your every whim. (OK, you got to open the bottle yourself!). **I will discuss AI/LLM prompts to make your voice assistant a wine expert in the general documentation.** 
+I regularly use it to provide food-wine pairing information using the actual wine within my collection. *Hey Nabu, we are having Veal Saltimbocca with roasted fingerling potatoes as a main course and a charcuterie board for an appetizer. What wine from my collection would pair best with this?*  Or even... *I am serving hamburgers to a bunch of friends. What wine would you recommend that I have in my collection which won’t break the bank, will pair well with the meal?* It is like having a personal sommelier available at your every whim. (OK, you got to open the bottle yourself!). **I will discuss AI/LLM prompts to make your voice assistant a wine expert in the general documentation.** 
 
  3. **Samba Share addon:** Allows for the easy backup of the Wonderful Wino database. Also, having it makes it possible to override the thumbnail image of your wine bottle to one of your own if desired. 
 
@@ -96,7 +96,7 @@ Go back to the Info tab, select your startup options. **Add to Side Bar** is str
 When properly configured, your wines along with some of their metadata will be visible in your ToDo list. 
 
 
-NEED LAST CONSUMED wiNE HELPE
+NEED LAST CONSUMED wiNE HELPER and Input. text helper
 
     alias: "Wonderful-Wino: Prep for Wine Rating, then consume via ToDo"
     description: On consumption of a wine, it prepares the UI for an optional rating.
@@ -151,4 +151,6 @@ NEED LAST CONSUMED wiNE HELPE
     mode: queued
     variables:
       list_entity: todo.my_wine
+
+Dashboard stuff here
 
