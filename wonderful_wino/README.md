@@ -16,7 +16,28 @@ Beyond the Wonderful Wino Addon and its GUI, there are currently two additional 
 ## Wonderful Wino's "Optional" Prerequisites:
 1. [Local ToDo list integration:](https://www.home-assistant.io/integrations/local_todo/) Permits the wines stored in the Wonderful Wino database to be accessed via a ToDo list. The user can see his wine along with essential wine facts in a compact form. Also the user can perform a subset of wine inventory tasks such as informing WWino that you consumed a bottle (which removes it from inventory and permits you to optionally rate the wine you just drank.
 
-	**Once you have the Local ToDo list integration installed, create a ToDo list for your wine. If you want to keep things easy, use the default name of "My Wine"**
+**Once you have the Local ToDo list integration installed, create a ToDo list for your wine. If you want to keep things easy, use the default name of "My Wine"**
+
+If you intend to use the ToDo list (which I absolutely strongly recommend you do) your configuration.yaml file needs a small addition:
+	
+
+    Wonderful-Wino Stuff
+        rest_command:
+          wine_consumed_webhook:
+            url: "http://<your HA IP address>:5000/api/consume-wine"
+            method: POST
+            content_type: "application/json"
+            payload: >
+              {
+                "item": "{{ item }}",
+                "timestamp": "{{ now().isoformat() }}"
+                {% if rating | float(0) > 0 %}
+                ,"rating": {{ rating }}
+                {% endif %}
+              }
+
+***Don't forget to put in your Home Assistant's IP address where indicated and restart Home Assistant for the change to take effect.*** We will add a Home Assistant automation later to fully enable the ToDo functionality and provide some dashboard ideas as well.
+
 
 2.  A functioning [Home Assistant Voice Assistant](https://www.home-assistant.io/voice_control/) enhanced with AI. (I personally use the [Google Gemini](https://www.home-assistant.io/integrations/google_generative_ai_conversation/) integration.) When your AI is enabled and properly configured, your wine facts are just a question away. *How many Cabs do I have? What is my oldest vintage? Which wine is rated the highest?* 
 I regularly use it to provide food-wine pairing information using the actual wine within my collection. *Hey Nabu, we are having Veal Saltimbocca with roasted fingerling potatoes as a main course and a charcuterie board for an appetizer. What wine from my collection would pair best with this?*  Or even... *I am serving hamburgers and hot dogs to a bunch of friends. What wine would you recommend that I have in my collection which won’t break the bank, will pair well with the meal?* It is like having a personal sommelier available at your every whim. (OK, you got to open the bottle yourself!). **I will discuss AI/LLM prompts to make your voice assistant a wine expert in the general documentation.** 
@@ -31,11 +52,12 @@ I regularly use it to provide food-wine pairing information using the actual win
 In the Configuration tab:
 
 **HOME_ASSISTANT_URL:**
-http://homeassistant.local:8123  or http://192.168.x.x:8123 
+`http://homeassistant.local:8123 
+`  or `http://<your HA IP address>:8123` 
 (This should be the **local** URL)
 
   **HA_LONG_LIVED_TOKEN:**
-  *To create a Home Assistant Long Lived Token...*
+	*To create a Home Assistant Long Lived Token...*
   
 1. Click on your user account profile (bottom of the Home Assistant sidebar on the left)
 2. Select the "Security" tab and scroll to its bottom
@@ -51,4 +73,7 @@ Set this to the entity ID for your wine's ToDo list. Usually **todo.my_wine**
 Click **Save**
 This completes the Addon configuration. 
 
+Go back to the Info Tab, 
+
  
+
