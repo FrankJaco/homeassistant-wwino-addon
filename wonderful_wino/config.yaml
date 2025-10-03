@@ -26,20 +26,13 @@ options:
   HA_LONG_LIVED_TOKEN: ""
   TODO_LIST_ENTITY_ID: "todo.my_wine"
   LOG_LEVEL: "info"
-  # This new option controls the port exposed on the HOST network.
-  # Set to null to disable direct port access.
-  host_port: 5000
 schema:
   HOME_ASSISTANT_URL: str
   HA_LONG_LIVED_TOKEN: password
   TODO_LIST_ENTITY_ID: str
   LOG_LEVEL: list(debug|info|warning|error|critical)
-  # Schema for our new host_port option
-  host_port: port?
-# This section now maps the addon's internal port 5000 to the 
-# user-configurable host_port from the options above.
 ports:
-  "5000/tcp": "!config host_port"
+  5000/tcp: 5000
 ports_description:
-  "5000/tcp": "Optional: Exposes the web server on your host network for direct access."
-
+  5000/tcp: Flask application HTTP port
+webui: "http://[HOST]:[PORT:5000]"
