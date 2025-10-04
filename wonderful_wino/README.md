@@ -15,7 +15,10 @@ We know many "WWinos" out there are familiar with the wwondeful [Vivino](https:/
 Beyond the Wonderful Wino Addon and its GUI, there are currently two additional tools to help streamline adding wine to your inventory after a visit to your favorite wine merchant: For those users of the Chrome Browser, there is the [Wonderful Wino Chrome Extension](https://github.com/FrankJaco/wwino-chrome-extension). And for Android phone users who utilize the Vivino App there is the [Wonderful Wino Helper App](https://github.com/FrankJaco/wwino-android-helper). More info regarding these additional tools can be found on their respective Github repository pages.
 
 ## Wonderful Wino's "Optional" Prerequisites:
-1. [Local ToDo list integration:](https://www.home-assistant.io/integrations/local_todo/) Permits the wines stored in the Wonderful Wino database to be accessed via a ToDo list. The user can see his wine along with essential wine facts in a compact form. Also the user can perform a subset of wine inventory tasks such as informing WWino that you consumed a bottle (which removes it from inventory and permits you to optionally rate the wine you just drank). ![ToDo](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/todo.png)
+
+**Local ToDo List Integration**
+
+[Local ToDo list integration:](https://www.home-assistant.io/integrations/local_todo/) Permits the wines stored in the Wonderful Wino database to be accessed via a ToDo list. The user can see his wine along with essential wine facts in a compact form. Also the user can perform a subset of wine inventory tasks such as informing WWino that you consumed a bottle (which removes it from inventory and permits you to optionally rate the wine you just drank). ![ToDo](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/todo.png)
 
 *If you plan on exposing your wine collection to your voice assistant, the ToDo list is required.*
 
@@ -40,13 +43,17 @@ If you intend to use the ToDo list your configuration.yaml file needs a small ad
 
 **Don't forget to put in your Home Assistant's IP address where indicated and restart Home Assistant for the change to take effect!***  Once restarted, you will have a new service called `rest_command.wine_consumed_webhook` that can be used in your scripts and automations. We will add a Home Assistant automation, two Helpers, and a dashboard later to fully enable the ToDo functionality.
 
+**Home Assistant Voice Assistant  with LLM / AI**
 
-2.  A functioning [Home Assistant Voice Assistant](https://www.home-assistant.io/voice_control/) enhanced with AI. (I personally use the [Google Gemini](https://www.home-assistant.io/integrations/google_generative_ai_conversation/) integration.) When your AI is enabled and properly configured, your wine facts are just a question away. *Hey Nabu,,, How many Cabs do I have? What is my oldest vintage? Which wine is rated the highest?* 
+A functioning [Home Assistant Voice Assistant](https://www.home-assistant.io/voice_control/) enhanced with AI. (I personally use the [Google Gemini](https://www.home-assistant.io/integrations/google_generative_ai_conversation/) integration.) When your AI is enabled and properly configured, your wine facts are just a question away. *Hey Nabu,,, How many Cabs do I have? What is my oldest vintage? Which wine is rated the highest?* 
+3. 
 ![AI pairing](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/ai.png)
 
 It is like having a personal sommelier available at your every whim. (OK, you got to open the bottle yourself!). **I will discuss AI/LLM prompts to make your voice assistant a wine expert in the general documentation.** 
 
- 3. **Samba Share addon:** Allows for the easy backup of the Wonderful Wino database. Also, having it makes it possible to override the thumbnail image of your wine bottle to one of your own if desired. 
+**Samba Share Home Assistant Addon**
+
+The [Samba Share addon](https://www.home-assistant.io/common-tasks/os/) allows to you store your backup the Wonderful Wino database on another storage medium beyond your Home Assistant server. Also, it makes it possible to override the thumbnail image of your wine bottle to one of your own if desired. 
 
 ***Now with the "Optional" Prerequisites out of the way, let's get to the configuration...***
 
