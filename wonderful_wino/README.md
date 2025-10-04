@@ -12,7 +12,11 @@ The Wonderful Wino addon provides a user-friendly interface to manage your wine 
 
 We know many "WWinos" out there are familiar with the wwondeful [Vivino](https://www.vivino.com/) website and app.  If you’re not, we highly recommend checking them out. While a Vivino account isn’t required for WW, it’s a fantastic tool that can greatly enhance your wine experience. Wonderful Wino accesses the public areas of the Vivino site to obtain the basic facts about your wine streamlining the task of adding them to your inventory.
 
-Beyond the Wonderful Wino Addon and its GUI, there are currently two additional tools to help streamline adding wine to your inventory after a visit to your favorite wine merchant: For those users of the Chrome Browser, there is the [Wonderful Wino Chrome Extension](https://github.com/FrankJaco/wwino-chrome-extension). And for Android phone users who utilize the Vivino App there is the [Wonderful Wino Helper App](https://github.com/FrankJaco/wwino-android-helper). More info regarding these additional tools can be found on their respective Github repository pages.
+Beyond the Wonderful Wino Addon and its GUI, there are currently two additional tools to help streamline adding wine to your inventory after a visit to your favorite wine merchant...
+![exten
+](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/cbe.png)  ![enter image description here](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/aha.png)
+
+For those users of the Chrome Browser, there is the [Wonderful Wino Chrome Extension](https://github.com/FrankJaco/wwino-chrome-extension). And for Android phone users who utilize the Vivino App there is the [Wonderful Wino Helper App](https://github.com/FrankJaco/wwino-android-helper). More info regarding these additional tools can be found on their respective Github repository pages.
 
 ## Wonderful Wino's "Optional" Prerequisites:
 
@@ -24,7 +28,7 @@ Beyond the Wonderful Wino Addon and its GUI, there are currently two additional 
 
 **Once you have the Local ToDo list integration installed, create a ToDo list for your wine. If you want to keep things easy, use the default name of "My Wine"**
 
-If you intend to use the ToDo list your configuration.yaml file needs a small addition. Using the FileEditor or VSCode addons to add this to your Home Assistant configuration.yaml. And do practice safe "yamling" by checking the configuration first in Developer Tools before restarting!
+If you intend to use the ToDo list your configuration.yaml file needs a small addition. Using the [FileEditor or VSCode addons](https://www.home-assistant.io/common-tasks/os/) to add this to your Home Assistant configuration.yaml. And do practice safe "yamling" by checking the configuration first in Developer Tools before restarting!
 
     # Wonderful-Wino Stuff
     rest_command:
@@ -46,8 +50,9 @@ If you intend to use the ToDo list your configuration.yaml file needs a small ad
 **Home Assistant Voice Assistant  with LLM / AI**
 
 A functioning [Home Assistant Voice Assistant](https://www.home-assistant.io/voice_control/) enhanced with AI. (I personally use the [Google Gemini](https://www.home-assistant.io/integrations/google_generative_ai_conversation/) integration.) When your AI is enabled and properly configured, your wine facts are just a question away. *Hey Nabu,,, How many Cabs do I have? What is my oldest vintage? Which wine is rated the highest?* 
-3. 
+
 ![AI pairing](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/ai.png)
+
 
 It is like having a personal sommelier available at your every whim. (OK, you got to open the bottle yourself!). **I will discuss AI/LLM prompts to make your voice assistant a wine expert in the general documentation.** 
 
@@ -65,7 +70,7 @@ In the Configuration tab:
 **HOME_ASSISTANT_URL:**
 `http://homeassistant.local:8123 
 `  **OR** `http://<your HA IP address>:8123` 
-(This should be the URL you use when you are on your home network (without http**s**:)
+
 
   **HA_LONG_LIVED_TOKEN:**
 	*To create a Home Assistant Long Lived Token...*
