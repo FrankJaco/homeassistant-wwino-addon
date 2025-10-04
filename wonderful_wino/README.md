@@ -67,9 +67,9 @@ Go back to the Info tab, select your startup options. **Add to Side Bar** is str
 If everything checks out, congratulations, Wonderful Wino is up and running and ready for you to add your wine! You can stop right here. But to really make Wonderful Wino truly wwonderful, we need to configure Home Assistant a wee bit more.
 
 **Local To Do list:**
-If you have not do so already, install the [Local ToDo list integration](https://www.home-assistant.io/integrations/local_todo/)  now and make a ToDo list called "My Wine".
+If you have not done so already, install the [Local ToDo list integration](https://www.home-assistant.io/integrations/local_todo/)  now and make a ToDo list called **My Wine**.
 
-For the connectivity between Wonderful Wino and Home Assistant / Local ToDo list a small addition to the configuration.yaml is required.  Using the [FileEditor or VSCode addons](https://www.home-assistant.io/common-tasks/os/) to add this to your Home Assistant configuration.yaml. And do practice safe "yamling" by checking the configuration first in Developer Tools before restarting!
+For connectivity between Wonderful Wino and Home Assistant / Local ToDo list a small addition to the configuration.yaml file is required.  You can use the [FileEditor or VSCode addons](https://www.home-assistant.io/common-tasks/os/)  Practice safe "yamling" by checking the configuration in Developer Tools before restarting!
 
     # Wonderful-Wino Stuff
     rest_command:
