@@ -41,8 +41,10 @@ If you intend to use the ToDo list your configuration.yaml file needs a small ad
 **Don't forget to put in your Home Assistant's IP address where indicated and restart Home Assistant for the change to take effect!***  Once restarted, you will have a new service called `rest_command.wine_consumed_webhook` that can be used in your scripts and automations. We will add a Home Assistant automation, two Helpers, and a dashboard later to fully enable the ToDo functionality.
 
 
-2.  A functioning [Home Assistant Voice Assistant](https://www.home-assistant.io/voice_control/) enhanced with AI. (I personally use the [Google Gemini](https://www.home-assistant.io/integrations/google_generative_ai_conversation/) integration.) When your AI is enabled and properly configured, your wine facts are just a question away. *How many Cabs do I have? What is my oldest vintage? Which wine is rated the highest?* 
-I regularly use it to provide food-wine pairing information using the actual wine within my collection. *Hey Nabu, we are having Veal Saltimbocca with roasted fingerling potatoes as a main course and a charcuterie board for an appetizer. What wine from my collection would pair best with this?*  Or even... *I am serving hamburgers to a bunch of friends. What wine would you recommend that I have in my collection which won’t break the bank, will pair well with the meal?* It is like having a personal sommelier available at your every whim. (OK, you got to open the bottle yourself!). **I will discuss AI/LLM prompts to make your voice assistant a wine expert in the general documentation.** 
+2.  A functioning [Home Assistant Voice Assistant](https://www.home-assistant.io/voice_control/) enhanced with AI. (I personally use the [Google Gemini](https://www.home-assistant.io/integrations/google_generative_ai_conversation/) integration.) When your AI is enabled and properly configured, your wine facts are just a question away. *Hey Nabu,,, How many Cabs do I have? What is my oldest vintage? Which wine is rated the highest?* 
+![AI pairing](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/ai.png)
+
+It is like having a personal sommelier available at your every whim. (OK, you got to open the bottle yourself!). **I will discuss AI/LLM prompts to make your voice assistant a wine expert in the general documentation.** 
 
  3. **Samba Share addon:** Allows for the easy backup of the Wonderful Wino database. Also, having it makes it possible to override the thumbnail image of your wine bottle to one of your own if desired. 
 
