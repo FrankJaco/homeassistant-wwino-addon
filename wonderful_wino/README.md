@@ -31,77 +31,16 @@ Beyond the Wonderful Wino Addon and its GUI, there are currently two additional 
 
 
 
-## Wonderful Wino's "Optional" Prerequisites:
+## Wonderful Wino  Addon Configuration
 
-**Local ToDo List Integration**
+![conf](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/conf.png)
 
-[Local ToDo list integration:](https://www.home-assistant.io/integrations/local_todo/) Permits the wines stored in the Wonderful Wino database to be accessed via a ToDo list. The user can see his wine along with essential wine facts in a compact form. Also the user can perform a subset of wine inventory tasks such as informing WWino that you consumed a bottle (which removes it from inventory and permits you to optionally rate the wine you just drank). 
-
-*If you plan on exposing your wine collection to your voice assistant, the ToDo list is required.*
-
-
-
-
-
-**Once you have the Local ToDo list integration installed, create a ToDo list for your wine. If you want to keep things easy, use the default name of "My Wine"**
-
-If you intend to use the ToDo list your configuration.yaml file needs a small addition. Using the [FileEditor or VSCode addons](https://www.home-assistant.io/common-tasks/os/) to add this to your Home Assistant configuration.yaml. And do practice safe "yamling" by checking the configuration first in Developer Tools before restarting!
-
-    # Wonderful-Wino Stuff
-    rest_command:
-      wine_consumed_webhook:
-        url: "http://<your HA IP>:5000/api/consume-wine"
-        method: POST
-        content_type: "application/json"
-        payload: >
-          {
-            "item": "{{ item }}",
-            "timestamp": "{{ now().isoformat() }}"
-            {% if rating | float(0) > 0 %}
-            ,"rating": {{ rating }}
-            {% endif %}
-          }
-
-**Don't forget to put in your Home Assistant's IP address where indicated and restart Home Assistant for the change to take effect!***  Once restarted, you will have a new service called `rest_command.wine_consumed_webhook` that can be used in your scripts and automations. We will add a Home Assistant automation, two Helpers, and a dashboard later to fully enable the ToDo functionality.
-
-**Home Assistant Voice Assistant  with LLM / AI**
-
-A functioning [Home Assistant Voice Assistant](https://www.home-assistant.io/voice_control/) enhanced with AI. (I personally use the [Google Gemini](https://www.home-assistant.io/integrations/google_generative_ai_conversation/) integration.) When your AI is enabled and properly configured, your wine facts are just a question away. *Hey Nabu,,, How many Cabs do I have? What is my oldest vintage? Which wine is rated the highest?* 
-
-
-
-
-It is like having a personal sommelier available at your every whim. (OK, you got to open the bottle yourself!). **I will discuss AI/LLM prompts to make your voice assistant a wine expert in the general documentation.** 
-
-**Samba Share Home Assistant Addon**
-
-The [Samba Share addon](https://www.home-assistant.io/common-tasks/os/) allows to you store your backup the Wonderful Wino database on another storage medium beyond your Home Assistant server. Also, it makes it possible to override the thumbnail image of your wine bottle to one of your own if desired. 
-
-***Now with the "Optional" Prerequisites out of the way, let's get to the configuration...***
-
-
-## Addon Configuration:
-
-In the Configuration tab:
-
-**HOME_ASSISTANT_URL:**
-`http://homeassistant.local:8123 
-`  **OR** `http://<your HA IP address>:8123` 
-
-
-  **HA_LONG_LIVED_TOKEN:**
-	*To create a Home Assistant Long Lived Token...*
-  
+**Creating a Home Assistant Long Lived Token:** 
 1. Click on your user account profile (bottom of the Home Assistant sidebar on the left)
 2. Select the "Security" tab and scroll to its bottom
 3. In the **Long-lived access tokens** section and click **Create Token**
 4. Name it **WWino** (or anything else you want) and click **OK**
-5. Copy the token and paste it in the Wonderful Wino configuration's HA_LONG_LIVED_TOKEN textbox.
-(You also could optionally back this up somewhere, but if it is ever lost a new one can be generated and the Wonderful Wino Configuration updated.)
-
-**TODO_LIST_ENTITY_ID**
-Set this to the entity ID for your wine's ToDo list. Usually `todo.my_wine`
-
+5. Copy and paste it in the configuration HA_LONG_LIVED_TOKEN textbox.
 
 Click **Save** in lower right corner of this panel. 
 This completes the Addon configuration. We are now ready to start the addon.
@@ -124,6 +63,67 @@ Go back to the Info tab, select your startup options. **Add to Side Bar** is str
      * Running on http://127.0.0.1:5000
      * Running on http://172.30.33.13:5000
     2025-10-03 12:21:09,024 - werkzeug - INFO - Press CTRL+C to quit
+
+If everything checks out, congratulations, Wonderful Wino is up and running and ready for you to add your wine! You can stop right here. But to really make Wonderful Wino truly wwonderful, we need to configure Home Assistant a wee bit more.
+
+**Local To Do list:**
+If you have not do so already, install the [Local ToDo list integration](https://www.home-assistant.io/integrations/local_todo/)  now and make a ToDo list called "My Wine".
+
+For the connectivity between Wonderful Wino and Home Assistant / Local ToDo list a small addition to the configuration.yaml is required.  Using the [FileEditor or VSCode addons](https://www.home-assistant.io/common-tasks/os/) to add this to your Home Assistant configuration.yaml. And do practice safe "yamling" by checking the configuration first in Developer Tools before restarting!
+
+    # Wonderful-Wino Stuff
+    rest_command:
+      wine_consumed_webhook:
+        url: "http://<your HA IP>:5000/api/consume-wine"
+        method: POST
+        content_type: "application/json"
+        payload: >
+          {
+            "item": "{{ item }}",
+            "timestamp": "{{ now().isoformat() }}"
+            {% if rating | float(0) > 0 %}
+            ,"rating": {{ rating }}
+            {% endif %}
+          }
+
+**Don't forget to put in your Home Assistant's IP address where indicated and restart Home Assistant for the change to take effect!***  Once restarted, you will have a new service called `rest_command.wine_consumed_webhook` that can be used in your scripts and automations. We will add a Home Assistant automation, two Helpers, and a dashboard later to fully enable the ToDo functionality.
+
+ ToDo list, an Automation, two Helpers, a small yaml edit and a dashboard.
+
+
+**Local ToDo List Integration**
+
+[Local ToDo list integration:](https://www.home-assistant.io/integrations/local_todo/) Permits the wines stored in the Wonderful Wino database to be accessed via a ToDo list. The user can see his wine along with essential wine facts in a compact form. Also the user can perform a subset of wine inventory tasks such as informing WWino that you consumed a bottle (which removes it from inventory and permits you to optionally rate the wine you just drank). 
+
+*If you plan on exposing your wine collection to your voice assistant, the ToDo list is required.*
+
+
+
+
+
+**Once you have the Local ToDo list integration installed, create a ToDo list for your wine. If you want to keep things easy, use the default name of "My Wine"**
+
+
+
+
+**Home Assistant Voice Assistant  with LLM / AI**
+
+A functioning [Home Assistant Voice Assistant](https://www.home-assistant.io/voice_control/) enhanced with AI. (I personally use the [Google Gemini](https://www.home-assistant.io/integrations/google_generative_ai_conversation/) integration.) When your AI is enabled and properly configured, your wine facts are just a question away. *Hey Nabu,,, How many Cabs do I have? What is my oldest vintage? Which wine is rated the highest?* 
+
+
+
+
+It is like having a personal sommelier available at your every whim. (OK, you got to open the bottle yourself!). **I will discuss AI/LLM prompts to make your voice assistant a wine expert in the general documentation.** 
+
+**Samba Share Home Assistant Addon**
+
+The [Samba Share addon](https://www.home-assistant.io/common-tasks/os/) allows to you store your backup the Wonderful Wino database on another storage medium beyond your Home Assistant server. Also, it makes it possible to override the thumbnail image of your wine bottle to one of your own if desired. 
+
+
+Click **Save** in lower right corner of this panel. 
+This completes the Addon configuration. We are now ready to start the addon.
+
+
 
 
 ## ToDo list Automation
