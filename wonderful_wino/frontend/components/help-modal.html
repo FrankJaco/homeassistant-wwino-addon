@@ -1,0 +1,69 @@
+<div id="helpModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="helpModalTitle">
+    <div class="modal-content">
+        <button class="modal-close-button" onclick="closeModal()">&times;</button>
+        <h3 id="helpModalTitle" class="text-xl font-semibold mb-4 text-purple-800">Help</h3>
+
+        <!-- Maintenance Help Content -->
+        <div id="maintenance-help-content">
+            <p class="text-sm">
+                This section provides tools to manage your wine inventory database and its synchronization with the Home
+                Assistant ToDo list.
+            </p>
+            <ul class="list-disc pl-5 mt-3 text-sm space-y-4">
+                <li><strong>Backup Database:</strong> Creates a safe copy of your entire wine inventory, stored as
+                    `wonderful_wino_backup.db` in your Home Assistant `/share/wwino/` folder.</li>
+                <li><strong>Restore Database:</strong> <span class="font-bold text-orange-600">WARNING:</span> This will
+                    completely overwrite your current inventory with the backup file. Any changes since your last backup
+                    will be lost.</li>
+                <li><strong>Sync DB→ToDo:</strong> Syncs on-hand wines in the database to the ToDo list. This is a
+                    one-way sync; items
+                    on the ToDo list won't be added to the database. To remove items from the ToDo list that are no
+                    longer on-hand,
+                    simply complete (consume) them.</li>
+                <li><strong>Reset DB:</strong> <span class="font-bold text-orange-600">WARNING:</span> This action
+                    permanently deletes ALL wine data and cannot be undone.</li>
+            </ul>
+        </div>
+
+        <!-- Manual Entry Help Content -->
+        <div id="manual-help-content" class="hidden">
+            <h4 class="text-lg font-semibold text-purple-800 mb-2">Adding a Wine Manually</h4>
+            <p class="text-sm">
+                This is the best option for wines that are not found on Vivino or
+                for when you want to enter all the details yourself.
+                Clicking <strong class="text-purple-800">Manually</strong> opens a form where you
+                can enter the wine’s name, vintage, varietal, region, and other
+                details. Only the wine name, vintage (or “no-vintage”), and
+                quantity are required. Everything else is optional and can be edited
+                later.
+            </p>
+        </div>
+
+        <!-- Vivino URL Help Content -->
+        <div id="vivino-help-content" class="hidden">
+            <h4 class="text-lg font-semibold text-purple-800 mb-2">Adding via Vivino URL</h4>
+            <p class="text-sm mb-3">
+                This method uses a Vivino web page URL to automatically obtain
+                publicly available wine details, saving you from typing them all in.
+            </p>
+            <ol class="list-decimal pl-5 text-sm space-y-2">
+                <li>In the textbox next to the "Search Vivino" button,
+                    enter your wine's name and vintage (e.g., Bogle Phantom 2020), then
+                    click <strong class="text-purple-800">Search Vivino</strong>.</li>
+                <li>Make sure the URL you copy is for the exact wine page—not a
+                    search results page with multiple options. Navigate fully to your
+                    wine before copying the URL from your browser's address bar.</li>
+                <li>Paste that URL into the textbox next to the <strong class="text-purple-800">Add from URL</strong>
+                    button in Wonderful Wino.</li>
+                <li>Optionally select a cost tier, confirm or adjust the bottle
+                    quantity, then click <strong class="text-purple-800">Add from URL</strong> to add the wine to your
+                    inventory.</li>
+            </ol>
+        </div>
+
+        <div class="mt-6 text-right">
+            <button onclick="closeModal()"
+                class="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">Close</button>
+        </div>
+    </div>
+</div>
