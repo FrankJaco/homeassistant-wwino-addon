@@ -6,7 +6,8 @@ import { BASE_URL, VIVINO_SEARCH_URL } from './config.js';
 import { loadHTML, apiCall, showMessage } from './utils.js';
 import { fetchInventory, updateDisplayedInventory } from './inventory.js';
 import { openModal, closeModal, promptForVintage } from './modals.js';
-import { getEntryFormData, checkFormChanges, fetchAndDisplayConsumptionHistory } from './forms.js';
+// Import getNotesFormData along with the others
+import { getEntryFormData, checkFormChanges, fetchAndDisplayConsumptionHistory, getNotesFormData } from './forms.js';
 import { 
     updateSortIcons, setupVintageControls, setupCostTierSelector, setupStarRating, 
     updateCostTierTooltips, updateCollapseIcon, collapseAddWinePanel, 
@@ -208,12 +209,10 @@ function setupEventListeners() {
                 } catch (error) {}
                 break;
             case 'notesForm':
-                const notesPayload = {
-                    vivino_url: document.getElementById('notesVivinoUrl').value,
-                    tasting_notes: document.getElementById('tastingNotesInput').value,
-                    image_url: document.getElementById('imageUrlInput').value
-                };
+                // Use the new getNotesFormData function to build the payload
+                const notesPayload = getNotesFormData();
                 try {
+                    // The API endpoint might need to be updated to handle the new fields
                     await apiCall('api/wine/notes', { method: 'POST', body: JSON.stringify(notesPayload) }, 'notesMessage', e.target.querySelector('button[type="submit"]'));
                     fetchInventory();
                     setTimeout(closeModal, 1500);

@@ -135,11 +135,23 @@ function prepareTasteModal(wine) {
     resetTasteStars();
 }
 
+/**
+ * Handles updating the image zoom level when the slider changes.
+ * @param {Event} event - The input event from the slider.
+ */
+const handleZoomChange = (event) => {
+    const draggableImage = document.getElementById('draggableImage');
+    if (draggableImage) {
+        draggableImage.style.transform = `scale(${event.target.value})`;
+    }
+};
+
 function prepareNotesModal(wine) {
     const imageUrlInput = document.getElementById('imageUrlInput');
     const toggleBtn = document.getElementById('toggleImageUrlLock');
     const focalPointEditor = document.getElementById('focalPointEditor');
     const draggableImage = document.getElementById('draggableImage');
+    const zoomSlider = document.getElementById('zoomSlider');
 
     document.getElementById('notesVivinoUrl').value = wine.vivino_url;
     document.getElementById('notesModalWineName').textContent = `${wine.name} (${wine.vintage || 'NV'})`;
@@ -150,12 +162,23 @@ function prepareNotesModal(wine) {
     imageUrlInput.value = imageUrl;
 
     draggableImage.src = imageUrl;
+
+    // --- Focal Point and Zoom Logic ---
     const focalPoint = wine.image_focal_point || '50%';
+    const zoomLevel = wine.image_zoom || 1;
+
     draggableImage.style.objectPosition = `50% ${focalPoint}`;
+    draggableImage.style.transformOrigin = `50% ${focalPoint}`;
+
+    zoomSlider.value = zoomLevel;
+    draggableImage.style.transform = `scale(${zoomLevel})`;
 
     imageUrlInput.setAttribute('readonly', true);
     toggleBtn.textContent = '🔒';
     focalPointEditor.classList.remove('is-unlocked');
+    
+    zoomSlider.removeEventListener('input', handleZoomChange);
+    zoomSlider.addEventListener('input', handleZoomChange);
 
     fetchAndDisplayConsumptionHistory(wine, state.consumptionLogSortOrder);
 }
@@ -178,7 +201,6 @@ function prepareHelpModal(options = {}) {
     const manualContent = document.getElementById('manual-help-content');
     const vivinoContent = document.getElementById('vivino-help-content');
 
-    // Hide all content sections first
     maintenanceContent.classList.add('hidden');
     manualContent.classList.add('hidden');
     vivinoContent.classList.add('hidden');
@@ -239,7 +261,6 @@ export function promptForVintage() {
 }
 
 // --- Settings and Maintenance Functions ---
-// Exposed to global scope for onclick attributes
 window.handleSyncAllWines = handleSyncAllWines;
 window.handleReinitializeDb = handleReinitializeDb;
 window.handleBackupDb = handleBackupDb;
@@ -357,3 +378,4 @@ function openHelpFromSettings() {
     window.fromSettings = true;
     openModal('helpModal');
 }
+

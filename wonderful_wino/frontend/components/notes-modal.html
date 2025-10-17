@@ -18,9 +18,16 @@
 
             <div class="mb-4">
                 <label class="block text-sm font-medium mb-1">Image Preview & Focal Point</label>
-                <div id="focalPointEditor">
-                    <img id="draggableImage" src="" alt="Wine bottle image" draggable="false">
+                <div id="focalPointEditor" class="overflow-hidden border rounded-md">
+                    <img id="draggableImage" src="" alt="Wine bottle image" draggable="false"
+                        class="w-full transition-transform duration-100 ease-linear">
                 </div>
+            </div>
+
+            <div class="mb-4">
+                <label for="zoomSlider" class="block text-sm font-medium mb-1">Zoom</label>
+                <input type="range" id="zoomSlider" min="1" max="3" step="0.1" value="1"
+                    class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700">
             </div>
 
             <div class="mb-4">

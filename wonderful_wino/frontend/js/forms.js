@@ -4,6 +4,24 @@
 import * as state from './state.js';
 import { BASE_URL } from './config.js';
 
+export function getNotesFormData() {
+    const vivinoUrl = document.getElementById('notesVivinoUrl').value;
+    const imageUrl = document.getElementById('imageUrlInput').value;
+    const tastingNotes = document.getElementById('tastingNotesInput').value;
+    const imageZoom = parseFloat(document.getElementById('zoomSlider').value);
+
+    const imageStyle = document.getElementById('draggableImage').style.objectPosition;
+    const imageFocalPoint = imageStyle ? imageStyle.split(' ')[1] : '50%';
+
+    return {
+        vivino_url: vivinoUrl,
+        image_url: imageUrl,
+        tasting_notes: tastingNotes,
+        image_focal_point: imageFocalPoint,
+        image_zoom: imageZoom
+    };
+}
+
 export function getEntryFormData() {
     const getElementValue = (id, parser) => {
         const el = document.getElementById(id);
@@ -79,3 +97,4 @@ export async function fetchAndDisplayConsumptionHistory(wine, sortOrder = 'desc'
         container.innerHTML = `<p class="text-red-600">Error loading history: ${error.message}</p>`;
     }
 }
+
