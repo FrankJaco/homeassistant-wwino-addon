@@ -6,7 +6,6 @@ import { BASE_URL, VIVINO_SEARCH_URL } from './config.js';
 import { loadHTML, apiCall, showMessage } from './utils.js';
 import { fetchInventory, updateDisplayedInventory } from './inventory.js';
 import { openModal, closeModal, promptForVintage } from './modals.js';
-// Import getNotesFormData along with the others
 import { getEntryFormData, checkFormChanges, fetchAndDisplayConsumptionHistory, getNotesFormData } from './forms.js';
 import { 
     updateSortIcons, setupVintageControls, setupCostTierSelector, setupStarRating, 
@@ -122,10 +121,17 @@ function setupEventListeners() {
         if (e.target.id === 'toggleImageUrlLock') {
              const imageUrlInput = document.getElementById('imageUrlInput');
              const focalPointEditor = document.getElementById('focalPointEditor');
+             const zoomSlider = document.getElementById('zoomSlider');
+             const zoomSliderContainer = document.getElementById('zoomSliderContainer');
              const isReadonly = imageUrlInput.hasAttribute('readonly');
+
              imageUrlInput.toggleAttribute('readonly', !isReadonly);
              e.target.textContent = isReadonly ? '🔓' : '🔒';
              focalPointEditor.classList.toggle('is-unlocked', isReadonly);
+             
+             zoomSlider.disabled = !isReadonly;
+             zoomSliderContainer.classList.toggle('opacity-50', !isReadonly);
+
              if (isReadonly) { imageUrlInput.focus(); }
         }
 
@@ -209,10 +215,8 @@ function setupEventListeners() {
                 } catch (error) {}
                 break;
             case 'notesForm':
-                // Use the new getNotesFormData function to build the payload
                 const notesPayload = getNotesFormData();
                 try {
-                    // The API endpoint might need to be updated to handle the new fields
                     await apiCall('api/wine/notes', { method: 'POST', body: JSON.stringify(notesPayload) }, 'notesMessage', e.target.querySelector('button[type="submit"]'));
                     fetchInventory();
                     setTimeout(closeModal, 1500);
@@ -311,3 +315,4 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (document.visibilityState === 'visible') fetchInventory();
     });
 });
+

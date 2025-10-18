@@ -3,7 +3,7 @@
 
 import * as state from './state.js';
 import { updateStarVisuals, updateFeedbackText, updateCostTierSelector, resetTasteStars } from './ui.js';
-import { fetchAndDisplayConsumptionHistory, getEntryFormData, checkFormChanges } from './forms.js';
+import { fetchAndDisplayConsumptionHistory, getEntryFormData, checkFormChanges, getNotesFormData } from './forms.js';
 import { fetchInventory } from './inventory.js';
 import { apiCall } from './utils.js';
 import { DEFAULT_COST_TIERS } from './config.js';
@@ -135,10 +135,6 @@ function prepareTasteModal(wine) {
     resetTasteStars();
 }
 
-/**
- * Handles updating the image zoom level when the slider changes.
- * @param {Event} event - The input event from the slider.
- */
 const handleZoomChange = (event) => {
     const draggableImage = document.getElementById('draggableImage');
     if (draggableImage) {
@@ -152,6 +148,7 @@ function prepareNotesModal(wine) {
     const focalPointEditor = document.getElementById('focalPointEditor');
     const draggableImage = document.getElementById('draggableImage');
     const zoomSlider = document.getElementById('zoomSlider');
+    const zoomSliderContainer = document.getElementById('zoomSliderContainer');
 
     document.getElementById('notesVivinoUrl').value = wine.vivino_url;
     document.getElementById('notesModalWineName').textContent = `${wine.name} (${wine.vintage || 'NV'})`;
@@ -160,10 +157,8 @@ function prepareNotesModal(wine) {
 
     const imageUrl = wine.image_url || '';
     imageUrlInput.value = imageUrl;
-
     draggableImage.src = imageUrl;
 
-    // --- Focal Point and Zoom Logic ---
     const focalPoint = wine.image_focal_point || '50%';
     const zoomLevel = wine.image_zoom || 1;
 
@@ -173,9 +168,12 @@ function prepareNotesModal(wine) {
     zoomSlider.value = zoomLevel;
     draggableImage.style.transform = `scale(${zoomLevel})`;
 
+    // Reset lock and disabled states on modal open
     imageUrlInput.setAttribute('readonly', true);
     toggleBtn.textContent = '🔒';
     focalPointEditor.classList.remove('is-unlocked');
+    zoomSlider.disabled = true;
+    zoomSliderContainer.classList.add('opacity-50');
     
     zoomSlider.removeEventListener('input', handleZoomChange);
     zoomSlider.addEventListener('input', handleZoomChange);

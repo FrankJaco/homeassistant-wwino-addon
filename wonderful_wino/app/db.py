@@ -37,7 +37,8 @@ def init_db():
                 wine_type TEXT,
                 added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 needs_review BOOLEAN DEFAULT FALSE,
-                image_focal_point TEXT DEFAULT '50%'
+                image_focal_point TEXT DEFAULT '50%',
+                image_zoom REAL DEFAULT 1
             )
         ''')
         cursor.execute('''
@@ -70,6 +71,10 @@ def init_db():
         if 'image_focal_point' not in wines_columns:
             cursor.execute("ALTER TABLE wines ADD COLUMN image_focal_point TEXT DEFAULT '50%'")
             logger.info("Added 'image_focal_point' column to wines table.")
+        # ADD MIGRATION LOGIC FOR ZOOM
+        if 'image_zoom' not in wines_columns:
+            cursor.execute("ALTER TABLE wines ADD COLUMN image_zoom REAL DEFAULT 1")
+            logger.info("Added 'image_zoom' column to wines table.")
 
         # Check if new columns exist in consumption_history table and add them if they don't
         cursor.execute("PRAGMA table_info(consumption_history)")
@@ -328,7 +333,7 @@ def update_personal_rating(vivino_url, rating):
         if conn:
             conn.close()
 
-def update_wine_notes_and_image(vivino_url, notes, image_url):
+def update_wine_notes_and_image(vivino_url, notes, image_url, image_zoom):
     conn = None
     try:
         conn = get_db_connection()
@@ -341,6 +346,10 @@ def update_wine_notes_and_image(vivino_url, notes, image_url):
         if image_url is not None:
             updates.append("image_url = ?")
             params.append(image_url)
+        if image_zoom is not None:
+            updates.append("image_zoom = ?")
+            params.append(image_zoom)
+
         if updates:
             query = f"UPDATE wines SET {', '.join(updates)} WHERE vivino_url = ?"
             params.append(vivino_url)
