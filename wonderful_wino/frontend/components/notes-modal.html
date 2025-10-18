@@ -18,11 +18,10 @@
 
             <div class="mb-4">
                 <label class="block text-sm font-medium mb-1">Image Preview & Focal Point</label>
-                <!-- Make this container a square to match the thumbnail -->
-                <div id="focalPointEditor"
-                    class="relative w-full aspect-square rounded-md overflow-hidden bg-gray-100 dark:bg-gray-800 transition-all">
+                <!-- Reverted to a simpler structure for debugging -->
+                <div id="focalPointEditor" class="overflow-hidden rounded-md bg-gray-100 dark:bg-gray-800">
                     <img id="draggableImage" src="" alt="Wine bottle image" draggable="false"
-                        class="w-full h-full object-cover transition-transform duration-300">
+                        class="transition-transform duration-300">
                 </div>
             </div>
 
