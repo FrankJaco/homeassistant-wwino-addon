@@ -1,7 +1,6 @@
 # Wonderful Wino
 A personal wine inventory system that can be exposed to the AI/Voice assistant for real-time wine-pairing suggestions
 and general wine info.
-
 ### Table of Contents
 
  - [About Wonderful Wino](#about)
@@ -37,8 +36,7 @@ and general wine info.
      - [ToDo List Controls](#todo-list-controls)
      - [ToDo List Entry Details](#todo-list-entry-details)
  - [How did Wonderful Wino come about?](#how-did-wonderful-wino-come-about)
-
-## About
+# About
 
 The Wonderful Wino add-on provides a user-friendly interface to manage your wine collection within Home Assistant. It
 can utilize the Local ToDo list integration to maintain a copy of your wine collection making it accessible to your Home
