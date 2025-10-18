@@ -49,7 +49,9 @@ And for Android phone users who utilize the Vivino App there is the [Wonderful W
  ![AHA](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/aha.png)
 
   
-  
-  [**OK, I want Wonderful Wino, where can I find out how to Install and configure it?**](./wonderful_wino/DOCS.md)
+  ## [Click Here to Open the Wonderful Wino Documentation](https://frankjaco.github.io/homeassistant-wwino-addon/)
 
-Cheers!
+(This link will open in a new tab)
+
+
+**Cheers!**
