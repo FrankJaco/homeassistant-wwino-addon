@@ -363,9 +363,10 @@ def save_tasting_notes_and_image():
         return jsonify({"status": "error", "message": "Missing required vivino_url"}), 400
     tasting_notes = data.get('tasting_notes')
     image_url = data.get('image_url')
-    if tasting_notes is None and image_url is None:
+    image_zoom = data.get('image_zoom')
+    if tasting_notes is None and image_url is None and image_zoom is None:
         return jsonify({"status": "info", "message": "No data provided to update."}), 200
-    if db.update_wine_notes_and_image(vivino_url, tasting_notes, image_url):
+    if db.update_wine_notes_and_image(vivino_url, tasting_notes, image_url, image_zoom):
         return jsonify({"status": "success", "message": "Details saved."}), 200
     else:
         return jsonify({"status": "error", "message": "Wine not found or DB error."}), 404
@@ -437,4 +438,3 @@ if __name__ == '__main__':
     print("\n---> NOTE: The following 'WARNING' is a standard benign message from the internal web server.\n"
           "---> It is normal and expected for a Home Assistant add-on and can be safely ignored.\n")
     app.run(host='0.0.0.0', port=5000)
-
