@@ -105,7 +105,10 @@ function displayInventory(inventory) {
         imageContainer.title = item.tasting_notes ? item.tasting_notes : 'Click to add tasting notes';
 
         const focalPoint = item.image_focal_point || '50%';
-        const imageStyle = `object-position: 50% ${focalPoint};`;
+        const zoomLevel = item.image_zoom || 1;
+        // Combine all styles into a single string
+        const imageStyle = `object-position: 50% ${focalPoint}; transform: scale(${zoomLevel}); transform-origin: 50% ${focalPoint};`;
+
         imageContainer.innerHTML = item.image_url
             ? `<img src="${item.image_url}" class="h-24 w-24 object-cover" alt="${escapeAttr(item.name)}" style="${imageStyle}">`
             : '<div class="text-gray-400 text-center w-24 h-24 flex items-center justify-center bg-gray-100">No Image</div>';
