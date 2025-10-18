@@ -9,44 +9,42 @@ A personal wine inventory system that can be exposed to the AI/Voice assistant f
 (This link will open in a new tab)
 
 
+## Table of Contents
 
-### Table of Contents
+ - [About Wonderful Wino](#about)
+ - [Installation of the Add-on](#installing-the-wonderful-wino-add-on)
+ - [Add-on Configuration](#wonderful-wino-add-on-configuration)
+ - [Home Assistant Configuration for Wonderful Wino](#home-assistant-configuration-for-wonderful-wino)
+   - [Local To Do list](#local-todo-list)
+   - [configuration.yaml addition](#home-assistant-configuration.yaml)
+   - [Helpers](#create-four-home-assistant-helpers)
+   - [Automation](#home-assistant-automation)
+   - [Dashboard](#home-assistant-dashboard)
+   - [Ingress URL for WW GUI](#determining-wonderful-wino-ingress-url)
+   - [Voice Assistant AI Prompts](#voice-assistant-ai-prompts)
+ - [Quick Visual Guide to using Wonderful Wino](#quick-visual-guide-to-using-wonderful-wino)
+   - [Adding Wine Manually](#manually-via-wonderful-wino-gui)
+   - [Adding Wine Via Vivino URL](#vivino-assisted-via-wonderful-wino-gui)
+   - [Other Tools for Adding Wine to your DB](#other-tools-for-adding-wine-to-your-database)
+     - [Chrome Browser Extension](#wonderful-wino-chrome-browser-extension)
+     - [Android Helper App](#wonderful-wino-android-helper-app)
+   - [Inventory Display Filtering & Sorting](#inventory-display-and-filtering-controls)
+   - [Wine Inventory Display Panel](#wine-inventory-display-panel)
+     - [Actions](#actions)
+     - [Wine Details and Metrics](#wine-details-and-metrics)
+     - [Thumbnail Image](#thumbnail-image)
+       - [Tasting Notes](#thumbnail-image)
+       - [Consumption Log](#thumbnail-image)
+   - [Accessing Settings and Screen Mode](#accessing-settings-and-screen-mode)
+   - [Settings and Maintenance](#accessing-settings-and-screen-mode)
+     - [Setting Cost Tiers](#setting-cost-tiers)
+     - [Database Backup and Recovery](#maintenance-tools)
+     - [Maintenance Tools](#maintenance-tools)
+   - [Accessing Your Wine from within Home Assistant](#accessing-your-wine-from-within-home-assistant)
+     - [ToDo List Controls](#todo-list-controls)
+     - [ToDo List Entry Details](#todo-list-entry-details)
+ - [How did Wonderful Wino come about?](#how-did-wonderful-wino-come-about)
 
- - <a href="#about" target="_self">About Wonderful Wino</a>
- - <a href="#installing-the-wonderful-wino-add-on" target="_self">Installation of the Add-on</a>
- - <a href="#wonderful-wino-add-on-configuration" target="_self">Add-on Configuration</a>
- - <a href="#home-assistant-configuration-for-wonderful-wino" target="_self">Home Assistant Configuration for Wonderful Wino</a>
-   - <a href="#local-todo-list" target="_self">Local To Do list</a>
-   - <a href="#home-assistant-configurationyaml" target="_self">configuration.yaml addition</a>
-   - <a href="#create-four-home-assistant-helpers" target="_self">Helpers</a>
-   - <a href="#home-assistant-automation" target="_self">Automation</a>
-   - <a href="#home-assistant-dashboard" target="_self">Dashboard</a>
-   - <a href="#determining-wonderful-wino-ingress-url" target="_self">Ingress URL for WW GUI</a>
-   - <a href="#voice-assistant-ai-prompts" target="_self">Voice Assistant AI Prompts</a>
- - <a href="#quick-visual-guide-to-using-wonderful-wino" target="_self">Quick Visual Guide to using Wonderful Wino</a>
-   - <a href="#manually-via-wonderful-wino-gui" target="_self">Adding Wine Manually</a>
-   - <a href="#vivino-assisted-via-wonderful-wino-gui" target="_self">Adding Wine Via Vivino URL</a>
-   - <a href="#other-tools-for-adding-wine-to-your-database" target="_self">Other Tools for Adding Wine to your DB</a>
-     - <a href="#wonderful-wino-chrome-browser-extension" target="_self">Chrome Browser Extension</a>
-     - <a href="#wonderful-wino-android-helper-app" target="_self">Android Helper App</a>
-   - <a href="#inventory-display-and-filtering-controls" target="_self">Inventory Display Filtering & Sorting</a>
-   - <a href="#wine-inventory-display-panel" target="_self">Wine Inventory Display Panel</a>
-     - <a href="#actions" target="_self">Actions</a>
-     - <a href="#wine-details-and-metrics" target="_self">Wine Details and Metrics</a>
-     - <a href="#thumbnail-image" target="_self">Thumbnail Image</a>
-       - <a href="#thumbnail-image" target="_self">Tasting Notes</a>
-       - <a href="#thumbnail-image" target="_self">Consumption Log</a>
-   - <a href="#accessing-settings-and-screen-mode" target="_self">Accessing Settings and Screen Mode</a>
-   - <a href="#accessing-settings-and-screen-mode" target="_self">Settings and Maintenance</a>
-     - <a href="#setting-cost-tiers" target="_self">Setting Cost Tiers</a>
-     - <a href="#maintenance-tools" target="_self">Database Backup and Recovery</a>
-     - <a href="#maintenance-tools" target="_self">Maintenance Tools</a>
-   - <a href="#accessing-your-wine-from-within-home-assistant" target="_self">Accessing Your Wine from within Home Assistant</a>
-     - <a href="#todo-list-controls" target="_self">ToDo List Controls</a>
-     - <a href="#todo-list-entry-details" target="_self">ToDo List Entry Details</a>
- - <a href="#how-did-wonderful-wino-come-about" target="_self">How did Wonderful Wino come about?</a>
-
-<a name="about"></a>
 ## About
 
 The Wonderful Wino add-on provides a user-friendly interface to manage your wine collection within Home Assistant. It can utilize the Local ToDo list integration to maintain a copy of your wine collection making it accessible to your Home Assistant's AI/Voice assistant. 
@@ -67,7 +65,6 @@ Beyond the Wonderful Wino Add-on and its GUI, there are currently two additional
 
 ![CBE](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/cbe.png)  ![AHA](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/aha.png)
 
-<a name="installing-the-wonderful-wino-add-on"></a>
 # Installing the Wonderful Wino Add-on:
 
 **Prerequisites:**
@@ -87,19 +84,19 @@ Adding a custom add-on repository is a fairly straightforward process. Please fo
     * Click the **three-dots menu** in the top right corner.
     * Select **Repositories**.
     * Paste the repository URL `https://github.com/FrankJaco/homeassistant-wwino-addon` and click **Add**.
-    * Click **Close**.
+    *  Click **Close**.
 3.  **Install the Wonderful Wino Add-on**
     * After adding the repository, you may need to refresh the page for the new addon to appear by pressing `Ctrl + R` (or `Cmd + R` on a Mac).
     * Scroll through the Add-on Store and locate the section titled **Wonderful Wino Add-on Repository**.
     * Click on the **Wonderful Wino** add-on card to open its information page.
     * Click the blue **Install** button and wait for the installation process to complete. This may take a few minutes.
 
-<a name="wonderful-wino-add-on-configuration"></a>
 ## Wonderful Wino Add-on Configuration
 
 ![conf](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/conf.png)
 
-**Creating a Home Assistant Long Lived Token: for Wonderful Wino** 1. Click on your **User Account** (bottom of the Home Assistant sidebar on the left).
+**Creating a Home Assistant Long Lived Token: for Wonderful Wino** 
+1. Click on your **User Account** (bottom of the Home Assistant sidebar on the left).
 2. Select the **Security tab** at the top of the screen and scroll to its bottom.
 3. In the **Long-lived access tokens** section and click **Create Token**.
 4. Name it **WWino** (or anything else you want) and click **OK**
@@ -138,22 +135,19 @@ Click **Save** in lower right corner of this panel.
 ***If everything checks out, congratulations, Wonderful Wino is up and running and ready for you to add your wine! You could stop right here and use Wonderful Wino as is via its GUI. But to really make Wonderful Wino truly wwonderful, we need to configure Home Assistant a wwee bit more.***
 
 
-<a name="home-assistant-configuration-for-wonderful-wino"></a>
 # Home Assistant Configuration for Wonderful Wino
 
 To get the most out of Wonderful Wino, the [Local ToDo list integration](https://www.home-assistant.io/integrations/local_todo/), and a functioning [Home Assistant Voice Assistant](https://www.home-assistant.io/voice_control/) enhanced with Ai are required. (fyi, I personally use the [Google Gemini](https://www.home-assistant.io/integrations/google_generative_ai_conversation/) integration and it does a nice job.) This section will tie these various parts together.
 
-<a name="local-todo-list"></a>
 ### Local ToDo list:
 
 If you have not done so already, install the [Local ToDo list integration](https://www.home-assistant.io/integrations/local_todo/)  now.
 
- Make a ToDo list called **My Wine** `todo.my_wine`
+ Make a ToDo list called **My Wine**  `todo.my_wine`
 
 (Technically you could call it anything you want, but all the included documentation and yaml etc. are built around that assumption. I recommend starting with "My Wine" first and getting everything up and running before "crossing the beams".)
 
 
-<a name="home-assistant-configurationyaml"></a>
 ### Home Assistant configuration.yaml:
 For connectivity between Wonderful Wino and Home Assistant / Local ToDo list a small addition to the configuration.yaml file is required.  You can use the [FileEditor or VSCode add-ons](https://www.home-assistant.io/common-tasks/os/)  for this task.
 
@@ -175,7 +169,6 @@ For connectivity between Wonderful Wino and Home Assistant / Local ToDo list a s
 **Don't forget** to put in your **Home Assistant's IP address** where indicated!
 *Practice safe "yamling" by checking the configuration in **Developer Tools**, then ***restart Home Assistant***.*
 
-<a name="create-four-home-assistant-helpers"></a>
 ### Create Four Home Assistant Helpers:
 *All four Helpers can be created via the Home Assistant GUI.*
 
@@ -199,7 +192,6 @@ Note that each helper is of a different type (**Input_Text** - **Input_Number** 
 ![enter image description here](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/src.png)
 
 
-<a name="home-assistant-automation"></a>
 ### Home Assistant Automation:
 *Now with the 4 Helpers created, we can create our one required automation.*
 
@@ -260,7 +252,6 @@ The purpose of the automation is for the ToDo list functionality in where the us
     variables:
       list_entity: todo.my_wine
 
-<a name="home-assistant-dashboard"></a>
 ### Home Assistant "Subview" Dashboard
 This subview dashboard provides these functions:
 
@@ -474,7 +465,6 @@ Take particular note of the **INGRESS** lines in the yaml as you will need to ed
 
 Ingress is a proxy system built into Home Assistant that provides secure and seamless access to an add-on's web UI from within the Home Assistant frontend. It utilizes Home Assistant's existing authentication and network handling, making it extremely secure which eliminates the need for manual port configuration and direct network exposure of the add-on.
 
-<a name="determining-wonderful-wino-ingress-url"></a>
 ### Determining Wonderful Wino Ingress URL:
 
 While the default method for access is the **Open Web UI** button (or by enabling it on the Home Assistant Sidebar), the direct Ingress URL may be required for advanced configurations, such as embedding in custom dashboards.
@@ -496,7 +486,6 @@ To determine the exact URL for your installation:
 Once you determine your URL, you can use this anywhere you want in your own dashboards to navigate to the Wonderful Wino GUI and eliminate the Sidebar if you wish.
 
 
-<a name="voice-assistant-ai-prompts"></a>
 ## Voice Assistant AI Prompts:
 To make YOUR voice assistant a sommelier, you need to add the role of a wine expert to its prompt. Add this to your current Voice Assistant/LLM prompt. Do edit it if required to meet your needs. 
 
@@ -524,7 +513,6 @@ If you wish to create and house your own thumbnails. Simply create a folder call
     ''http://<Your HomeAssistant IP>:8123/local/wwino_images/my_wine_image.jpg''
 
 
-<a name="quick-visual-guide-to-using-wonderful-wino"></a>
 # Quick Visual Guide to Using Wonderful Wino
 ## Adding Wine
 Generally the tedium of adding entries to a personal database of any kind often is it's downfall. This is where Wonderful Wino really shines. All the tools make short work of it.
@@ -541,23 +529,19 @@ Generally there are 4 ways to add wine to your Wonderful Wino' database.
 *Wonderful Wino is a Home Assistant Add-on that uses "INGRESS". If you are configured so that you can use Home Assistant outside of your home network, the Wonderful Wino GUI should also work normally anywhere your Home Assistant can.*
 
 
-<a name="manually-via-wonderful-wino-gui"></a>
 ### Manually via Wonderful Wino GUI:
 ![AddWineModal](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/awp2.png) 
 ![AWP6](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/awp6.png)
 
-<a name="vivino-assisted-via-wonderful-wino-gui"></a>
 ### Vivino-Assisted via Wonderful Wino GUI:
 ![AddWinePanel3a](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/awp3a.png)
  ![AWP7](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/awp7.png)
  
 *The most important points to remember when searching Vivino using this method are to include the 4 digits for the vintage, and before grabbing the URL to paste back in WW ensure you have drilled down sufficiently to the specific wines' page.*
 
-<a name="other-tools-for-adding-wine-to-your-database"></a>
 ## Other Tools for Adding Wine to your Database:
 The **Other Tools** button provides access to the Github repositories for the additional tools for adding wine. 
 
-<a name="wonderful-wino-chrome-browser-extension"></a>
 ### Wonderful Wino Chrome Browser Extension:
 If you use the Chrome Browser, with this extension you can add wine to your inventory without ever touching the Wonderful Wino GUI, or Home Assistant. 
 
@@ -573,7 +557,6 @@ Click the **Red Wine icon** on the extensions bar to bring up the Wonderful Wino
 
 **Important:** The Wonderful Wino Chrome Browser Extension **will only work on your home network** as it communicates with the Wonderful Wino backend via standard HTTPS POST requests sent to a specific REST API endpoint exposed by the backend's Flask web server.  As 99.9% of the time you will likely be adding wine to your collection at home, this should not be a major limitation.
 
-<a name="wonderful-wino-android-helper-app"></a>
 ### Wonderful Wino Android Helper App
 *This is the most automatic solution of all for those who are lucky enough to have an Android Phone or Tablet fitted with a camera and have the Vivino Android app loaded.*
 
@@ -598,7 +581,6 @@ Click the **WWino Android Helper** button
  - Set a cost Tier if desired
  - Click **Add Wine**.
 
-<a name="inventory-display-and-filtering-controls"></a>
 ## Inventory Display and Filtering Controls
 
 ![WIDF1](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/widf1.png)
@@ -611,12 +593,10 @@ The Wine Types can be filtered by **🍷Red - 🥂White - 🌸Rose' - 🍾Sparkl
 
 It is also possible to change the direct of the Sort Order, **ascending- descending** and do it by **Name - Varietal - Country - Region - Vintage - Rating - B4B - Quantity**
 
-<a name="wine-inventory-display-panel"></a>
 ## Wine Inventory Display Panel
 
 ![WDA1](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/wda1a.png)
 
-<a name="actions"></a>
 ### Actions
 On the right side are the "Actions"....
  - Clicking the **Inverted Bottle** indicates that you have
@@ -637,7 +617,6 @@ Clicking ✏️**Pencil** provides a window to edit all details of the wine as w
 
 ![WDA3](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/wda3.png)
 
-<a name="wine-details-and-metrics"></a>
 ### Wine Details and Metrics
 ![WD1](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/wd1.png)
 
@@ -649,7 +628,6 @@ In the center of the screen are the Wine Details. Most of what is displayed is o
  - 🎯**B4B - Bang for your Buck** ranges from -99 to +99 and is based on an algorithm that takes into account the current Quality rating and the cost tier the wine was in.
 
 
-<a name="thumbnail-image"></a>
 ### Thumbnail Image
 On the left side of the window the image of your wine bottle's label is displayed. However that is not all it does...
 
@@ -664,7 +642,6 @@ On the left side of the window the image of your wine bottle's label is displaye
 
 ![TNM1](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/tnm1.png)
 
-<a name="accessing-settings-and-screen-mode"></a>
 ## Accessing Settings and Screen Mode
 ![SM1](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/sm1.png)
 
@@ -674,17 +651,17 @@ On the Top far right:
 
  ⚙️ **Gear** for accessing the **Settings** and **Maintenance** panel
 
-<a name="setting-cost-tiers"></a>
  ### Setting Cost Tiers
 ![CT](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/ct.png)
 
-*Setting Cost Tiers I believe is a straightforward process, but I want to share a couple of quick tips.* - The button top-right (currently "reset" in the image) has double duty. It can be used set the default tiers (which are currently depicted). If changes were made to the cost tiers, the button performs a reset function which allows you to revert to your previous values.
+*Setting Cost Tiers I believe is a straightforward process, but I want to share a couple of quick tips.* 
+
+ - The button top-right (currently "reset" in the image) has double duty. It can be used set the default tiers (which are currently depicted). If changes were made to the cost tiers, the button performs a reset function which allows you to revert to your previous values.
    
  - Within the greater Wonderful Wino GUI, when wanting to set a Cost Tier for a wine, you can hover over the Dollar Sign buttons to see a tool-tip reminding you of its Cost Tier.
    
  - Clicking the **Save** button is required to lock in your changes.
 
-<a name="maintenance-tools"></a>
 ### Maintenance Tools
 
 
@@ -694,11 +671,9 @@ On the Top far right:
 
 One additional comment regarding the **Sync DB to ToDo** button. Wonderful Wino auto-syncs in real time. This button should not normally be needed. It was a tool needed during the building of Wonderful Wino. I decided to include it just in case.
 
-<a name="accessing-your-wine-from-within-home-assistant"></a>
 # Accessing Your Wine from within Home Assistant
 The "visual" interface to Wonderful Wino inside Home Assistant itself is the My Wine ToDo list. The sections-style Subview Dashboard you created earlier in this document improves on the default ToDo interface by providing sorting logic and a way to access the Wonderful Wino GUI directly. While in sorting, modes it intentionally blocks the ability to manually edit the ToDo list. All wine edits should be made in Wonderful Wino GUI, not in the ToDo list.
 
-<a name="todo-list-controls"></a>
 ### ToDo List Controls
 
 ![TD1](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/td1.png)
@@ -710,7 +685,6 @@ In the image above...
  - Take note of the **Unique Wine Count**. It is derived directly from the `todo.my_wine` entity. The entity holds the total number of lines in the ToDo list as its value which in turn directly correlates to the number of individual wines of the same vintage in your inventory (as the quantity of each wine is stored within the wines' ToDo lists' entry).
  - Clicking on the **Z-A** or **A-Z** will toggle the Sort Order. Clicking on **Edit** will put the list in default Home Assistant order, and as well let you enable the list directly. I would suggest that you avoid editing your ToDo list. If you want to change something do it in the main GUI.
 
-<a name="todo-list-entry-details"></a>
 ### ToDo List Entry Details
 ![TD2](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/td2.png)
 
@@ -723,7 +697,6 @@ After Consuming a wine you will be given the option to rate it.
 Cheers!
  
 
-<a name="how-did-wonderful-wino-come-about"></a>
 ## How did Wonderful Wino come about?
 Wonderful Wino is a Home Assistant Add-on **in which every single line of code was written by AI using Google’s Gemini and ChatGPT** free accounts! A little context, I am a retired computer professional from the high-end commercial print industry, I was not a SW developer, but have I have written a bit of code over the years, mostly in an assortment of now dead languages. I had never written in Python (other than small arduino projects), no Javascript or Kotlin, and despite the several thousands of lines of code in this project, I can honestly say I still haven’t, which is both exciting and scary!  The AI was a consultant to help me hash out the concept and design the GUI. It wrote all of working code, and helped me lock down security. The whole project took about 2 months (working a couple hours each day) from conception to completion using tools and IDE’s (Docker, VSCode, Android Studio, GIT etc.)  - all tools that I never touched before.  I relied on the AI to teach me how to install, configure and use them along the way.
 

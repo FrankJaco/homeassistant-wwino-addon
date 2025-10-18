@@ -71,6 +71,13 @@ Click **Save** in lower right corner of this panel.
 
 ***If everything checks out, congratulations, Wonderful Wino is up and running and ready for you to add your wine! You could stop right here and use Wonderful Wino as is via its GUI. But to really make Wonderful Wino truly wwonderful, we need to configure Home Assistant a wwee bit more.***
 
-This concludes the initial configuration of the Wonderful Wino Addon itself. If you want to take it to the next level please consult the **Documentation tab** to forge ahead.
+This concludes the initial configuration of the Wonderful Wino Addon itself. If you want to take it to the next level please consult the **Documentation tab** to forge ahead.  or..... 
+
+### For the best experience, please view the full documentation (with working links) on our dedicated site:
+
+## [Click Here to Open the Wonderful Wino Documentation](https://frankjaco.github.io/homeassistant-wwino-addon/)
+
+(This link will open in a new tab)
+
 
 **Cheers!**
