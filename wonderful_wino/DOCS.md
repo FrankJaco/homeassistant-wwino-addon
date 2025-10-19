@@ -2,48 +2,12 @@
 A personal wine inventory system that can be exposed to the AI/Voice assistant for real-time wine-pairing suggestions and general wine info.
 
 
-### For the best experience, please view the full documentation (with working links) on our dedicated site:
+### For the best experience, please view the full documentatioon our dedicated site:
 
 ## [Click Here to Open the Wonderful Wino Documentation](https://frankjaco.github.io/homeassistant-wwino-addon/)
 
 (This link will open in a new tab)
 
-
-## Table of Contents
-
- - [About Wonderful Wino](#about)
- - [Installation of the Add-on](#installing-the-wonderful-wino-add-on)
- - [Add-on Configuration](#wonderful-wino-add-on-configuration)
- - [Home Assistant Configuration for Wonderful Wino](#home-assistant-configuration-for-wonderful-wino)
-   - [Local To Do list](#local-todo-list)
-   - [configuration.yaml addition](#home-assistant-configuration.yaml)
-   - [Helpers](#create-four-home-assistant-helpers)
-   - [Automation](#home-assistant-automation)
-   - [Dashboard](#home-assistant-dashboard)
-   - [Ingress URL for WW GUI](#determining-wonderful-wino-ingress-url)
-   - [Voice Assistant AI Prompts](#voice-assistant-ai-prompts)
- - [Quick Visual Guide to using Wonderful Wino](#quick-visual-guide-to-using-wonderful-wino)
-   - [Adding Wine Manually](#manually-via-wonderful-wino-gui)
-   - [Adding Wine Via Vivino URL](#vivino-assisted-via-wonderful-wino-gui)
-   - [Other Tools for Adding Wine to your DB](#other-tools-for-adding-wine-to-your-database)
-     - [Chrome Browser Extension](#wonderful-wino-chrome-browser-extension)
-     - [Android Helper App](#wonderful-wino-android-helper-app)
-   - [Inventory Display Filtering & Sorting](#inventory-display-and-filtering-controls)
-   - [Wine Inventory Display Panel](#wine-inventory-display-panel)
-     - [Actions](#actions)
-     - [Wine Details and Metrics](#wine-details-and-metrics)
-     - [Thumbnail Image](#thumbnail-image)
-       - [Tasting Notes](#thumbnail-image)
-       - [Consumption Log](#thumbnail-image)
-   - [Accessing Settings and Screen Mode](#accessing-settings-and-screen-mode)
-   - [Settings and Maintenance](#accessing-settings-and-screen-mode)
-     - [Setting Cost Tiers](#setting-cost-tiers)
-     - [Database Backup and Recovery](#maintenance-tools)
-     - [Maintenance Tools](#maintenance-tools)
-   - [Accessing Your Wine from within Home Assistant](#accessing-your-wine-from-within-home-assistant)
-     - [ToDo List Controls](#todo-list-controls)
-     - [ToDo List Entry Details](#todo-list-entry-details)
- - [How did Wonderful Wino come about?](#how-did-wonderful-wino-come-about)
 
 ## About
 
