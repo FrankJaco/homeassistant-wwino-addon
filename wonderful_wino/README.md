@@ -73,7 +73,7 @@ Click **Save** in lower right corner of this panel.
 
 This concludes the initial configuration of the Wonderful Wino Addon itself. If you want to take it to the next level please consult the **Documentation tab** to forge ahead.  or..... 
 
-### For the best experience, please view the full documentation (with working links) on our dedicated site:
+### For the best experience, please view the full documentation on our dedicated site:
 
 ## [Click Here to Open the Wonderful Wino Documentation](https://frankjaco.github.io/homeassistant-wwino-addon/)
 
