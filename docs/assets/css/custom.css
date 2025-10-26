@@ -1,54 +1,35 @@
-/* -------------------- Layout -------------------- */
+/* Body background and text */
 body {
-    margin: 0;
-    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
     background-color: #2b0d0d;
-    /* cabernet background */
+    /* deep cabernet */
     color: #f3e6e6;
+    /* soft rose-beige */
 }
 
-/* Sidebar container */
+/* Sidebar */
 .sidebar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 220px;
-    /* 20% approx */
-    height: 100vh;
     background-color: #3b0a0a;
     /* dark merlot */
-    overflow-y: auto;
-    padding: 2rem 1rem;
-    box-sizing: border-box;
-    transition: transform 0.3s ease;
-    z-index: 1000;
+    width: 200px;
+    /* small sidebar */
 }
 
 /* Sidebar links */
 .sidebar a {
     color: #fff;
-    text-decoration: none;
-    display: block;
-    margin-bottom: 0.5rem;
 }
 
 .sidebar a:hover {
     color: #d35400;
-}
-
-/* Collapsed sidebar (mobile) */
-.sidebar-collapsed {
-    transform: translateX(-100%);
+    /* red hover */
 }
 
 /* Main content */
 .main {
     margin-left: 220px;
-    /* match sidebar width */
-    padding: 2rem;
+    /* leave space for sidebar */
     max-width: calc(100% - 220px);
-    box-sizing: border-box;
-    transition: margin-left 0.3s ease;
+    padding: 2rem;
 }
 
 /* Headings */
@@ -70,20 +51,10 @@ a:hover {
     color: #f39c12;
 }
 
-/* Header bar */
-header {
-    background-color: #3b0a0a;
-    padding: 1rem 2rem;
-    color: #fff;
-}
-
-/* -------------------- Responsive -------------------- */
+/* Responsive: stack sidebar on small screens */
 @media (max-width: 768px) {
     .sidebar {
-        position: fixed;
-        transform: translateX(-100%);
-        width: 70%;
-        /* smaller on mobile */
+        width: 100%;
     }
 
     .main {
