@@ -77,7 +77,6 @@ This concludes the initial configuration of the Wonderful Wino Addon itself. If 
 
 ## [Click Here to Open the Wonderful Wino Documentation](https://frankjaco.github.io/homeassistant-wwino-addon/)
 
-(This link will open in a new tab)
 
 
 **Cheers!**
