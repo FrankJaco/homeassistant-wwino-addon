@@ -11,7 +11,7 @@ A personal wine inventory system that can be exposed to the AI/Voice assistant f
     -   [Local To Do list](https://frankjaco.github.io/homeassistant-wwino-addon/#local-todo-list)
         -   [configuration.yaml addition](https://frankjaco.github.io/homeassistant-wwino-addon/#home-assistant-configurationyaml)
         -   [Helpers](https://frankjaco.github.io/homeassistant-wwino-addon/#create-four-home-assistant-helpers)
-        -   [Automation & Script](https://frankjaco.github.io/homeassistant-wwino-addon/#home-assistant-automation)
+        -   [Automation & Script](https://frankjaco.github.io/homeassistant-wwino-addon/#home-assistant-automation-and-script)
         -   [Dashboard](https://frankjaco.github.io/homeassistant-wwino-addon/#home-assistant-subview-dashboard)
             -   [Ingress URL for WW GUI](https://frankjaco.github.io/homeassistant-wwino-addon/#determining-wonderful-wino-ingress-url)
     -   [Voice Assistant AI Prompts](https://frankjaco.github.io/homeassistant-wwino-addon/#voice-assistant-ai-prompts)
@@ -669,6 +669,7 @@ On the left side of the window the image of your wine bottle’s label is displa
 -   To add the  **Tasting Notes**
 -   To view the  **Consumption log**
 -   To adjust the  **thumbnail position**  in the window
+-   To adjust the **zoom level** of the thumbnail window
 -   Swap the image URL for another from the web or a local one you provide.
 
 ![TNM1](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/tnm1.png)
