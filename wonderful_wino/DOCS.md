@@ -4,7 +4,7 @@ A personal wine inventory system that can be exposed to the AI/Voice assistant f
 
 ### For the best experience, please view the full documentatioon our dedicated site:
 
-## [Click Here](https://frankjaco.github.io/homeassistant-wwino-addon/) to Open the Wonderful Wino Documentation
+### [Click Here](https://frankjaco.github.io/homeassistant-wwino-addon/) to Open the Wonderful Wino Documentation
 
 
 
