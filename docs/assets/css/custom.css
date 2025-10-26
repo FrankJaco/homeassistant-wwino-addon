@@ -1,37 +1,57 @@
-/* -------------------- Sidebar -------------------- */
-.sidebar-wrapper {
-    width: 20% !important;
-    /* narrow sidebar */
-    background-color: #3b0a0a !important;
-    /* dark merlot */
-}
-
-.sidebar-wrapper a {
-    color: #fff !important;
-    /* white links */
-}
-
-.sidebar-wrapper a:hover {
-    color: #d35400 !important;
-    /* tawny red hover */
-}
-
-/* -------------------- Main Content -------------------- */
-#docs-main {
-    margin-left: 22%;
-    /* align content next to sidebar */
-    max-width: 78%;
-    /* ~80% width */
+/* -------------------- Layout -------------------- */
+body {
+    margin: 0;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
     background-color: #2b0d0d;
-    /* deep cabernet */
+    /* cabernet background */
     color: #f3e6e6;
-    /* rose-beige text */
-    padding: 2rem;
-    /* spacing */
-    box-sizing: border-box;
 }
 
-/* -------------------- Headings -------------------- */
+/* Sidebar container */
+.sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 220px;
+    /* 20% approx */
+    height: 100vh;
+    background-color: #3b0a0a;
+    /* dark merlot */
+    overflow-y: auto;
+    padding: 2rem 1rem;
+    box-sizing: border-box;
+    transition: transform 0.3s ease;
+    z-index: 1000;
+}
+
+/* Sidebar links */
+.sidebar a {
+    color: #fff;
+    text-decoration: none;
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+.sidebar a:hover {
+    color: #d35400;
+}
+
+/* Collapsed sidebar (mobile) */
+.sidebar-collapsed {
+    transform: translateX(-100%);
+}
+
+/* Main content */
+.main {
+    margin-left: 220px;
+    /* match sidebar width */
+    padding: 2rem;
+    max-width: calc(100% - 220px);
+    box-sizing: border-box;
+    transition: margin-left 0.3s ease;
+}
+
+/* Headings */
 h1,
 h2,
 h3,
@@ -39,10 +59,9 @@ h4,
 h5,
 h6 {
     color: #fdf5f5;
-    /* near-white */
 }
 
-/* -------------------- Links -------------------- */
+/* Links */
 a {
     color: #d35400;
 }
@@ -51,23 +70,24 @@ a:hover {
     color: #f39c12;
 }
 
-/* -------------------- Header Bar -------------------- */
-header.site-header {
+/* Header bar */
+header {
     background-color: #3b0a0a;
-    /* dark wine header */
+    padding: 1rem 2rem;
+    color: #fff;
 }
 
-/* -------------------- Code Blocks -------------------- */
-pre,
-code {
-    background-color: #3b0a0a;
-    color: #f3e6e6;
-    border-radius: 4px;
-    padding: 0.2em 0.4em;
-}
+/* -------------------- Responsive -------------------- */
+@media (max-width: 768px) {
+    .sidebar {
+        position: fixed;
+        transform: translateX(-100%);
+        width: 70%;
+        /* smaller on mobile */
+    }
 
-/* -------------------- Images -------------------- */
-img {
-    max-width: 100%;
-    height: auto;
+    .main {
+        margin-left: 0;
+        max-width: 100%;
+    }
 }
