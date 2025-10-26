@@ -46,12 +46,12 @@ For those users of the Chrome Browser, there is the [Wonderful Wino Chrome Exten
 ![exten](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/cbe.png)
 
 And for Android phone users who utilize the Vivino App there is the [Wonderful Wino Helper App](https://github.com/FrankJaco/wwino-android-helper).
+
  ![AHA](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/aha.png)
 
   
   ## [Click Here to Open the Wonderful Wino Documentation](https://frankjaco.github.io/homeassistant-wwino-addon/)
 
-(This link will open in a new tab)
 
 
 **Cheers!**
