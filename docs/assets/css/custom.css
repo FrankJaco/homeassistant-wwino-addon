@@ -1,0 +1,56 @@
+/* Wonderful Wino Custom Overrides */
+
+/* Body background and text */
+body {
+    background-color: #2b0d0d;
+    /* deep cabernet background */
+    color: #f3e6e6;
+    /* light rose-beige text */
+}
+
+/* Sidebar width (approx 20%) and background */
+.sidebar {
+    width: 20% !important;
+    background-color: #3b0a0a;
+    /* dark merlot */
+}
+
+/* Sidebar links */
+.sidebar a {
+    color: #fff !important;
+}
+
+.sidebar a:hover {
+    color: #d35400 !important;
+    /* tawny red on hover */
+}
+
+/* Main content area (80%) */
+.main-content {
+    width: 78% !important;
+    /* leaves a tiny gap for margin */
+    margin-left: 22%;
+    /* align content next to sidebar */
+    padding: 2rem;
+    background-color: #2b0d0d;
+    /* match page background */
+}
+
+/* Links in main content */
+a {
+    color: #d35400;
+}
+
+a:hover {
+    color: #f39c12;
+}
+
+/* Headings */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    color: #fdf5f5;
+}
