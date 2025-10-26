@@ -3,3 +3,4 @@ description: Documentation for the Wonderful Wino add-on
 remote_theme: just-the-docs/just-the-docs
 plugins:
   - jekyll-remote-theme
+color_scheme: wine
