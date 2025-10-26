@@ -1,0 +1,21 @@
+// === Wonderful Wino Custom Theme ===
+// Inspired by a full-bodied red wine color palette
+
+// Backgrounds and text
+$body-background-color: #2b0d0d; // deep cabernet
+$body-text-color: #f3e6e6;       // soft rose beige
+$link-color: #d35400;            // aged tawny red-orange
+$link-hover-color: #f39c12;      // golden amber highlight
+$sidebar-color: #3b0a0a;         // dark merlot
+$sidebar-active-color: #7b241c;  // lighter burgundy for active items
+
+// Optional content width (default is ~800px)
+$content-width: 1000px;
+
+// Headings and accents
+$heading-color: #fdf5f5;         // near-white for contrast
+$nav-width: 260px;               // slightly wider sidebar
+$border-color: #5c1a1a;          // subtle border tone
+
+// Load the theme after overrides
+@import "just-the-docs";
