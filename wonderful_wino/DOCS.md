@@ -2,7 +2,8 @@
 A personal wine inventory system that can be exposed to the AI/Voice assistant for real-time wine-pairing suggestions and general wine info.
 
 
-### For the best experience, please view the full documentatioon our dedicated site:  [Click Here](https://frankjaco.github.io/homeassistant-wwino-addon/) to Open the Wonderful Wino Documentation
+***For the best experience, please view the full documentation our dedicated site:***
+**[Click Here](https://frankjaco.github.io/homeassistant-wwino-addon/) to Open the Wonderful Wino Documentation**
 
 .
 
