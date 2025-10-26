@@ -1,32 +1,34 @@
-/* -------------------- Body & Background -------------------- */
-body {
+/* -------------------- Sidebar -------------------- */
+.sidebar-wrapper {
+    width: 20% !important;
+    /* narrow sidebar */
+    background-color: #3b0a0a !important;
+    /* dark merlot */
+}
+
+.sidebar-wrapper a {
+    color: #fff !important;
+    /* white links */
+}
+
+.sidebar-wrapper a:hover {
+    color: #d35400 !important;
+    /* tawny red hover */
+}
+
+/* -------------------- Main Content -------------------- */
+#docs-main {
+    margin-left: 22%;
+    /* align content next to sidebar */
+    max-width: 78%;
+    /* ~80% width */
     background-color: #2b0d0d;
     /* deep cabernet */
     color: #f3e6e6;
-    /* soft rose-beige text */
-    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-}
-
-/* -------------------- Main Content Width -------------------- */
-.wrapper {
-    max-width: 1000px;
-    /* wider content area */
-    margin: auto;
-    /* center content */
+    /* rose-beige text */
     padding: 2rem;
-    /* optional padding */
-}
-
-/* -------------------- Links -------------------- */
-a {
-    color: #d35400;
-    /* red links */
-    text-decoration: underline;
-}
-
-a:hover {
-    color: #f39c12;
-    /* amber hover */
+    /* spacing */
+    box-sizing: border-box;
 }
 
 /* -------------------- Headings -------------------- */
@@ -37,14 +39,28 @@ h4,
 h5,
 h6 {
     color: #fdf5f5;
-    /* near-white headings */
+    /* near-white */
 }
 
-/* -------------------- Optional: Code blocks -------------------- */
+/* -------------------- Links -------------------- */
+a {
+    color: #d35400;
+}
+
+a:hover {
+    color: #f39c12;
+}
+
+/* -------------------- Header Bar -------------------- */
+header.site-header {
+    background-color: #3b0a0a;
+    /* dark wine header */
+}
+
+/* -------------------- Code Blocks -------------------- */
 pre,
 code {
     background-color: #3b0a0a;
-    /* dark merlot background */
     color: #f3e6e6;
     border-radius: 4px;
     padding: 0.2em 0.4em;

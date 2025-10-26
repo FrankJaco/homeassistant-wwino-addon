@@ -1,13 +1,20 @@
 title: Wonderful Wino Documentation
-description: Documentation for the Wonderful Wino Home Assistant add-on
+description: Documentation for the Wonderful Wino add-on
 
-# Minimal, wide theme
-theme: jekyll-theme-slate
+# Use Just-the-Docs gem theme (GitHub Pages compatible)
+theme: just-the-docs
 
-# Optional: include custom CSS
-defaults:
-  -
-    scope:
-      path: ""
-    values:
-      custom_css: assets/css/custom.css
+# Just-the-Docs options
+just_the_docs:
+  logo: /assets/images/logo.png      # optional logo
+  show_sidebar: true
+  hide_toc: false
+  hide_index: false
+  search_enabled: true
+  custom_css:
+    - assets/css/custom.css
+
+# Plugins GitHub Pages supports
+plugins:
+  - jekyll-feed
+  - jekyll-seo-tag
