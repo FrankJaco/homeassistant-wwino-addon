@@ -13,7 +13,7 @@ A personal wine inventory system that can be exposed to the AI/Voice assistant f
         -   [Helpers](https://frankjaco.github.io/homeassistant-wwino-addon/#create-four-home-assistant-helpers)
         -   [Automation & Script](https://frankjaco.github.io/homeassistant-wwino-addon/#home-assistant-automation)
         -   [Dashboard](https://frankjaco.github.io/homeassistant-wwino-addon/#home-assistant-subview-dashboard)
-        -   [Ingress URL for WW GUI](https://frankjaco.github.io/homeassistant-wwino-addon/#determining-wonderful-wino-ingress-url)
+            -   [Ingress URL for WW GUI](https://frankjaco.github.io/homeassistant-wwino-addon/#determining-wonderful-wino-ingress-url)
     -   [Voice Assistant AI Prompts](https://frankjaco.github.io/homeassistant-wwino-addon/#voice-assistant-ai-prompts)
 -   [Quick Visual Guide to using Wonderful Wino](https://frankjaco.github.io/homeassistant-wwino-addon/#quick-visual-guide-to-using-wonderful-wino)
     -   [Adding Wine Manually](https://frankjaco.github.io/homeassistant-wwino-addon/#manually-via-wonderful-wino-gui)
@@ -183,7 +183,7 @@ Note that each helper is of a different type: **Text** (input_text)  -  **Number
 
 ![enter image description here](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/src.png)
 
-### Home Assistant Automation:
+### Home Assistant Automation and Script:
 
 _Now with the 4 Helpers created, we can create our automation._
 
