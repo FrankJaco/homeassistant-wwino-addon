@@ -1,21 +1,68 @@
-// === Wonderful Wino Custom Theme ===
-// Inspired by a full-bodied red wine color palette
+/* Wonderful Wino - Custom Just the Docs Theme */
 
-// Backgrounds and text
-$body-background-color: #2b0d0d; // deep cabernet
-$body-text-color: #f3e6e6;       // soft rose beige
-$link-color: #d35400;            // aged tawny red-orange
-$link-hover-color: #f39c12;      // golden amber highlight
-$sidebar-color: #3b0a0a;         // dark merlot
-$sidebar-active-color: #7b241c;  // lighter burgundy for active items
+/* -------------------- Sidebar -------------------- */
+.sidebar-wrapper {
+    background-color: #3b0a0a !important;
+    /* dark merlot */
+    width: 220px !important;
+    /* narrower sidebar */
+}
 
-// Optional content width (default is ~800px)
-$content-width: 1000px;
+.sidebar-wrapper a {
+    color: #fff !important;
+    /* white text for links */
+}
 
-// Headings and accents
-$heading-color: #fdf5f5;         // near-white for contrast
-$nav-width: 260px;               // slightly wider sidebar
-$border-color: #5c1a1a;          // subtle border tone
+.sidebar-wrapper a:hover {
+    color: #d35400 !important;
+    /* tawny red on hover */
+}
 
-// Load the theme after overrides
-@import "just-the-docs";
+/* -------------------- Main Content -------------------- */
+#docs-main {
+    margin-left: 230px;
+    /* push main content right of sidebar */
+    max-width: 1000px;
+    /* wider reading area */
+    background-color: #2b0d0d;
+    /* cabernet background */
+    color: #f3e6e6;
+    /* soft rose-beige text */
+    padding: 2rem;
+    /* optional padding */
+}
+
+/* -------------------- Headings -------------------- */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    color: #fdf5f5;
+    /* near-white for contrast */
+}
+
+/* -------------------- Links -------------------- */
+a {
+    color: #d35400;
+    /* cabernet red links */
+}
+
+a:hover {
+    color: #f39c12;
+    /* golden amber hover */
+}
+
+/* -------------------- Optional: Buttons / Accents -------------------- */
+.btn,
+.button {
+    background-color: #821414;
+    border-color: #6f1212;
+    color: #fff;
+}
+
+.btn:hover,
+.button:hover {
+    background-color: #a41717;
+}

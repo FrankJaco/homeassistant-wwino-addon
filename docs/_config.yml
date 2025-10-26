@@ -1,13 +1,14 @@
 title: Wonderful Wino Documentation
 description: Documentation for the Wonderful Wino Home Assistant add-on
+
+# Use Just the Docs remote theme (v0.5.0 works on GitHub Pages)
 remote_theme: just-the-docs/just-the-docs@v0.5.0
 plugins:
   - jekyll-remote-theme
 
-# Theme configuration
+# Just-the-Docs options
 just_the_docs:
-  color_scheme: dark
-  logo: /assets/images/logo.png # optional if you have a logo
+  logo: /assets/images/logo.png      # optional
   aux_links:
     "Home Assistant Add-on Repo":
       - "https://github.com/fjaco/wonderful-wino"
