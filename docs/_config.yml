@@ -1,8 +1,8 @@
 title: Wonderful Wino Documentation
-description: Documentation for the Wonderful Wino add-on
+description: Documentation for the Wonderful Wino Home Assistant add-on
 
-# GitHub Pages whitelisted theme with dark red accent
-theme: jekyll-theme-merlot
+# Minimal, wide theme
+theme: jekyll-theme-slate
 
 # Optional: include custom CSS
 defaults:

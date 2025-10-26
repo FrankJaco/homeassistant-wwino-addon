@@ -1,51 +1,35 @@
-/* Wonderful Wino Custom Overrides */
-
-/* Body background and text */
+/* -------------------- Body & Background -------------------- */
 body {
     background-color: #2b0d0d;
-    /* deep cabernet background */
+    /* deep cabernet */
     color: #f3e6e6;
-    /* light rose-beige text */
+    /* soft rose-beige text */
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
-/* Sidebar width (approx 20%) and background */
-.sidebar {
-    width: 20% !important;
-    background-color: #3b0a0a;
-    /* dark merlot */
-}
-
-/* Sidebar links */
-.sidebar a {
-    color: #fff !important;
-}
-
-.sidebar a:hover {
-    color: #d35400 !important;
-    /* tawny red on hover */
-}
-
-/* Main content area (80%) */
-.main-content {
-    width: 78% !important;
-    /* leaves a tiny gap for margin */
-    margin-left: 22%;
-    /* align content next to sidebar */
+/* -------------------- Main Content Width -------------------- */
+.wrapper {
+    max-width: 1000px;
+    /* wider content area */
+    margin: auto;
+    /* center content */
     padding: 2rem;
-    background-color: #2b0d0d;
-    /* match page background */
+    /* optional padding */
 }
 
-/* Links in main content */
+/* -------------------- Links -------------------- */
 a {
     color: #d35400;
+    /* red links */
+    text-decoration: underline;
 }
 
 a:hover {
     color: #f39c12;
+    /* amber hover */
 }
 
-/* Headings */
+/* -------------------- Headings -------------------- */
 h1,
 h2,
 h3,
@@ -53,4 +37,21 @@ h4,
 h5,
 h6 {
     color: #fdf5f5;
+    /* near-white headings */
+}
+
+/* -------------------- Optional: Code blocks -------------------- */
+pre,
+code {
+    background-color: #3b0a0a;
+    /* dark merlot background */
+    color: #f3e6e6;
+    border-radius: 4px;
+    padding: 0.2em 0.4em;
+}
+
+/* -------------------- Images -------------------- */
+img {
+    max-width: 100%;
+    height: auto;
 }
