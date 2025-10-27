@@ -594,11 +594,15 @@ _Wonderful Wino is a Home Assistant Add-on that uses “INGRESS”. If you are c
 
 ### Manually via Wonderful Wino GUI:
 
-![AddWineModal](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/awp2.png)  ![AWP6](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/awp6.png)
+![AddWineModal](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/awp2.png)
+
+![AWP6](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/awp6.png)
 
 ### Vivino-Assisted via Wonderful Wino GUI:
 
-![AddWinePanel3a](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/awp3a.png)  ![AWP7](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/awp7.png)
+![AddWinePanel3a](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/awp3a.png)
+
+![AWP7](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/awp7.png)
 
 _The most important points to remember when searching Vivino using this method are to include the 4 digits for the vintage, and before grabbing the URL to paste back in WW ensure you have drilled down sufficiently to the specific wines’ page._
 
@@ -727,7 +731,11 @@ _Setting Cost Tiers I believe is a straightforward process, but I want to share 
 
 ### Maintenance Tools
 
-![MS1](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/ms1.png)  The Help for these are under the  **?**  button.  ![MS2](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/ms2.png)
+![MS1](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/ms1.png)
+
+The Help for these are under the  **?**  button.
+
+![MS2](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/ms2.png)
 
 One additional comment regarding the  **Sync DB to ToDo**  button. Wonderful Wino auto-syncs in real time. This button should not normally be needed. It was a tool needed during the building of Wonderful Wino. I decided to include it just in case.
 
