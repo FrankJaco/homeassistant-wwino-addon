@@ -192,6 +192,7 @@ _Now with the 4 Helpers created, we can create our automation._
 
 The purpose of the automation is for the ToDo list functionality in where the user can “complete / consume” a wine via the ToDo list. The automation will trap that event, provide the user the option of rating the consumed wine, then send the data to the back end to decrement inventory and rate the wine.
 
+{% raw %}
 ```
 alias: "Wonderful-Wino: Prep for Wine Rating, then consume via ToDo"
 description: On consumption of a wine, it prepares the UI for an optional rating.
@@ -244,9 +245,13 @@ variables:
   list_entity: todo.my_wine
 
 ```
+{% endraw %}
+
 ### Home Assistant Script:
 This script submits your wine rating to the Wonderful Wino add-on, and thanks you with a notification. It then hides the wine rating card from view.
 
+{% raw %}
+```
     alias: "Wonderful-Wino: Submit Taste Rating"
     sequence:
       - data:
@@ -274,6 +279,8 @@ This script submits your wine rating to the Wonderful Wino add-on, and thanks yo
     mode: single
     icon: mdi:send-check
     description: ""
+```
+{% endraw %}
 
 
 ### Home Assistant “Subview” Dashboard
