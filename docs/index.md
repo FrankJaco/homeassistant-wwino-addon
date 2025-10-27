@@ -1,6 +1,3 @@
----
-render_with_liquid: false
----
 
 # Wonderful Wino
 
@@ -145,6 +142,7 @@ Make a ToDo list called  **My Wine**  `todo.my_wine`
 
 For connectivity between Wonderful Wino and Home Assistant / Local ToDo list a small addition to the configuration.yaml file is required. You can use the  [FileEditor or VSCode add-ons](https://www.home-assistant.io/common-tasks/os/)  for this task.
 
+{% raw %}
 ```
 # Wonderful-Wino Stuff
 rest_command:
@@ -162,6 +160,7 @@ rest_command:
       }
 
 ```
+{% endraw %}
 
 **Don’t forget**  to put in your  **Home Assistant’s IP address**  where indicated!  _Practice safe “yamling” by checking the configuration in  **Developer Tools**, then  ***restart Home Assistant**_.*
 
