@@ -1,3 +1,6 @@
+layout: none
+render_with_liquid: false
+
 # Wonderful Wino
 
 A personal wine inventory system that can be exposed to the AI/Voice assistant for real-time wine-pairing suggestions and general wine info.
@@ -515,7 +518,7 @@ NEED:   Add something to access the Subview from your main view here.
 
 ## Voice Assistant AI Prompts:
 
-Setting up your Voice Assistant and AI/LLM in Home Assistant is beyond the scope of this document. The instructions below are relavent to all LLM's.
+Setting up your Voice Assistant and AI/LLM in Home Assistant is beyond the scope of this document. The instructions below are relevant to all LLM's.
 
 To make YOUR voice assistant a sommelier, you need to add the role of a wine expert to its prompt. Add this to your current Voice Assistant/LLM prompt. Do edit it if required to meet your needs.
 
