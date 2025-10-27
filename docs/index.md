@@ -530,7 +530,15 @@ To determine the exact URL for your installation:
 
 Once you determine your URL, you can use this anywhere you want in your own dashboards to navigate to the Wonderful Wino GUI and eliminate the Sidebar if you wish.
 
-NEED:   Add something to access the Subview from your main view here.
+### Accessing the Vino Subview (ToDo Wine List) from your  Main Dashboard.
+
+![Tile1](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/tile1.png)
+
+I like having a button on my main screen that gives me one-click access to the Vino Subview. You can handle this in many ways. For this document I will use a Tile card to provide navigation and display the number of unique wines in the collection on the Tile card. "Unique wines" are the number of different wines, not the number of bottles. For example if you have 3 bottles of Bogle Phantom 2021 and that is all you have, you have 1 unique wine. How did the Tile card "know" how many unique wines I have? The My Wine (todo.my_wine) entity contains a count of the number of entries in the ToDo list. When you have more than 1 bottle of the same wine/vintage, the QTY: of bottles will be displayed in the ToDo list entry, not each bottle on its own line.
+
+![Tile1](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/tile2.png)
+
+That completes the dashboard modifications. You now should have a button/tile on your dashboard that displays the number of unique wines and tapping it will take you to the custom ToDo list Subview.
 
 
 ## Voice Assistant AI Prompts:
