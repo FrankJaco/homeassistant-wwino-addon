@@ -10,7 +10,7 @@ A personal wine inventory system that can be exposed to the AI/Voice assistant f
 -   [Add-on Configuration](https://frankjaco.github.io/homeassistant-wwino-addon/#wonderful-wino-add-on-configuration)
 -   [Home Assistant Configuration for Wonderful Wino](https://frankjaco.github.io/homeassistant-wwino-addon/#home-assistant-configuration-for-wonderful-wino)
     -   [Local To Do list](https://frankjaco.github.io/homeassistant-wwino-addon/#local-todo-list)
-        -   [configuration.yaml addition](https://frankjaco.github.io/homeassistant-wwino-addon/#home-assistant-configurationyaml)
+        -   [Configuration.yaml](https://frankjaco.github.io/homeassistant-wwino-addon/#home-assistant-configurationyaml)
         -   [Helpers](https://frankjaco.github.io/homeassistant-wwino-addon/#create-four-home-assistant-helpers)
         -   [Automation](https://frankjaco.github.io/homeassistant-wwino-addon/#home-assistant-automation)
         - [Script](https://frankjaco.github.io/homeassistant-wwino-addon/#home-assistant-script)
@@ -132,10 +132,10 @@ Starting Wonderful Wino backend...
 
 # Home Assistant Configuration for Wonderful Wino
 
-To get the most out of Wonderful Wino, the  [Local ToDo list integration](https://www.home-assistant.io/integrations/local_todo/), and a functioning  [Home Assistant Voice Assistant](https://www.home-assistant.io/voice_control/)  enhanced with Ai are required. (fyi, I personally use the  [Google Gemini](https://www.home-assistant.io/integrations/google_generative_ai_conversation/)  integration and it does a nice job.) Before we can integration the AI, we need to get the ToDo list functionality in place. 
+To get the most out of Wonderful Wino, the  [Local ToDo list integration](https://www.home-assistant.io/integrations/local_todo/), and a functioning  [Home Assistant Voice Assistant](https://www.home-assistant.io/voice_control/)  enhanced with Ai are required. (fyi, I personally use the  [Google Gemini](https://www.home-assistant.io/integrations/google_generative_ai_conversation/)  integration and it does a nice job.) 
 
 ### Local ToDo list:
-For this, an Automation, a Script, 4 Helpers and a small configuration.yaml as well as some dashboard work will be required.
+It is the ToDo list that gets your wine data inside Home Assistant so that you can expose it to your AI. To make this happen, a small addition to your configuration.yaml, as well as an Automation, Script and 4 Helpers are required.  To utilize the ToDo list interface in Home Assistant some dashboard work will also be required.
 
 If you have not done so already, install the  [Local ToDo list integration](https://www.home-assistant.io/integrations/local_todo/)  now.
 
@@ -202,7 +202,7 @@ The purpose of the automation is for the ToDo list functionality in where the us
 alias: "Wonderful-Wino: Prep for Wine Rating, then consume via ToDo"
 description: On consumption of a wine, it prepares the UI for an optional rating.
 triggers:
-  - entity_id: todo.wine_fridge_contents
+  - entity_id: todo.my_wine
     trigger: state
 conditions:
   - condition: template
@@ -251,7 +251,7 @@ actions:
           action: todo.remove_item
 mode: queued
 variables:
-  list_entity: todo.wine_fridge_contents
+  list_entity: todo.my_wine
 
 
 ```
