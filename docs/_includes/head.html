@@ -9,9 +9,6 @@
 </script>
 {%- endif -%}
 
-<!-- This is the new line that links your custom stylesheet -->
-<link rel="stylesheet" href="{{ '/assets/css/custom.css' | relative_url }}">
-
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=Edge">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -35,5 +32,9 @@
 {"@context":"https://schema.org","@type":"WebSite","description":"{{ page.excerpt | default: site.description | strip_html | normalize_whitespace | truncate: 160 | escape }}","headline":"{{ page.title | default: site.title | escape }}","name":"{{ site.title | escape }}","url":"{{ page.url | replace:'index.html','' | absolute_url }}"}</script>
 <!-- End Jekyll SEO tag -->
 
-<!-- This loads the default primer theme styles -->
+<!-- This loads the default primer theme styles FIRST -->
 <link rel="stylesheet" href="{{ '/assets/css/style.css?v=' | append: site.github.build_revision | relative_url }}">
+
+<!-- This is the new line that links your custom stylesheet -->
+<!-- By loading it AFTER the default, your styles will override the theme's -->
+<link rel="stylesheet" href="{{ '/assets/css/custom.css' | relative_url }}">
