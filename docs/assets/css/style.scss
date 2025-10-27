@@ -1,11 +1,7 @@
----
----
-@import "{{ site.theme }}";
+--- --- // Import the remote theme's styles by its file name
+@import "jekyll-theme-slate";
 
-/*
- * Your custom styles go here
- */
-
+// Your custom styles
 .wrapper {
   width: 80%;
   max-width: 1600px;
