@@ -605,6 +605,7 @@ _The most important points to remember when searching Vivino using this method a
 ## Other Tools for Adding Wine to your Database:
 
 The  **Other Tools**  button provides access to the Github repositories for the additional tools for adding wine.
+
 ![Ow2aw](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/ow2aw.png)
 
 ### Wonderful Wino Chrome Browser Extension:
