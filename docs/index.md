@@ -386,7 +386,7 @@ sections:
                 option: Z to A
         tap_action:
           action: navigate
-          navigation_path: /hassio/ingress/XXXXXXXX_wonderful_wino   #INSERT YOUR INGRESS SLUG
+          navigation_path: /hassio/ingress/XXXXXXXX_wonderful_wino #INSERT INGRESS SLUG
       - display_order: none
         type: todo-list
         entity: todo.my_wine
@@ -435,7 +435,7 @@ sections:
                 option: Z to A
         tap_action:
           action: navigate
-          navigation_path: /hassio/ingress/XXXXXXXX_wonderful_wino  #INSERT YOUR INGRESS SLUG
+          navigation_path: /hassio/ingress/XXXXXXXX_wonderful_wino #INSERT INGRESS SLUG
       - display_order: alpha_asc
         type: todo-list
         entity: todo.my_wine
@@ -484,7 +484,7 @@ sections:
                 option: A to Z
         tap_action:
           action: navigate
-          navigation_path: /hassio/ingress/XXXXXXXX_wonderful_wino  #INSERT YOUR INGRESS SLUG
+          navigation_path: /hassio/ingress/XXXXXXXX_wonderful_wino #INSERT INGRESS SLUG
       - display_order: alpha_desc
         type: todo-list
         entity: todo.my_wine
