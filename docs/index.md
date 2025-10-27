@@ -12,7 +12,8 @@ A personal wine inventory system that can be exposed to the AI/Voice assistant f
     -   [Local To Do list](https://frankjaco.github.io/homeassistant-wwino-addon/#local-todo-list)
         -   [configuration.yaml addition](https://frankjaco.github.io/homeassistant-wwino-addon/#home-assistant-configurationyaml)
         -   [Helpers](https://frankjaco.github.io/homeassistant-wwino-addon/#create-four-home-assistant-helpers)
-        -   [Automation & Script](https://frankjaco.github.io/homeassistant-wwino-addon/#home-assistant-automation-and-script)
+        -   [Automation](https://frankjaco.github.io/homeassistant-wwino-addon/#home-assistant-automation)
+        - [Script](https://frankjaco.github.io/homeassistant-wwino-addon/#home-assistant-script)
         -   [Dashboard](https://frankjaco.github.io/homeassistant-wwino-addon/#home-assistant-subview-dashboard)
             -   [Ingress URL for WW GUI](https://frankjaco.github.io/homeassistant-wwino-addon/#determining-wonderful-wino-ingress-url)
     -   [Voice Assistant AI Prompts](https://frankjaco.github.io/homeassistant-wwino-addon/#voice-assistant-ai-prompts)
@@ -57,7 +58,11 @@ The ToDo list itself provides on-the-go convenience. The user can see his wine a
 
 Beyond the Wonderful Wino Add-on and its GUI, there are currently two additional input tools to help streamline adding wine to your inventory after a visit to your favorite wine merchant: For those users of the Chrome Browser, there is the  [Wonderful Wino Chrome Extension](https://github.com/FrankJaco/wwino-chrome-extension). And for Android phone users who utilize the Vivino App there is the  [Wonderful Wino Helper App](https://github.com/FrankJaco/wwino-android-helper).
 
-![CBE](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/cbe.png)  ![AHA](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/aha.png)
+### Chrome Extension
+![CBE](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/cbe.png)
+
+### Android Helper  
+![AHA](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/aha.png)
 
 # Installing the Wonderful Wino Add-on:
 
@@ -186,7 +191,7 @@ Note that each helper is of a different type: **Text** (input_text)  -  **Number
 
 ![enter image description here](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/src.png)
 
-### Home Assistant Automation and Script:
+### Home Assistant Automation:
 
 _Now with the 4 Helpers created, we can create our automation._
 
@@ -285,60 +290,7 @@ This script submits your wine rating to the Wonderful Wino add-on, and thanks yo
     icon: mdi:send-check
     description: ""
 ```
-{% endraw %}alias: "Wonderful-Wino: Prep for Wine Rating, then consume via ToDo"
-description: On consumption of a wine, it prepares the UI for an optional rating.
-triggers:
-  - entity_id: todo.wine_fridge_contents
-    trigger: state
-conditions:
-  - condition: template
-    value_template: >-
-      {{ trigger.from_state is not none and trigger.to_state is not none and
-      trigger.from_state.state is not none and trigger.to_state.state is not
-      none and trigger.from_state.state | int(-1) is number and
-      trigger.to_state.state | int(-1) is number }}
-  - condition: template
-    value_template: >-
-      {{ trigger.to_state.state | int(-1) < trigger.from_state.state | int(-1)
-      }}
-actions:
-  - target:
-      entity_id: "{{ list_entity }}"
-    data:
-      status: completed
-    response_variable: completed_wines
-    action: todo.get_items
-  - repeat:
-      for_each: "{{ completed_wines[list_entity]['items'] }}"
-      sequence:
-        - data:
-            name: Wonderful Wino
-            message: "🍷 Consumed: {{ repeat.item.summary }}"
-          action: logbook.log
-        - target:
-            entity_id: input_text.last_consumed_wine
-          data:
-            value: "{{ repeat.item.summary }}"
-          action: input_text.set_value
-        - target:
-            entity_id: input_number.taste_rating
-          data:
-            value: 0
-          action: input_number.set_value
-        - target:
-            entity_id:
-              - input_boolean.show_rating_card
-          action: input_boolean.turn_on
-          data: {}
-        - target:
-            entity_id: "{{ list_entity }}"
-          data:
-            item: "{{ repeat.item.uid }}"
-          action: todo.remove_item
-mode: queued
-variables:
-  list_entity: todo.wine_fridge_contents
-
+{% endraw %}
 
 ### Home Assistant “Subview” Dashboard
 
