@@ -176,7 +176,7 @@ _All four Helpers can be created via the Home Assistant GUI._
 
 Note that each helper is of a different type: **Text** (input_text)  -  **Number** (input_number)  -  **Dropdown** (input_select)  -  **Toggle** (input_boolean)
 
-**Last Consumed Wine**  - **Text** (input.text)  **Helper**
+**Last Consumed Wine**  - **Text** (input_text)  **Helper**
 
 ![enter image description here](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/lwc.png)
 
@@ -303,13 +303,13 @@ This subview dashboard provides these functions:
 4.  Badge with the total of “Unique Wines” on hand.
 5. One click access to the full Wonderful Wino GUI
 
-**Create an empty Subview Dashboard called "Vino":**
+**Create an empty Subview Dashboard called "Vino" on your favorite dashboard:** (I personally have it on the dash I use for my phone)
 
 ![Subview](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/subview.png)
 
-**Paste the dashboard yaml in the code box below into the yaml window of the Vino subview you just created.**
+**Paste the dashboard yaml from the code box below into the yaml window of the Vino subview that you just created.**
 
-Take particular note of the  **INGRESS**  lines in the yaml as you will need to edit them if you want to use the function. It permits direct access to the main Wonderful Wino GUI by tapping the Header of the ToDo list. Info on how to find your  **INGRESS SLUG**  is below the Dashboard yaml. You will need to replace the 8 X’s with your specific 8 characters to make the “navigate to GUI” feature work.
+Take particular note of the  **INGRESS**  lines. You will need to edit them with your **INGRESS SLUG**. It is what provides one-click access to the main Wonderful Wino GUI by tapping the "My Wine" Header of the ToDo list. Info on how to find your unique  **INGRESS SLUG**  is below the Dashboard yaml. You will need to replace the 8 X’s in the Ingress lines (in 3 places)  with your specific 8 characters to make the “navigate to GUI” feature work.
 
 ```
 type: sections
@@ -507,12 +507,7 @@ badges:
     name: Unique Wine Count
 cards: []
 
-
 ```
-
-**What is Home Assistant Ingress???**
-
-Ingress is a proxy system built into Home Assistant that provides secure and seamless access to an add-on’s web UI from within the Home Assistant frontend. It utilizes Home Assistant’s existing authentication and network handling, making it extremely secure which eliminates the need for manual port configuration and direct network exposure of the add-on.
 
 ### Determining Wonderful Wino Ingress URL:
 
