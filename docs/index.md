@@ -197,33 +197,37 @@ The purpose of the automation is for the ToDo list functionality in where the us
 alias: "Wonderful-Wino: Prep for Wine Rating, then consume via ToDo"
 description: On consumption of a wine, it prepares the UI for an optional rating.
 triggers:
-  - entity_id: todo.my_wine
+  - entity_id: todo.wine_fridge_contents
     trigger: state
 conditions:
   - condition: template
     value_template: >-
-      
+      {{ trigger.from_state is not none and trigger.to_state is not none and
+      trigger.from_state.state is not none and trigger.to_state.state is not
+      none and trigger.from_state.state | int(-1) is number and
+      trigger.to_state.state | int(-1) is number }}
   - condition: template
     value_template: >-
-      
+      {{ trigger.to_state.state | int(-1) < trigger.from_state.state | int(-1)
+      }}
 actions:
   - target:
-      entity_id: ""
+      entity_id: "{{ list_entity }}"
     data:
       status: completed
     response_variable: completed_wines
     action: todo.get_items
   - repeat:
-      for_each: ""
+      for_each: "{{ completed_wines[list_entity]['items'] }}"
       sequence:
         - data:
             name: Wonderful Wino
-            message: "🍷 Consumed: "
+            message: "🍷 Consumed: {{ repeat.item.summary }}"
           action: logbook.log
         - target:
             entity_id: input_text.last_consumed_wine
           data:
-            value: ""
+            value: "{{ repeat.item.summary }}"
           action: input_text.set_value
         - target:
             entity_id: input_number.taste_rating
@@ -236,13 +240,14 @@ actions:
           action: input_boolean.turn_on
           data: {}
         - target:
-            entity_id: ""
+            entity_id: "{{ list_entity }}"
           data:
-            item: ""
+            item: "{{ repeat.item.uid }}"
           action: todo.remove_item
 mode: queued
 variables:
-  list_entity: todo.my_wine
+  list_entity: todo.wine_fridge_contents
+
 
 ```
 {% endraw %}
@@ -280,7 +285,59 @@ This script submits your wine rating to the Wonderful Wino add-on, and thanks yo
     icon: mdi:send-check
     description: ""
 ```
-{% endraw %}
+{% endraw %}alias: "Wonderful-Wino: Prep for Wine Rating, then consume via ToDo"
+description: On consumption of a wine, it prepares the UI for an optional rating.
+triggers:
+  - entity_id: todo.wine_fridge_contents
+    trigger: state
+conditions:
+  - condition: template
+    value_template: >-
+      {{ trigger.from_state is not none and trigger.to_state is not none and
+      trigger.from_state.state is not none and trigger.to_state.state is not
+      none and trigger.from_state.state | int(-1) is number and
+      trigger.to_state.state | int(-1) is number }}
+  - condition: template
+    value_template: >-
+      {{ trigger.to_state.state | int(-1) < trigger.from_state.state | int(-1)
+      }}
+actions:
+  - target:
+      entity_id: "{{ list_entity }}"
+    data:
+      status: completed
+    response_variable: completed_wines
+    action: todo.get_items
+  - repeat:
+      for_each: "{{ completed_wines[list_entity]['items'] }}"
+      sequence:
+        - data:
+            name: Wonderful Wino
+            message: "🍷 Consumed: {{ repeat.item.summary }}"
+          action: logbook.log
+        - target:
+            entity_id: input_text.last_consumed_wine
+          data:
+            value: "{{ repeat.item.summary }}"
+          action: input_text.set_value
+        - target:
+            entity_id: input_number.taste_rating
+          data:
+            value: 0
+          action: input_number.set_value
+        - target:
+            entity_id:
+              - input_boolean.show_rating_card
+          action: input_boolean.turn_on
+          data: {}
+        - target:
+            entity_id: "{{ list_entity }}"
+          data:
+            item: "{{ repeat.item.uid }}"
+          action: todo.remove_item
+mode: queued
+variables:
+  list_entity: todo.wine_fridge_contents
 
 
 ### Home Assistant “Subview” Dashboard
