@@ -297,15 +297,19 @@ This script submits your wine rating to the Wonderful Wino add-on, and thanks yo
 
 This subview dashboard provides these functions:
 
-1. Sortable Wine List in a ToDo list card
+1.  Sortable Wine List in a ToDo list card
 2. The ability to "consume" a wine by clicking it on the list 
-3. Wine Rating interface for ToDo consumed wines
-4. Badge with the total of “Unique Wines” on hand.
+3.  Wine Rating interface for ToDo consumed wines
+4.  Badge with the total of “Unique Wines” on hand.
 5. One click access to the full Wonderful Wino GUI
 
-The Dashboard subview yaml is below. I suggest that you start with it to get a feel of what  Make a new Dashboard Subview accessible from one of your current dashboards then paste the code into it. From there you can adjust it as needed. Once you see how they operate, you certainly can move the cards to anywhere you would like.
+**Create an empty Subview Dashboard called "Vino":**
 
-Take particular note of the  **INGRESS**  lines in the yaml as you will need to edit them if you want to use the function. It permits direct access to the main Wonderful Wino GUI by tapping the Header of the ToDo list. I will provide info on how to find your  **INGRESS SLUG**  below the Dashboard yaml. You will need to replace the 8 X’s with your specific 8 characters to make the “navigate to GUI” feature work.
+![Subview](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/subview.png)
+
+**Paste the dashboard yaml in the code box below into the yaml window of the Vino subview you just created.**
+
+Take particular note of the  **INGRESS**  lines in the yaml as you will need to edit them if you want to use the function. It permits direct access to the main Wonderful Wino GUI by tapping the Header of the ToDo list. Info on how to find your  **INGRESS SLUG**  is below the Dashboard yaml. You will need to replace the 8 X’s with your specific 8 characters to make the “navigate to GUI” feature work.
 
 ```
 type: sections
@@ -502,7 +506,7 @@ badges:
     color: deep-purple
     name: Unique Wine Count
 cards: []
-theme: Google Dark Theme Condensed
+
 
 ```
 
