@@ -17,6 +17,7 @@ A personal wine inventory system that can be exposed to the AI/Voice assistant f
         -   [Dashboard](https://frankjaco.github.io/homeassistant-wwino-addon/#home-assistant-subview-dashboard)
             -   [Ingress URL for WW GUI](https://frankjaco.github.io/homeassistant-wwino-addon/#determining-wonderful-wino-ingress-url)
     -   [Voice Assistant AI Prompts](https://frankjaco.github.io/homeassistant-wwino-addon/#voice-assistant-ai-prompts)
+    -   [Samba Share for offline DB backup and Custom Thumbnails](https://frankjaco.github.io/homeassistant-wwino-addon/#samba-share-home-assistant-add-on)
 -   [Quick Visual Guide to using Wonderful Wino](https://frankjaco.github.io/homeassistant-wwino-addon/#quick-visual-guide-to-using-wonderful-wino)
     -   [Adding Wine Manually](https://frankjaco.github.io/homeassistant-wwino-addon/#manually-via-wonderful-wino-gui)
     -   [Adding Wine Via Vivino URL](https://frankjaco.github.io/homeassistant-wwino-addon/#vivino-assisted-via-wonderful-wino-gui)
@@ -564,12 +565,12 @@ Wine Expert Persona:
 
 You may want to consider adding the  [Samba Share add-on](https://www.home-assistant.io/common-tasks/os/)  if you don’t already have it installed.
 
-Wonderful Wino stores it SQLite database in the Home Assistant standard location: share/wwino. The software has a backup feature that will create a backup into that same folder. For those who would like to take you backup and put it onto other media, the Samba Share Add-on might be the easiest way to accomplish this. Simply browse to the share/wwino and move the backup elsewhere.
+Wonderful Wino stores it SQLite database in the Home Assistant standard location: `share/wwino`. The software has a backup feature that will create a backup into that same folder. For those who would like to take your backup and put it onto other media, the Samba Share Add-on might be the easiest way to accomplish this. Simply browse to the `share/wwino` and move the backup elsewhere.
 
-Also, Wonderful Wino displays a thumbnail of your wine bottle via a URL. If for some reason a thumbnail is not automatically obtained or you simply do not like the image, it is possible to change the URL to something from the web, or to something local via the standard Home Assistant /www/ folder mechanism. If you wish to create and house your own thumbnails, create a folder called wwino inside www. You can use the Samba Add-on to copy your desired images there. The URL to use for a locally held image should be formatted like this:
+Also, Wonderful Wino displays a thumbnail of your wine bottle via a URL. If for some reason a thumbnail is not automatically obtained or you simply do not like the image, it is possible to change the URL to something from the web, or to something local via the standard Home Assistant `config/www/` "local" folder mechanism. If you wish to create and use your own thumbnails, create the folder `config/www/wwino_images`. You can use the Samba Add-on to copy your desired images there. The URL to use for a **locally held** image should be formatted like this:
 
 ```
-''http://<Your HomeAssistant IP>:8123/local/wwino_images/my_wine_image.jpg''
+http://<Your HomeAssistant IP>:8123/local/wwino_images/my_wine_image.jpg
 
 ```
 
