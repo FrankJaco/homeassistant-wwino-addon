@@ -3,19 +3,33 @@
 // Import the remote theme's styles by its file name
 @import "jekyll-theme-slate";
 
-/* Targeting all known width-constraining elements */
-.wrapper, .container, .inner { 
-    width: 90% !important;
-    max-width: 1800px !important; // Override the 640px limit
+/* * Widen the main container to the screen percentage you want, 
+ * then center it using margin: 0 auto;
+ */
+.wrapper, .container {
+    max-width: 100% !important; 
+    width: 100% !important;
 }
 
-.page-header, .main-content {
-    max-width: 1800px !important;
+/* * The .inner container is where the actual content width limit is set.
+ * We will use this to define our 'sidebar' space.
+ */
+.inner {
+    max-width: 1800px !important; // Keeps max-width reasonable
+    width: 80% !important;        // Main content is 80% of the max width
+    
+    /* * Shift the content to the right by 20% of the parent container's width.
+     * This creates the 20% "sidebar" gap on the left.
+     */
+    margin: 0 0 0 20% !important; 
+    padding: 40px 10px 20px 10px !important; // Adjust padding as needed
 }
 
+/* * Override any media queries that enforce a smaller width on large screens.
+ */
 @media (min-width: 64em) {
-    .wrapper, .container, .inner { 
-        width: 90% !important;
-        max-width: 1800px !important;
+    .inner {
+        width: 80% !important;
+        margin-left: 20% !important;
     }
 }
