@@ -3,11 +3,26 @@
 // Import the remote theme's styles by its file name
 @import "jekyll-theme-slate";
 
-/*
- * Use a more specific selector to ensure this style is not overridden.
- * This targets the main content wrapper.
+/* * This CSS targets the element that limits the page width.
+ * Using !important to ensure it overrides all default theme styling.
+ * It also targets the media query that usually limits max-width on larger screens.
  */
-#main-content .wrapper {
-  width: 80%;
-  max-width: 1600px;
+
+// Target the main wrapper/container
+.wrapper, .container {
+    width: 90% !important; 
+    max-width: 1800px !important; // Increased max-width
+}
+
+// Ensure the main content block respects the width
+.page-header, .main-content {
+    max-width: 1800px !important;
+}
+
+// Override any media queries that enforce a smaller width on large screens
+@media (min-width: 64em) {
+    .wrapper, .container {
+        width: 90% !important;
+        max-width: 1800px !important;
+    }
 }
