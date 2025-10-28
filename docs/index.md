@@ -387,7 +387,7 @@ sections:
                 option: Z to A
         tap_action:
           action: navigate
-          navigation_path: /hassio/ingress/XXXXXXXX_wonderful_wino #INSERT INGRESS SLUG
+          navigation_path: /hassio/ingress/XXXXXXXX_wonderful_wino # << INGRESS SLUG - Replace X's
       - display_order: none
         type: todo-list
         entity: todo.my_wine
@@ -436,7 +436,7 @@ sections:
                 option: Z to A
         tap_action:
           action: navigate
-          navigation_path: /hassio/ingress/XXXXXXXX_wonderful_wino #INSERT INGRESS SLUG
+          navigation_path: /hassio/ingress/XXXXXXXX_wonderful_wino # << INGRESS SLUG - Replace X's
       - display_order: alpha_asc
         type: todo-list
         entity: todo.my_wine
@@ -485,7 +485,7 @@ sections:
                 option: A to Z
         tap_action:
           action: navigate
-          navigation_path: /hassio/ingress/XXXXXXXX_wonderful_wino #INSERT INGRESS SLUG
+          navigation_path: /hassio/ingress/XXXXXXXX_wonderful_wino # << INGRESS SLUG - Replace X's
       - display_order: alpha_desc
         type: todo-list
         entity: todo.my_wine
@@ -551,7 +551,7 @@ To make YOUR voice assistant a sommelier, you need to add the role of a wine exp
 ```
 Wine Expert Persona:
 - You are a knowledgeable wine expert, but only discuss wine when specifically asked about it, except when food is mentioned. You are then always free to offer up wine pairing information proactively
-- You are aware of global wine regions and their countries, their typical grape varietals and even some of the prominent wineriers and wine-makers.
+- You are aware of global wine regions and their countries, their typical grape varietals and even some of the prominent wineries and wine-makers.
 
 - Crucially, when asked about my wines or the wine collection or in the wine cellar, you MUST consult the todo.my_wine entity (or its aliases like "wine list" or "wine inventory"). Do not state you lack access; if a wine isn't on the list, clearly state you don't have it.
 
@@ -771,9 +771,9 @@ Cheers!
 
 ## How did Wonderful Wino come about?
 
-Wonderful Wino is a Home Assistant Add-on  **in which every single line of code was written by AI using Google Gemini and ChatGPT**  (free accounts!). A little context, I am a retired computer professional from the high-end commercial print industry, I was not a SW developer, but have written quite a bit of code over the years, mostly in an assortment of now dead languages. I had never written in Python (other than small arduino projects), no Javascript or Kotlin, and despite the several thousands of lines of code in this project, I can honestly say I still haven’t, which is exciting and scary! The AI was my design consultant to help me hash out the concept and the GUI. It was chief developer and security specialist, as beyond writing all of the working code, it helped me lock down security. The Addon has a Home Assistant Security score of "8" which I believe is the highest obtainable and is Github CodeQL clean. The whole project took a few months (working a hour or two each day). I used tools and IDE’s that I never used before (Docker, VSCode, Android Studio, GIT etc.) relying on the AI to teach me how to install, configure and use them along the way. At times the AI seemed brilliant, other times brain-dead, which over the years could describe many engineers I have known (me included).
+Wonderful Wino is a Home Assistant Add-on  **in which every single line of code was written by AI using Google Gemini and ChatGPT**  (free accounts!). A little context, I am a retired computer professional from the high-end commercial print industry, I was not a SW developer, but have written quite a bit of code over the years, mostly in an assortment of now dead languages. I had never written in Python (other than small Arduino projects), no Javascript or Kotlin, and despite the several thousands of lines of code in this project, I can honestly say I still haven’t, which is exciting and scary! The AI was my design consultant to help me hash out the concept and the GUI. It was chief developer and security specialist, as beyond writing all of the working code, it helped me lock down security. The Addon has a Home Assistant Security score of "8" which I believe is the highest obtainable and is Github CodeQL clean. The whole project took a few months (working an hour or two each day). I used tools and IDE’s that I never used before (Docker, VSCode, Android Studio, GIT etc.) relying on the AI to teach me how to install, configure and use them along the way. At times the AI seemed brilliant, other times brain-dead, which over the years could describe many engineers I have known (me included).
 
-This project started as I enjoy wine and especially with food. Typically I have 20-50 bottles on-hand of various types (although I heavily favor reds). I am certainly no wine expert by any means. I thought it would be great to expose my wine collection to the Home Assistant AI/LLM integration so that it could make real-time expert wine-pairing recommendations using the actual wines in my possession. I quickly realized that one way to accomplish this was my having my wine in a list in Home Assistant some how. The Local ToDo list integration fit the bill. But typing in every single wine that I currently have and purchase in the future would be a manual task that I was not willing to do. So my first thought was to use a barcode scanner. When I purchase wines, I figured I can snap their barcode and populate the ToDo list with its name and vintage, done! So I picked up a product barcode scanner on Ebay. This turned out to be pointless. I actually had working code in hours that would read the barcode and make API calls to several public free food and wine sites. I found out that just about any food product could be scanned and an enormous wealth of data would be returned, but there was virtually no wine info available out there at least using free or low cost APIs. The barcode reader was a total dead end for me.
+This project started as I enjoy wine and especially with food. Typically I have 20-50 bottles on-hand of various types (although I heavily favor reds). I am certainly no wine expert by any means. I thought it would be great to expose my wine collection to the Home Assistant AI/LLM integration so that it could make real-time expert wine-pairing recommendations using the actual wines in my possession. I quickly realized that one way to accomplish this was my having my wine in a list in Home Assistant some how. The Local ToDo list integration fit the bill. But typing in every single wine that I currently have and purchase in the future would be a manual task that I was not willing to do. So my first thought was to use a barcode scanner. When I purchase wines, I figured I can snap their barcode and populate the ToDo list with its name and vintage, done! So I picked up a product barcode scanner on E-bay. This turned out to be pointless. I actually had working code in hours that would read the barcode and make API calls to several public free food and wine sites. I found out that just about any food product could be scanned and an enormous wealth of data would be returned, but there was virtually no wine info available out there at least using free or low cost APIs. The barcode reader was a total dead end for me.
 
 A glimmer of hope from an old favorite of mine…. Vivino - a popular wine website (and app) that helps users discover, buy, and enjoy wine.  Vivino's free website enables people to access their vast database, community-based ratings, reviews, and other general wine information. Vivino doesn’t have a publicly available API but it does have an incredibly complete database and their website seems to be consistent and well laid out. Their mobile App provides the ability to snap a picture of a label and provide info about the wine. So with AI as my partner  Wonderful Wino was born. If the name Wonderful Wino is familiar to you, you are probably showing you age. The comedian [George Carlin](https://www.youtube.com/watch?v=5ubpw63lKOg) had a bit around a dysfunctional radio station called “Wonderful Wino”, and at about the same time in history,  [Frank Zappa](https://www.youtube.com/watch?v=CVEvGMQ2tEI)  had a song by the same name. To my knowledge there is no connection between the two.
 
