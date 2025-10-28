@@ -3,8 +3,11 @@
 // Import the remote theme's styles by its file name
 @import "jekyll-theme-slate";
 
-// Your custom styles to widen the page
-.wrapper {
+/*
+ * Use a more specific selector to ensure this style is not overridden.
+ * This targets the main content wrapper.
+ */
+#main-content .wrapper {
   width: 80%;
   max-width: 1600px;
 }
