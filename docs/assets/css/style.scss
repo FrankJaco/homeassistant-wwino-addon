@@ -14,6 +14,22 @@
 /* * The .inner container is where the actual content width limit is set.
  * We will use this to define our 'sidebar' space.
  */
+---
+---
+// Import the remote theme's styles by its file name
+@import "jekyll-theme-slate";
+
+/* * Widen the main container to the screen percentage you want, 
+ * then center it using margin: 0 auto;
+ */
+.wrapper, .container {
+    max-width: 100% !important; 
+    width: 100% !important;
+}
+
+/* * The .inner container is where the actual content width limit is set.
+ * We will use this to define our 'sidebar' space.
+ */
 .inner {
     max-width: 1800px !important; // Keeps max-width reasonable
     width: 80% !important;        // Main content is 80% of the max width
