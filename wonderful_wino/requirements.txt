@@ -1,6 +1,6 @@
-Flask             # For our lightweight web server
-requests          # For making HTTP requests to Vivino.com
-beautifulsoup4    # For parsing HTML from Vivino.com
+Flask             # lightweight web server
+requests          # For making HTTP requests
+beautifulsoup4    # For parsing HTML
 lxml              # For faster parsing with BeautifulSoup
 Flask-Cors        # Added for CORS support
-selenium         # NEW: For driving a real browser to defeat anti-bot measures
+selenium          # For driving a real browser
