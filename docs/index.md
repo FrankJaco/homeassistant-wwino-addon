@@ -747,28 +747,19 @@ One additional comment regarding the  **Sync DB to ToDo**  button. Wonderful Win
 
 # Accessing Your Wine from within Home Assistant
 
-Within Home Assistant, the **My Wine** ToDo list serves as the data foundation for Wonderful Wino which enables AI and voice assistant features. The **Vino Subview** dashboard builds on that list to provide a simpler, mobile-friendly way to interact with your wine collection. It’s designed for quick access on smaller screens, letting you view your wines in a compact layout, sort them, mark bottles as consumed when you drink one, and optionally record a rating, all with your database**In the image above:**
--   Clicking on the  **Z-A**  or  **A-Z**  will toggle the Sort Order alphabetically. Clicking on  **Edit**  will put the list in a manual order that you can Edit to your liking by drag and drop (via the 3-dots menu while in manual order).
-
--   Clicking  **Wine List**  will navigate you to the full-blown Wonderful Wino main GUI.
-    
--   Take note of the  **Unique Wine Count**. It is derived directly from the  `todo.my_wine`  entity. The entity holds the total number of 
-lines in the ToDo list as its value which in turn directly correlates to the number of individual wines of the same vintage in your inventory 
-(as the quantity of each wine is stored within the wines’ ToDo lists’ entry).
-updating automatically. For deeper management and a richer experience, you can jump straight to the full Wonderful Wino GUI with a single click. The Vino Subview is the most convenient way to work with your **My Wine** list directly inside Home Assistant while keeping everything just a tap away from the full Wonderful Wino interface.
+Within Home Assistant, the **My Wine** ToDo list serves as the data foundation for Wonderful Wino which enables AI and voice assistant features. The **Vino Subview** dashboard builds on that list to provide a simpler, mobile-friendly way to interact with your wine collection. It’s designed for quick access on smaller screens, letting you view your wines in a compact layout, sort them, mark bottles as consumed when you drink one, and optionally record a rating, with your inventory/databaseupdating automatically. For deeper management and a richer experience, you can jump straight to the full Wonderful Wino GUI with a single click. The Vino Subview is the most convenient way to work with your **My Wine** list directly inside Home Assistant while keeping everything just a tap away from the full Wonderful Wino interface.
 
 ### ToDo List Controls
 
 ![TD1](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/td1.png)
 
-**In the image above:**
--   Clicking on the  **Z-A**  or  **A-Z**  will toggle the Sort Order alphabetically. Clicking on  **Edit**  will put the list in a manual order that you can Edit to your liking by drag and drop (via the 3-dots menu while in manual order).
+In the image above:
 
--   Clicking  **Wine List**  will navigate you to the full-blown Wonderful Wino main GUI.
-    
--   Take note of the  **Unique Wine Count**. It is derived directly from the  `todo.my_wine`  entity. The entity holds the total number of 
-lines in the ToDo list as its value which in turn directly correlates to the number of individual wines of the same vintage in your inventory 
-(as the quantity of each wine is stored within the wines’ ToDo lists’ entry).
+-    Clicking **A-Z** or **Z-A** will toggle the list’s alphabetical sort order. Selecting **Edit** switches the list to manual mode, allowing you to reorder items to your liking by **drag-and-drop** using the **three-dot menu**.
+
+-    Clicking Wine List opens the full Wonderful Wino main GUI.
+
+-    The Unique Wine Count shows the total number of individual wines and comes directly from the todo.my_wine entity. Each line in the ToDo list represents a wine of a specific vintage, with the quantity of each wine tracked within its entry.
 
 
 ### ToDo List Entry Details
