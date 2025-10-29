@@ -507,29 +507,27 @@ badges:
     color: deep-purple
     name: Unique Wine Count
 cards: []
-
 ```
+Determining Wonderful Wino Ingress URL:
+While the default method for access is the Open Web UI button (or by enabling it on the Home Assistant Sidebar), the direct Ingress URL may be required for advanced configurations, such as embedding in custom dashboards and accessing it via a “navigation action”.
 
-### Determining Wonderful Wino Ingress URL:
-
-While the default method for access is the  **Open Web UI**  button (or by enabling it on the Home Assistant Sidebar), the direct Ingress URL may be required for advanced configurations, such as embedding in custom dashboards.
-
-The URL includes a unique identifier, or “slug,” for the add-on. This slug, which contains an 8 random hex character portion (e.g.,  `a0d7b954_wonderful_wino`), is automatically assigned based on the add-on’s repository and is not user-configurable.
+The URL includes a unique identifier, or “slug,” for the add-on. This slug, which contains an 8 random hex character portion (e.g., a0d7b954_wonderful_wino), is automatically assigned based on the add-on’s repository and is not user-configurable.
 
 To determine the exact URL for your installation:
 
-1.  Navigate to  **Settings**  >  **Add-ons**  and select  **Wonderful Wino**.
-    
-2.  Click the  **Open Web UI**  button.
-    
-3.  Once the add-on’s interface has loaded, copy the full URL from your browser’s address bar.
-    
-    The URL will follow this format:  `http://[YOUR_HOME_ASSISTANT_IP or HOST]:8123/hassio/ingress/[ADDON_SLUG]`  e.g.  `http://192.168.0.222:8123/hassio/ingress/a1b2c487_wonderful_wino`
-    
+Click on Wonderful Wino in the Home Assistant Sidebar.
+(If it is not there then: Goto Settings > Add-ons and select Wonderful Wino. Then click the Open Web UI button.)
 
-**Copy the 8 character random characters from your slug and paste them to replace the 8 X’s in your Dashboard yaml above in  _three places_**
+Once the add-on’s interface has loaded, copy the URL from your browser’s address bar.
 
-Once you determine your URL, you can use this anywhere you want in your own dashboards to navigate to the Wonderful Wino GUI and eliminate the Sidebar if you wish.
+The URL will follow this format:
+http://[YOUR_HOME_ASSISTANT_IP_OR_HOSTNAME]:8123/hassio/ingress/[ADDON_SLUG]
+for example:
+http://192.168.0.222:8123/hassio/ingress/a1b2c487_wonderful_wino
+
+Copy the 8 random hex characters from your slug and replace the 8-X’s in each of the three ingress lines of the Subview Dashboard yaml above then Click Save.
+
+Once you determine your URL, you can use this anywhere you want; as a favorite directly in a browser or in your own dashboards to navigate to the Wonderful Wino GUI and eliminate the Sidebar if you wish.
 
 ### Accessing the Vino Subview (ToDo Wine List) from your  Main Dashboard.
 
