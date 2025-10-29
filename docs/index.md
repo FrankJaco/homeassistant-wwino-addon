@@ -260,7 +260,8 @@ variables:
 {% endraw %}
 
 ### Home Assistant Script:
-This script submits your wine rating to the Wonderful Wino add-on, and thanks you with a notification. It then hides the wine rating card from view.
+
+As you may have noticed, the automation abouve calls a script. This script submits your wine rating to the Wonderful Wino add-on, and thanks you with a notification. It then hides the wine rating card from view.
 
 {% raw %}
 ```
