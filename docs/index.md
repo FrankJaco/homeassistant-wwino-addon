@@ -747,7 +747,9 @@ One additional comment regarding the  **Sync DB to ToDo**  button. Wonderful Win
 
 # Accessing Your Wine from within Home Assistant
 
-Within Home Assistant, the **My Wine** ToDo list serves as the data foundation for Wonderful Wino which enables AI and voice assistant features. The **Vino Subview** dashboard builds on that list to provide a simpler, mobile-friendly way to interact with your wine collection. It’s designed for quick access on smaller screens, letting you view your wines in a compact layout, sort them, mark bottles as consumed when you drink one, and optionally record a rating, with your inventory/databaseupdating automatically. For deeper management and a richer experience, you can jump straight to the full Wonderful Wino GUI with a single click. The Vino Subview is the most convenient way to work with your **My Wine** list directly inside Home Assistant while keeping everything just a tap away from the full Wonderful Wino interface.
+As you learned above, the full Wonderful Wino GUI is available via the Sidebar (if desired) and any place you want it via the ingress slug URL both inside and outside of Home Assistant.
+
+In Home Assistant, the **My Wine** ToDo list serves as the data foundation for Wonderful Wino which enables AI and voice assistant features. The **Vino Subview** dashboard builds on that list to provide a simpler, mobile-friendly way to interact with your wine collection. It’s designed for quick access on smaller screens, letting you view your wines in a compact layout, sort them, mark bottles as consumed when you drink one, and optionally record a taste rating for them, with your Wonderful Wino database updating automatically. For deeper management and a richer experience, you can jump straight from the Vino Subview to the full Wonderful Wino GUI with a single click. The Vino Subview is a convenient way to work with your **My Wine** list directly inside Home Assistant while keeping everything else just a tap away.
 
 ### ToDo List Controls
 
