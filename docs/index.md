@@ -747,19 +747,28 @@ One additional comment regarding the  **Sync DB to ToDo**  button. Wonderful Win
 
 # Accessing Your Wine from within Home Assistant
 
-The “visual” interface to Wonderful Wino inside Home Assistant itself is the **My Wine** ToDo list. The **Vino Subview** Dashboard you created earlier in this document improves on the default ToDo interface by providing sorting logic and a way to access the Wonderful Wino GUI directly. Its sorting modes intentionally block the ability to manually edit the ToDo list making this the best place to interact with the My Wine list.
+Within Home Assistant, the **My Wine** ToDo list serves as the data foundation for Wonderful Wino which enables AI and voice assistant features. The **Vino Subview** dashboard builds on that list to provide a simpler, mobile-friendly way to interact with your wine collection. It’s designed for quick access on smaller screens, letting you view your wines in a compact layout, sort them, mark bottles as consumed when you drink one, and optionally record a rating, all with your database**In the image above:**
+-   Clicking on the  **Z-A**  or  **A-Z**  will toggle the Sort Order alphabetically. Clicking on  **Edit**  will put the list in a manual order that you can Edit to your liking by drag and drop (via the 3-dots menu while in manual order).
+
+-   Clicking  **Wine List**  will navigate you to the full-blown Wonderful Wino main GUI.
+    
+-   Take note of the  **Unique Wine Count**. It is derived directly from the  `todo.my_wine`  entity. The entity holds the total number of 
+lines in the ToDo list as its value which in turn directly correlates to the number of individual wines of the same vintage in your inventory 
+(as the quantity of each wine is stored within the wines’ ToDo lists’ entry).
+updating automatically. For deeper management and a richer experience, you can jump straight to the full Wonderful Wino GUI with a single click. The Vino Subview is the most convenient way to work with your **My Wine** list directly inside Home Assistant while keeping everything just a tap away from the full Wonderful Wino interface.
 
 ### ToDo List Controls
 
 ![TD1](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/td1.png)
 
-In the image above…
+**In the image above:**
+-   Clicking on the  **Z-A**  or  **A-Z**  will toggle the Sort Order alphabetically. Clicking on  **Edit**  will put the list in a manual order that you can Edit to your liking by drag and drop (via the 3-dots menu while in manual order).
 
--   Clicking on the  **Z-A**  or  **A-Z**  will toggle the Sort Order. Clicking on  **Edit**  will put the list in default order, and as well let you edit the order and the list data as well directly. I would suggest you avoid editing your ToDo list and instead use the main Wonderful Wino GUI.
-
--   Clicking  **Wine List**  will navigate you to the Wonderful Wino main GUI
+-   Clicking  **Wine List**  will navigate you to the full-blown Wonderful Wino main GUI.
     
--   Take note of the  **Unique Wine Count**. It is derived directly from the  `todo.my_wine`  entity. The entity holds the total number of lines in the ToDo list as its value which in turn directly correlates to the number of individual wines of the same vintage in your inventory (as the quantity of each wine is stored within the wines’ ToDo lists’ entry).
+-   Take note of the  **Unique Wine Count**. It is derived directly from the  `todo.my_wine`  entity. The entity holds the total number of 
+lines in the ToDo list as its value which in turn directly correlates to the number of individual wines of the same vintage in your inventory 
+(as the quantity of each wine is stored within the wines’ ToDo lists’ entry).
 
 
 ### ToDo List Entry Details
