@@ -420,6 +420,7 @@ sections:
                 entity_id: input_select.todo_list_sort_order
               data: {}
             name: Edit
+            icon: mdi:drag
           - type: entity
             show_state: true
             show_icon: true
@@ -470,6 +471,7 @@ sections:
                 entity_id: input_select.todo_list_sort_order
               data: {}
             name: Edit
+            icon: mdi:drag
           - type: entity
             show_state: true
             show_icon: true
