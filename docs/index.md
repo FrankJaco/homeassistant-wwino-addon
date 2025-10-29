@@ -526,11 +526,9 @@ The URL includes a unique identifier, or “slug,” for the add-on. This slug, 
     ***for example:***
       `http://192.168.0.222:8123/hassio/ingress/a1b2c487_wonderful_wino`
     
-
 **Copy the 8 random hex characters from *your* slug and replace the 8-X’s in each of the three ingress lines of the Subview Dashboard yaml above then Click Save.**
 
 Once you determine your URL, you can use this anywhere you want; as a favorite directly in a browser or in your own dashboards to navigate to the Wonderful Wino GUI and eliminate the Sidebar if you wish.
-
 
 ### Accessing the Vino Subview (ToDo Wine List) from your  Main Dashboard.
 
@@ -541,7 +539,6 @@ I like having a button on my main screen that gives me one-click access to the V
 ![Tile1](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/tile2.png)
 
 That completes the dashboard modifications. You now should have a button/tile on your dashboard that displays the number of unique wines and tapping it will take you to the custom ToDo list Subview.
-
 
 ## Voice Assistant AI Prompts:
 
