@@ -570,10 +570,7 @@ Wonderful Wino stores it SQLite database in the Home Assistant standard location
 
 Also, Wonderful Wino displays a thumbnail of your wine bottle via a URL. If for some reason a thumbnail is not automatically obtained or you simply do not like the image, it is possible to change the URL to something from the web, or to something local via the standard Home Assistant `config/www/` "local" folder mechanism. If you wish to create and use your own thumbnails, create the folder `config/www/wwino_images`. You can use the Samba Add-on to copy your desired images there. The URL to use for a **locally held** image should be formatted like this:
 
-```
-http://<Your HomeAssistant IP>:8123/local/wwino_images/my_wine_image.jpg
-
-```
+`http://<Your HomeAssistant IP>:8123/local/wwino_images/my_wine_image.jpg`
 
 # Quick Visual Guide to Using Wonderful Wino
 
