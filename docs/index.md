@@ -508,6 +508,7 @@ badges:
     name: Unique Wine Count
 cards: []
 ```
+
 ### Determining Wonderful Wino Ingress URL:
 
 While the default method for access is the  **Open Web UI**  button (or by enabling it on the Home Assistant Sidebar), the direct Ingress URL may be required for advanced configurations, such as embedding in custom dashboards and accessing it via a "navigation action".
