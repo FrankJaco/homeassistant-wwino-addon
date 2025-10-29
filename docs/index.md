@@ -389,6 +389,7 @@ sections:
           action: navigate
           navigation_path: /hassio/ingress/XXXXXXXX_wonderful_wino # << INGRESS SLUG - Replace X's
       - display_order: none
+        item_tap_action: none
         type: todo-list
         entity: todo.my_wine
         hide_create: true
@@ -438,6 +439,7 @@ sections:
           action: navigate
           navigation_path: /hassio/ingress/XXXXXXXX_wonderful_wino # << INGRESS SLUG - Replace X's
       - display_order: alpha_asc
+        item_tap_action: none      
         type: todo-list
         entity: todo.my_wine
         hide_create: true
@@ -487,6 +489,7 @@ sections:
           action: navigate
           navigation_path: /hassio/ingress/XXXXXXXX_wonderful_wino # << INGRESS SLUG - Replace X's
       - display_order: alpha_desc
+        item_tap_action: none
         type: todo-list
         entity: todo.my_wine
         hide_create: true
