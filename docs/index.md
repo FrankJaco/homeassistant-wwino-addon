@@ -742,7 +742,7 @@ One additional comment regarding the  **Sync DB to ToDo**  button. Wonderful Win
 
 # Accessing Your Wine from within Home Assistant
 
-The “visual” interface to Wonderful Wino inside Home Assistant itself is the My Wine ToDo list. The sections-style Subview Dashboard you created earlier in this document improves on the default ToDo interface by providing sorting logic and a way to access the Wonderful Wino GUI directly. While in sorting, modes it intentionally blocks the ability to manually edit the ToDo list. All wine edits should be made in Wonderful Wino GUI, not in the ToDo list.
+The “visual” interface to Wonderful Wino inside Home Assistant itself is the **My Wine** ToDo list. The Vino Subview Dashboard you created earlier in this document improves on the default ToDo interface by providing sorting logic and a way to access the Wonderful Wino GUI directly. While in sorting modes, it intentionally blocks the ability to manually edit the ToDo list. All wine edits should be made in Wonderful Wino GUI, not in the ToDo list.
 
 ### ToDo List Controls
 
@@ -753,7 +753,7 @@ In the image above…
 -   Clicking  **Wine List**  will navigate you to the Wonderful Wino main GUI
     
 -   Take note of the  **Unique Wine Count**. It is derived directly from the  `todo.my_wine`  entity. The entity holds the total number of lines in the ToDo list as its value which in turn directly correlates to the number of individual wines of the same vintage in your inventory (as the quantity of each wine is stored within the wines’ ToDo lists’ entry).
--   Clicking on the  **Z-A**  or  **A-Z**  will toggle the Sort Order. Clicking on  **Edit**  will put the list in default Home Assistant order, and as well let you enable the list directly. I would suggest that you avoid editing your ToDo list. If you want to change something do it in the main GUI.
+-   Clicking on the  **Z-A**  or  **A-Z**  will toggle the Sort Order. Clicking on  **Edit**  will put the list in default Home Assistant order, and as well let you edit the order and as well as the data in the list directly. I would suggest you avoid editing your ToDo list and instead use the main Wonderful Wino GUI.
 
 ### ToDo List Entry Details
 
