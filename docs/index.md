@@ -519,11 +519,14 @@ The URL includes a unique identifier, or “slug,” for the add-on. This slug, 
 
 1. Click on Wonderful Wino in the Home Assistant Sidebar.
 (If it is not there then: Goto  **Settings**  >  **Add-ons**  and select  **Wonderful Wino**. Then click the  **Open Web UI**  button.)
-3.  Once the add-on’s interface has loaded, copy the URL from your browser’s address bar.
+2.  Once the add-on’s interface has loaded, copy the URL from your browser’s address bar.
     
     The URL will follow this format:
+    
     `http://[YOUR_HOME_ASSISTANT_IP_OR_HOSTNAME]:8123/hassio/ingress/[ADDON_SLUG]`
+    
     ***for example:***
+    
       `http://192.168.0.222:8123/hassio/ingress/a1b2c487_wonderful_wino`
     
 **Copy the 8 random hex characters from *your* slug and replace the 8-X’s in each of the three ingress lines of the Subview Dashboard yaml above then Click Save.**
