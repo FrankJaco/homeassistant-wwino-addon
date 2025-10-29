@@ -519,18 +519,19 @@ The URL includes a unique identifier, or “slug,” for the add-on. This slug, 
 
 1. Click on Wonderful Wino in the Home Assistant Sidebar.
 (If it is not there then: Goto  **Settings**  >  **Add-ons**  and select  **Wonderful Wino**. Then click the  **Open Web UI**  button.)
-3.  Once the add-on’s interface has loaded, copy the URL from your browser’s address bar.
+2.  Once the add-on’s interface has loaded, copy the URL from your browser’s address bar.
     
     The URL will follow this format:
+    
     `http://[YOUR_HOME_ASSISTANT_IP_OR_HOSTNAME]:8123/hassio/ingress/[ADDON_SLUG]`
+    
     ***for example:***
+    
       `http://192.168.0.222:8123/hassio/ingress/a1b2c487_wonderful_wino`
     
-
 **Copy the 8 random hex characters from *your* slug and replace the 8-X’s in each of the three ingress lines of the Subview Dashboard yaml above then Click Save.**
 
 Once you determine your URL, you can use this anywhere you want; as a favorite directly in a browser or in your own dashboards to navigate to the Wonderful Wino GUI and eliminate the Sidebar if you wish.
-
 
 ### Accessing the Vino Subview (ToDo Wine List) from your  Main Dashboard.
 
@@ -541,7 +542,6 @@ I like having a button on my main screen that gives me one-click access to the V
 ![Tile1](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/tile2.png)
 
 That completes the dashboard modifications. You now should have a button/tile on your dashboard that displays the number of unique wines and tapping it will take you to the custom ToDo list Subview.
-
 
 ## Voice Assistant AI Prompts:
 
@@ -570,10 +570,7 @@ Wonderful Wino stores it SQLite database in the Home Assistant standard location
 
 Also, Wonderful Wino displays a thumbnail of your wine bottle via a URL. If for some reason a thumbnail is not automatically obtained or you simply do not like the image, it is possible to change the URL to something from the web, or to something local via the standard Home Assistant `config/www/` "local" folder mechanism. If you wish to create and use your own thumbnails, create the folder `config/www/wwino_images`. You can use the Samba Add-on to copy your desired images there. The URL to use for a **locally held** image should be formatted like this:
 
-```
-http://<Your HomeAssistant IP>:8123/local/wwino_images/my_wine_image.jpg
-
-```
+`http://<Your HomeAssistant IP>:8123/local/wwino_images/my_wine_image.jpg`
 
 # Quick Visual Guide to Using Wonderful Wino
 
