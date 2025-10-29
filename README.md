@@ -1,6 +1,6 @@
 # Home Assistant Add-on: Wonderful Wino
 
-![Supports aarch64 Architecture](https://img.shields.io/badge/aarch64-yes-green.svg) ![Supports amd64 Architecture](https://img.shields.io/badge/amd64-yes-green.svg) ![Supports mhf Architecture](https://img.shields.io/badge/armhf-yes-green.svg) ![Supports armv7 Architecture](https://img.shields.io/badge/armv7-yes-green.svg) ![Supports i386 Architecture](https://img.shields.io/badge/i386-yes-green.svg)
+![Supports aarch64 Architecture](https://img.shields.io/badge/aarch64-yes-green.svg) ![Supports amd64 Architecture](https://img.shields.io/badge/amd64-yes-green.svg) ![Supports armv7 Architecture](https://img.shields.io/badge/armv7-yes-green.svg) ![Supports armhf Architecture](https://img.shields.io/badge/armhf-partial-yellow.svg) ![Supports i386 Architecture](https://img.shields.io/badge/i386-untested-lightgrey.svg)
 
   
 
@@ -13,7 +13,7 @@ A personal wine inventory system that can be exposed to the AI/Voice assistant f
 
   
 
-The Wonderful Wino add-on provides a user-friendly interface to manage your wine collection within Home Assistant. It can utilize the Local ToDo list integration to maintain a copy of your wine collection making it accessible to your Home Assistant's AI/Voice assistant.
+The Wonderful Wino add-on provides a user-friendly interface to manage your wine collection within Home Assistant. It can utilize the Local ToDo list integration to maintain a copy of your wine collection making it accessible to A personal wine inventory system that can be exposed to the AI/Voice assistant for real-time wine-pairing suggestions and general wine info.our Home Assistant's AI/Voice assistant.
 
   
 
