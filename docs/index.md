@@ -299,10 +299,10 @@ As you may have noticed, the automation abouve calls a script. This script submi
 
 This subview dashboard provides these functions:
 
-1.  Sortable Wine List in a ToDo list card
+1. Sortable Wine List in a ToDo list card
 2. The ability to "consume" a wine by clicking it on the list 
-3.  Wine Rating interface for ToDo consumed wines
-4.  Badge with the total of “Unique Wines” on hand.
+3. Wine Rating interface for ToDo consumed wines
+4. Badge with the total of “Unique Wines” on hand.
 5. One click access to the full Wonderful Wino GUI
 
 **Create an empty Subview Dashboard called "Vino" on your favorite dashboard:** (I personally have it on the dash I use for my phone)
