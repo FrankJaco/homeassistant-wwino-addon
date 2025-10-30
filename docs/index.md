@@ -15,7 +15,7 @@ A personal wine inventory system that can be exposed to the AI/Voice assistant f
         -   [Automation](https://frankjaco.github.io/homeassistant-wwino-addon/#home-assistant-automation)
         - [Script](https://frankjaco.github.io/homeassistant-wwino-addon/#home-assistant-script)
         -   [Dashboard](https://frankjaco.github.io/homeassistant-wwino-addon/#home-assistant-subview-dashboard)
-            -   [Ingress URL for WW GUI](https://frankjaco.github.io/homeassistant-wwino-addon/#determining-wonderful-wino-ingress-url)
+            -   [Wonderful Wino URL using Ingress](https://frankjaco.github.io/homeassistant-wwino-addon/#determining-wonderful-wino-ingress-url)
     -   [Voice Assistant AI Prompts](https://frankjaco.github.io/homeassistant-wwino-addon/#voice-assistant-ai-prompts)
     -   [Samba Share for offline DB backup and Custom Thumbnails](https://frankjaco.github.io/homeassistant-wwino-addon/#samba-share-home-assistant-add-on)
 -   [Quick Visual Guide to using Wonderful Wino](https://frankjaco.github.io/homeassistant-wwino-addon/#quick-visual-guide-to-using-wonderful-wino)
@@ -589,6 +589,8 @@ Generally there are 4 ways to add wine to your Wonderful Wino’ database.
 1.  Manually via the Wonderful Wino GUI
 2.  Vivino-Assisted via the Wonderful Wino GUI
 3.  Vivino-Assisted via Android Helper App
+4.  Vivino-Assisted via Chrome Browser Extension
+
 ### Adding Wine via Wonderful Wino GUI:
 
 ![AddWinePanel](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/awp1.png)
@@ -640,7 +642,6 @@ Click the  **WWino Android Helper**  button
 -   Set a cost Tier if desired
 -   Click  **Add Wine**.
 
-4.  Vivino-Assisted via Chrome Browser Extension
 ### Wonderful Wino Chrome Browser Extension:
 
 If you use the Chrome Browser, with this extension you can add wine to your inventory without ever touching the Wonderful Wino GUI, or Home Assistant.
