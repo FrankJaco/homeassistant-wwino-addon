@@ -741,7 +741,7 @@ On the Top far right:
 
 _Setting Cost Tiers I believe is a straightforward process, but I want to share a couple of quick tips._  - The button top-right (currently “reset” in the image) has double duty. It can be used set the default tiers (which are currently depicted). If changes were made to the cost tiers, the button performs a reset function which allows you to revert to your previous values.
 
--   Within the greater Wonderful Wino GUI, when wanting to set a Cost Tier for a wine, you can hover over the Dollar Sign buttons to see a tool-tip reminding you of its Cost Tier.
+-   Within the Wonderful Wino GUI, when about to set a Cost Tier for a wine, you can hover over the Dollar Sign buttons to see a tool-tip reminding you of the actual range of the Cost Tier in dollars. 
     
 -   Clicking the  **Save**  button is required to lock in your changes.
     
