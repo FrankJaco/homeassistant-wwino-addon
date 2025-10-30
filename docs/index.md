@@ -9,6 +9,7 @@ A personal wine inventory system that can be exposed to the AI/Voice assistant f
 -   [Installation of the Add-on](https://frankjaco.github.io/homeassistant-wwino-addon/#installing-the-wonderful-wino-add-on)
 -   [Add-on Configuration](https://frankjaco.github.io/homeassistant-wwino-addon/#wonderful-wino-add-on-configuration)
 -   [Home Assistant Configuration for Wonderful Wino](https://frankjaco.github.io/homeassistant-wwino-addon/#home-assistant-configuration-for-wonderful-wino)
+            -   [Starting the Addon the First Time](https://frankjaco.github.io/homeassistant-wwino-addon/#starting-wonderful-wino-the-first-time)
     -   [Local To Do list](https://frankjaco.github.io/homeassistant-wwino-addon/#local-todo-list)
         -   [Configuration.yaml](https://frankjaco.github.io/homeassistant-wwino-addon/#home-assistant-configurationyaml)
         -   [Helpers](https://frankjaco.github.io/homeassistant-wwino-addon/#create-four-home-assistant-helpers)
@@ -101,9 +102,9 @@ Beyond the Wonderful Wino Add-on and its GUI, there are currently two additional
 
 _Don't forget to Click  **Save**  in lower right corner of this panel once you have all your configuration info set!_
 
-**This completes the Add-on configuration. you are now ready to start the add-on**.
-
 ### Starting Wonderful Wino for the First Time
+
+Now that the configuration is complete and saved, we are ready to start the add-on.
 
 ![su](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/su.png)
 
