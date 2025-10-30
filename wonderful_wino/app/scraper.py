@@ -147,16 +147,32 @@ def _perform_scrape_attempt_selenium(url: str):
             try:
                 page_info = json.loads(json_str_match.group(1))
                 vintage_info = page_info.get('vintage', {})
+                wine_info = vintage_info.get('wine', {})
                 
+                # *** NEW LOGIC START ***
+                # Try to get region and country from the JSON
+                if wine_info.get('region'):
+                    region_data = wine_info.get('region', {})
+                    if region_data.get('name'):
+                        wine_data['region'] = region_data['name']
+                        logger.debug(f"Found Region from __PRELOADED_STATE__: {wine_data['region']}")
+                    
+                    if region_data.get('country'):
+                        country_data = region_data.get('country', {})
+                        if country_data.get('name'):
+                             wine_data['country'] = country_data['name']
+                             logger.debug(f"Found Country from __PRELOADED_STATE__: {wine_data['country']}")
+                # *** NEW LOGIC END ***
+
                 if wine_data['image_url'] is None:
                     image_variations = vintage_info.get('image', {}).get('variations', {})
                     image_url = image_variations.get('bottle_large') or image_variations.get('bottle_medium')
                     if image_url:
-                        wine_data['image_url'] = image_url
+                        wine_data['image_url'] = 'https:' + image_url if image_url.startswith('//') else image_url
                         logger.debug(f"Found Image URL from __PRELOADED_STATE__: {image_url}")
 
                 if wine_data['wine_type'] is None:
-                    wine_type_id = vintage_info.get('wine', {}).get('type_id')
+                    wine_type_id = wine_info.get('type_id')
                     if wine_type_id == 1: wine_data['wine_type'] = 'Red'
                     elif wine_type_id == 2: wine_data['wine_type'] = 'White'
                     elif wine_type_id == 3: wine_data['wine_type'] = 'Sparkling'
@@ -169,8 +185,11 @@ def _perform_scrape_attempt_selenium(url: str):
                 if wine_data['alcohol_percent'] is None:
                     alcohol = vintage_info.get('wine_facts', {}).get('alcohol') or vintage_info.get('alcohol')
                     if alcohol:
-                        wine_data['alcohol_percent'] = float(alcohol)
-                        logger.debug(f"Found Alcohol Percentage from __PRELOADED_STATE__: {wine_data['alcohol_percent']}%")
+                        try:
+                            wine_data['alcohol_percent'] = float(alcohol)
+                            logger.debug(f"Found Alcohol Percentage from __PRELOADED_STATE__: {wine_data['alcohol_percent']}%")
+                        except (ValueError, TypeError):
+                            logger.debug("Could not parse alcohol percentage from __PRELOADED_STATE__.")
 
             except json.JSONDecodeError:
                 logger.warning("Failed to decode __PRELOADED_STATE__ JSON.")
@@ -241,21 +260,28 @@ def _perform_scrape_attempt_selenium(url: str):
                 try: wine_data['vintage'] = int(match.group(0))
                 except ValueError: pass
     
+    # This is the old, less reliable fallback. We keep it just in case JSON fails.
     for link in soup.find_all('a', href=re.compile(r'/(wine-countries|wine-regions|grapes)/')):
         href = link.get('href', '')
         text = link.get_text(strip=True).strip()
-        if '/wine-countries/' in href and wine_data['country'] == 'Unknown Country': wine_data['country'] = text
-        elif '/wine-regions/' in href and wine_data['region'] == 'Unknown Region': wine_data['region'] = text
+        if '/wine-countries/' in href and wine_data['country'] == 'Unknown Country': 
+            wine_data['country'] = text
+            logger.debug(f"Found Country from fallback <a> tag: {text}")
+        elif '/wine-regions/' in href and wine_data['region'] == 'Unknown Region': 
+            wine_data['region'] = text
+            logger.debug(f"Found Region from fallback <a> tag: {text}")
         elif not found_grapes_in_json and '/grapes/' in href and text and 'blend' not in text.lower(): all_grape_names_collected.append(text)
     
     # Fallback for Wine Type from breadcrumbs
     if wine_data['wine_type'] is None:
         try:
+            # Try to find breadcrumbs
             breadcrumbs = soup.find('div', class_=re.compile(r'breadCrumbs'))
             if breadcrumbs:
                 breadcrumb_links = breadcrumbs.find_all('a')
                 for link in breadcrumb_links:
                     link_text = link.get_text(strip=True)
+                    # Check for wine types
                     if any(wt in link_text for wt in WINE_TYPES):
                          for wt in WINE_TYPES:
                              if wt in link_text:
@@ -339,6 +365,9 @@ def scrape_vivino_data(vivino_url):
     
     wine_data, canonical_url = _perform_scrape_attempt_selenium(vivino_url)
 
+    if not canonical_url:
+        canonical_url = vivino_url # Ensure canonical_url is not None
+
     if wine_data:
         logger.info(f"Success on initial Selenium scrape for {canonical_url}")
         return wine_data, canonical_url
@@ -373,8 +402,10 @@ def scrape_vivino_data(vivino_url):
                     'varietal': nearby_data.get('varietal', 'Unknown Varietal'),
                     'region': nearby_data.get('region', 'Unknown Region'),
                     'country': nearby_data.get('country', 'Unknown Country'),
-                    'vivino_rating': None,
+                    'vivino_rating': None, # Rating is for the *other* vintage, so don't copy it
                     'image_url': nearby_data.get('image_url'),
+                    'alcohol_percent': nearby_data.get('alcohol_percent'), # Usually consistent
+                    'wine_type': nearby_data.get('wine_type'), # Always consistent
                 }
                 return borrowed_data, vivino_url
             
@@ -388,6 +419,7 @@ def scrape_vivino_data(vivino_url):
             'name': 'Unknown Wine', 'vintage': None, 'varietal': 'Unknown Varietal', 
             'region': 'Unknown Region', 'country': 'Unknown Country', 
             'vivino_rating': None, 'image_url': None,
+            'alcohol_percent': None, 'wine_type': None,
             'needs_review': True  # Flag this entry for user review
         }
         minimal_data.update(fallback_data)
