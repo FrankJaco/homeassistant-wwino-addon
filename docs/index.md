@@ -14,7 +14,7 @@ A personal wine inventory system that can be exposed to the AI/Voice assistant f
         -   [Helpers](https://frankjaco.github.io/homeassistant-wwino-addon/#create-four-home-assistant-helpers)
         -   [Automation](https://frankjaco.github.io/homeassistant-wwino-addon/#home-assistant-automation)
         - [Script](https://frankjaco.github.io/homeassistant-wwino-addon/#home-assistant-script)
-        -   [Dashboard](https://frankjaco.github.io/homeassistant-wwino-addon/#home-assistant-subview-dashboard)
+        -   [Vino Subview Dashboard](https://frankjaco.github.io/homeassistant-wwino-addon/#home-assistant-subview-dashboard)
             -   [Wonderful Wino URL using Ingress](https://frankjaco.github.io/homeassistant-wwino-addon/#determining-wonderful-wino-ingress-url)
     -   [Voice Assistant AI Prompts](https://frankjaco.github.io/homeassistant-wwino-addon/#voice-assistant-ai-prompts)
     -   [Samba Share for offline DB backup and Custom Thumbnails](https://frankjaco.github.io/homeassistant-wwino-addon/#samba-share-home-assistant-add-on)
