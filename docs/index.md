@@ -9,7 +9,7 @@ A personal wine inventory system that can be exposed to the AI/Voice assistant f
 -   [Installation of the Add-on](https://frankjaco.github.io/homeassistant-wwino-addon/#installing-the-wonderful-wino-add-on)
 -   [Add-on Configuration](https://frankjaco.github.io/homeassistant-wwino-addon/#wonderful-wino-add-on-configuration)
 -   [Home Assistant Configuration for Wonderful Wino](https://frankjaco.github.io/homeassistant-wwino-addon/#home-assistant-configuration-for-wonderful-wino)
-            -   [Starting the Addon the First Time](https://frankjaco.github.io/homeassistant-wwino-addon/#starting-wonderful-wino-the-first-time)
+    -   [Starting the Addon the First Time](https://frankjaco.github.io/homeassistant-wwino-addon/#starting-wonderful-wino-for-the-first-time)
     -   [Local To Do list](https://frankjaco.github.io/homeassistant-wwino-addon/#local-todo-list)
         -   [Configuration.yaml](https://frankjaco.github.io/homeassistant-wwino-addon/#home-assistant-configurationyaml)
         -   [Helpers](https://frankjaco.github.io/homeassistant-wwino-addon/#create-four-home-assistant-helpers)
