@@ -31,7 +31,7 @@ A personal wine inventory system that can be exposed to the AI/Voice assistant f
         -   [Thumbnail Image](https://frankjaco.github.io/homeassistant-wwino-addon/#thumbnail-image)
             -   [Tasting Notes](https://frankjaco.github.io/homeassistant-wwino-addon/#thumbnail-image)
             -   [Consumption Log](https://frankjaco.github.io/homeassistant-wwino-addon/#thumbnail-image)
-    -   [Accessing Settings and Screen Mode](https://frankjaco.github.io/homeassistant-wwino-addon/#accessing-settings-and-screen-mode)
+    -   [Accessing Help, Settings and Screen Mode](https://frankjaco.github.io/homeassistant-wwino-addon/#accessing-help-settings-and-screen-mode)
     -   [Settings and Maintenance](https://frankjaco.github.io/homeassistant-wwino-addon/#accessing-settings-and-screen-mode)
         -   [Setting Cost Tiers](https://frankjaco.github.io/homeassistant-wwino-addon/#setting-cost-tiers)
         -   [Database Backup and Recovery](https://frankjaco.github.io/homeassistant-wwino-addon/#maintenance-tools)
@@ -717,11 +717,13 @@ On the left side of the window the image of your wine bottle’s label is displa
 
 ![TNM1](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/tnm1.png)
 
-## Accessing Settings and Screen Mode
+## Accessing Help, Settings and Screen Mode
 
 ![SM1](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/sm1.png)
 
 On the Top far right:
+
+❓ for accessing the most current Wonderful Wino documentation from Github site
 
 ☀️  **Sun**  🌙  **Moon**  for setting  **Light**  or  **Dark**  mode
 
