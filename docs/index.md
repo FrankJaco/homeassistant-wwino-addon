@@ -32,7 +32,7 @@ A personal wine inventory system that can be exposed to the AI/Voice assistant f
             -   [Tasting Notes](https://frankjaco.github.io/homeassistant-wwino-addon/#thumbnail-image)
             -   [Consumption Log](https://frankjaco.github.io/homeassistant-wwino-addon/#thumbnail-image)
     -   [Accessing Help, Settings and Screen Mode](https://frankjaco.github.io/homeassistant-wwino-addon/#accessing-help-settings-and-screen-mode)
-    -   [Settings and Maintenance](https://frankjaco.github.io/homeassistant-wwino-addon/#accessing-settings-and-screen-mode)
+    -   [Settings and Maintenance Panel](https://frankjaco.github.io/homeassistant-wwino-addon/#settings-and-maintenance-panel)
         -   [Setting Cost Tiers](https://frankjaco.github.io/homeassistant-wwino-addon/#setting-cost-tiers)
         -   [Database Backup and Recovery](https://frankjaco.github.io/homeassistant-wwino-addon/#maintenance-tools)
         -   [Maintenance Tools](https://frankjaco.github.io/homeassistant-wwino-addon/#maintenance-tools)
@@ -723,9 +723,15 @@ On the left side of the window the image of your wine bottle’s label is displa
 
 On the Top far right:
 
-❓ for accessing the most current Wonderful Wino documentation from Github site
+### Help
+
+❓ is for accessing the most current documentation from Wonderful Wino Github site. Note that within various windows you may notice a ? with a circle around it. These will bring up in-app panels with help info.
+
+### Screen Mode
 
 ☀️  **Sun**  🌙  **Moon**  for setting  **Light**  or  **Dark**  mode
+
+## Settings and Maintenance panel
 
 ⚙️  **Gear**  for accessing the  **Settings**  and  **Maintenance**  panel
 
