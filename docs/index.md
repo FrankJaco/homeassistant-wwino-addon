@@ -311,6 +311,7 @@ The Vino subview dashboard provides these functions:
 
 **Create an empty Subview Dashboard called "Vino" on your favorite dashboard:** (I personally have it on the dash I use for my phone)
 
+![ad](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/ad.png)
 ![Subview](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/subview.png)
 
 **Paste the dashboard yaml from the code box below into the yaml window of the Vino subview that you just created.**
