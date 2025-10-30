@@ -105,6 +105,8 @@ _Don't forget to Click  **Save**  in lower right corner of this panel once you h
 
 ### Starting Wonderful Wino for the First Time
 
+![su](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/su.png)
+
 -   Go to the  **Info tab**, and select your desired startup options. “Add to Sidebar” is recommended at least at first.
 -   Click  **Start**.
 
