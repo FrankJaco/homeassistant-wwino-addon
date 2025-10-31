@@ -70,7 +70,7 @@ Beyond the Wonderful Wino Add-on and its GUI, there are currently two additional
 
 **Prerequisites:**  You must be running a version of Home Assistant that includes the Supervisor panel. (e.g. Home Assistant OS) and have enabled “Advanced Mode” in your Home Assistant user profile.
 
-**Installation Steps:**  Adding a custom add-on repository is a fairly straightforward process. Please follow these steps carefully.
+**Installation Steps:**  Adding a custom add-on repository is a fairly straightforward process.
 
 1.  **Navigate to the Add-on Store**
     -   Open your Home Assistant frontend.
@@ -83,7 +83,7 @@ Beyond the Wonderful Wino Add-on and its GUI, there are currently two additional
     -   Paste the repository URL  `https://github.com/FrankJaco/homeassistant-wwino-addon`  and click  **Add**.
     -   Click  **Close**.
 3.  **Install the Wonderful Wino Add-on**
-    -   After adding the repository, you may need to refresh the page for the new addon to appear by pressing  `Ctrl + R`  (or  `Cmd + R`  on a Mac).
+    -   After adding the repository, you will likely need to refresh the page for the new addon to appear (by pressing  `Ctrl + R` etc.).
     -   Scroll through the Add-on Store and locate the section titled  **Wonderful Wino Add-on Repository**.
     -   Click on the  **Wonderful Wino**  add-on card to open its information page.
     -   Click the blue  **Install**  button and wait for the installation process to complete. This may take a few minutes.
@@ -92,7 +92,7 @@ Beyond the Wonderful Wino Add-on and its GUI, there are currently two additional
 
 ![conf](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/conf.png)
 
-**Creating a Home Assistant Long Lived Token: for Wonderful Wino**
+**Creating a Home Assistant Long Lived Token for Wonderful Wino**
 
 1. Click on your  **User Account**  (bottom of the Home Assistant sidebar on the left).
 2.  Select the  **Security tab**  at the top of the screen and scroll to its bottom.
@@ -140,7 +140,7 @@ Starting Wonderful Wino backend...
 To get the most out of Wonderful Wino, the  [Local ToDo list integration](https://www.home-assistant.io/integrations/local_todo/), and a functioning  [Home Assistant Voice Assistant](https://www.home-assistant.io/voice_control/)  enhanced with Ai are required. (fyi, I personally use the  [Google Gemini](https://www.home-assistant.io/integrations/google_generative_ai_conversation/)  integration and it does a nice job.) 
 
 ### Local ToDo list:
-It is the ToDo list that gets your wine data inside Home Assistant so that you can expose it to your AI. To make this happen, a small addition to your configuration.yaml, as well as an Automation, Script and 4 Helpers are required.  To utilize the ToDo list interface in Home Assistant some dashboard work will also be required.
+It is the ToDo list that gets your wine data inside Home Assistant so that you can expose it to your AI. To make this happen, a small addition to your configuration.yaml, as well as an Automation, a Script and 4 Helpers are required.  To utilize the ToDo list interface in Home Assistant some dashboard work will also be required.
 
 If you have not done so already, install the  [Local ToDo list integration](https://www.home-assistant.io/integrations/local_todo/)  now.
 
@@ -157,7 +157,7 @@ For connectivity between Wonderful Wino and Home Assistant / Local ToDo list a s
 # Wonderful-Wino Stuff
 rest_command:
   wine_consumed_webhook:
-    url: "http://<your HomeAssistant IP>:5000/api/consume-wine"
+    url: "http://<YOUR_HOME_ASSISTANT_IP>:5000/api/consume-wine"
     method: POST
     content_type: "application/json"
     payload: >
@@ -259,7 +259,6 @@ mode: queued
 variables:
   list_entity: todo.my_wine
 
-
 ```
 {% endraw %}
 
@@ -314,9 +313,9 @@ The Vino subview dashboard provides these functions:
 ![ad](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/ad.png)
 ![Subview](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/subview.png)
 
-**Paste the dashboard yaml from the code box below into the yaml window of the Vino subview that you just created.**
+**Paste the dashboard yaml from the code box below into the yaml window of the Vino subview that you just created. But do not save it just yet as 3 minor edits unique to your installation are required.**
 
-Take particular note of the  **INGRESS**  lines. You will need to edit them with your **INGRESS SLUG**. It is what provides one-click access to the main Wonderful Wino GUI by tapping the "My Wine" Header of the ToDo list. Info on how to find your unique  **INGRESS SLUG**  is below the Dashboard yaml. You will need to replace the 8 X’s in the Ingress lines (in 3 places)  with your specific 8 characters to make the “navigate to GUI” feature work.
+
 
 ```
 type: sections
@@ -519,6 +518,8 @@ badges:
     name: Unique Wine Count
 cards: []
 ```
+
+Take particular note of the 3 lines commented with **INGRESS SLUG**. You will need to edit them with _your_ **INGRESS SLUG**. It is what provides one-click access to the main Wonderful Wino GUI by tapping the "My Wine" Header of the ToDo list. You will need to replace the 8 X’s in **all 3** Ingress Slug lines with your specific 8 hex characters to make the “navigate to GUI” feature work. Instruction on how to determine your **INGRESS SLUG URL** along with your unique 8 hex characters is below.
 
 ### Determining Wonderful Wino Ingress URL:
 
