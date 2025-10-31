@@ -543,7 +543,7 @@ The URL includes a unique identifier, or “slug,” for the add-on. This slug, 
     
 **Copy the 8 random hex characters from *your* slug and replace the 8-X’s in each of the three ingress lines of the Subview Dashboard yaml above then Click Save.**
 
-Once you determine your URL, you can use this anywhere you want; save it as a "favorite" directly in a browser, or via a dashboard card using the navigate action to access the Wonderful Wino GUI. You could then eliminate the Sidebar if you wish.
+Once you determine your URL, you can use this anywhere you want; save it as a bookmark/favorite directly in a browser, or via a dashboard card using the navigate action, to access the Wonderful Wino GUI. You could then eliminate the Sidebar if you wish.
 
 ### Accessing the Vino Subview (ToDo Wine List) from your Main Dashboard.
 
@@ -627,13 +627,11 @@ The  **Other Tools**  button provides access to the Github repositories for the 
 
 _This is the most automatic solution of all for those who have an Android Phone or Tablet fitted with a camera and have the Vivino Android app loaded._
 
-**Important:**  The Wonderful Wino Android Helper app  **will only work on your home network**. It communicates with the Wonderful Wino backend via standard HTTPS POST requests sent to a specific REST API endpoint exposed by the backend’s web server. Most of the time you will likely be adding wine to your collection at home, so this should not be a major limitation. BUT...
-
-_I could see a use-case for those people who use the Vivino App at the store to validate the wine before they purchase, and want to immediately add it to their inventory before leaving the store. In a future release I may try to implement a feature that would allow for the caching of the URL's scanned, quantities, and cost tier ratings, that would auto upload to the backend upon returning home._
 
 **First Launch**
-On first launch of the Android Helper you will be prompted to enter the IP address of your Home Assistant Server. If you make a mistake or ever need to change the IP, you can access the configuration via the 🔧 Wrench icon on the main screen.
+On first launch of the Wonderful Wino Android Helper you will be prompted to enter the IP address of your Home Assistant Server. If you make a mistake or ever need to change the IP, you can access the configuration via the 🔧 Wrench icon on the main screen.
 
+**Using the Android Helper**
 Upon returning from the store with your latest “wine haul”, use the Vivino App to snap a picture of the wine bottle label you just purchased (or search on the Vivino app if you prefer). Vivino will display the wines’ page.
 
 Click the  **three-dots menu**  in upper right corner and select  **Share the Wine**.
@@ -653,11 +651,19 @@ Click the  **WWino Android Helper**  button
 -   Set a cost Tier if desired
 -   Click  **Add Wine**.
 
+**Important:**  The Wonderful Wino Android Helper app  **will only work on your home network**. It communicates with the Wonderful Wino backend via standard HTTPS POST requests sent to a specific REST API endpoint exposed by the backend’s web server. Most of the time you will likely be adding wine to your collection at home, so this should not be a major limitation. BUT...
+
+_I could see a use-case for those people who use the Vivino App at the store to validate the wine before they purchase, and want to immediately add it to their inventory before leaving the store. In a future release I may try to implement a feature that would allow for the caching of the URL's scanned, quantities, and cost tier ratings, that would auto upload to the backend upon returning home._
+
 ### Wonderful Wino Chrome Browser Extension:
 
 If you use the Chrome Browser, with this extension you can add wine to your inventory without ever touching the Wonderful Wino GUI, or Home Assistant.
 
-Search your wine on Vivino’s site using Chrome and drill down to the wine’s specific page. Click the  **Red Wine icon**  on the extensions bar to bring up the Wonderful Wino Chrome extension with the Vivino URL already pre-populated.
+**First Launch**
+On first launch of the Wonderful Wino Chrome Browser Extension you will be prompted to enter the IP address of your Home Assistant Server. If you make a mistake or ever need to change the IP, you can access the configuration via the ⚙️ gear icon on the main screen.
+
+**Using the Chrome Browser Extension**
+Search your wine on Vivino’s site using Chrome and drill down to the wine’s specific page. Click the  Wondeful Wino **Red Wine icon**  on the extensions bar to bring up the Wonderful Wino Chrome extension with the Vivino URL already pre-populated.
 
 ![CBE](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/cbe.png)
 
@@ -666,10 +672,13 @@ Search your wine on Vivino’s site using Chrome and drill down to the wine’s 
 -   Set a cost Tier if desired
 -   Click  **Add Wine**.
 
-**Important:**  The Wonderful Wino Chrome Browser Extension  **will only work on your home network**  as it communicates with the Wonderful Wino backend via standard HTTPS POST requests sent to a specific REST API endpoint exposed by the backend’s Flask web server. As 99.9% of the time you will likely be adding wine to your collection at home, this should not be a major limitation.
+_You may have noticed that the pinned Red Wine Glass extension icon at times is grayed-out. That is because the extension is mostly aware of when you are at the Vivino site and drilled down to a specific wine's page before allowing you to attempt to add it to your database._  
+
+**Important:**  The Wonderful Wino Chrome Browser Extension **will only work on your home network**. It communicates with the Wonderful Wino backend via standard HTTPS POST requests sent to a specific REST API endpoint exposed by the backend’s web server. Most of the time you will likely be adding wine to your collection at home, so this should not be a major limitation.
+
+_The combination of having the Vivino website bookmarked in your browser and the Wonderful Wino Chrome Browser Extension pinned are a potent and extremely efficient way of getting your new wine into your database without needing to launch Home Assistant or the Wonderful Wino GUI._
 
 
- **will only work on your home network**  as it communicates with the Wonderful Wino backend via standard HTTPS POST requests sent to a specific REST API endpoint exposed by the backend’s Flask web server. As 99.9% of the time you will likely be adding wine to your collection at home, this should not be a major limitation.
 ## Inventory Display and Filtering Controls
 
 ![WIDF1](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/widf1.png)
