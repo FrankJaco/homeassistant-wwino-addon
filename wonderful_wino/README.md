@@ -28,48 +28,52 @@ Beyond the Wonderful Wino Add-on and its GUI, there are currently two additional
 <br>
 
 
-## Wonderful Wino Add-on Configuration
+# Wonderful Wino Add-on Configuration
 
 ![conf](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/conf.png)
 
-**Creating a Home Assistant Long Lived Token: for Wonderful Wino** 
-1. Click on your **User Account** (bottom of the Home Assistant sidebar on the left).
-2. Select the **Security tab** at the top of the screen and scroll to its bottom.
-3. In the **Long-lived access tokens** section and click **Create Token**.
-4. Name it **WWino** (or anything else you want) and click **OK**
-5. **Copy and paste** it to the Configuration tab's `HA_LONG_LIVED_TOKEN` textbox.
+**Creating a Home Assistant Long Lived Token for Wonderful Wino**
 
-Click **Save** in lower right corner of this panel. 
+1. Click on your  **User Account**  (bottom of the Home Assistant sidebar on the left).
+2.  Select the  **Security tab**  at the top of the screen and scroll to its bottom.
+3.  In the  **Long-lived access tokens**  section and click  **Create Token**.
+4.  Name it  **WWino**  (or anything else you want) and click  **OK**
+5.  **Copy and paste**  it to the Configuration tab’s  `HA_LONG_LIVED_TOKEN`  textbox.
 
-***This completes the Add-on configuration. We are now ready to start the add-on**.*
-
+_Once you have all your configuration info all set, don't forget to Click  **Save**._
 
 ### Starting Wonderful Wino for the First Time
 
- - Go to the **Info tab**, and select your desired startup options.
-   "Add to Sidebar" is recommended at least at first.
- - Click **Start**.
+Now that the configuration is complete and saved, we are ready to start the add-on.
 
-*You may want to check the log (by going into the **Log tab**) to ensure a proper first start. It should look something like this...*
+![su](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/su.png)
 
-    Starting Wonderful Wino backend...
-    2025-10-03 12:21:09,021 - app.db - INFO - Database initialized at /share/wwino/wine_inventory.db
-    2025-10-03 12:21:09,021 - __main__ - INFO - Starting Wonderful Wino on port 5000 with log level INFO
-    ---> NOTE: The following 'WARNING' is a standard benign message from the internal web server.
-    ---> It is normal and expected for a Home Assistant add-on and can be safely ignored.
-     * Serving Flask app 'main'
-     * Debug mode: off
-    2025-10-03 12:21:09,023 - werkzeug - INFO - WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
-     * Running on all addresses (0.0.0.0)
-     * Running on http://127.0.0.1:5000
-     * Running on http://172.30.33.13:5000
-    2025-10-03 12:21:09,024 - werkzeug - INFO - Press CTRL+C to quit
-     * Running on all addresses (0.0.0.0)
-     * Running on http://127.0.0.1:5000
-     * Running on http://172.30.33.13:5000
-    2025-10-03 12:21:09,024 - werkzeug - INFO - Press CTRL+C to quit
+-   Go to the  **Info tab**, and select your desired startup options. “Add to Sidebar” is recommended at least at first.
+-   Click  **Start**.
 
-***If everything checks out, congratulations, Wonderful Wino is up and running and ready for you to add your wine! You could stop right here and use Wonderful Wino as is via its GUI. But to really make Wonderful Wino truly wwonderful, we need to configure Home Assistant a wwee bit more.***
+_You may want to check the log (by going into the  **Log tab**) to ensure a proper first start. It should look something like this…_
+
+```
+Starting Wonderful Wino backend...
+2025-10-03 12:21:09,021 - app.db - INFO - Database initialized at /share/wwino/wine_inventory.db
+2025-10-03 12:21:09,021 - __main__ - INFO - Starting Wonderful Wino on port 5000 with log level INFO
+---> NOTE: The following 'WARNING' is a standard benign message from the internal web server.
+---> It is normal and expected for a Home Assistant add-on and can be safely ignored.
+ * Serving Flask app 'main'
+ * Debug mode: off
+2025-10-03 12:21:09,023 - werkzeug - INFO - WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://172.30.33.13:5000
+2025-10-03 12:21:09,024 - werkzeug - INFO - Press CTRL+C to quit
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://172.30.33.13:5000
+2025-10-03 12:21:09,024 - werkzeug - INFO - Press CTRL+C to quit
+
+```
+
+**_If everything checks out, congratulations, Wonderful Wino is up and running and ready for you to add your wine! You could stop right here and use Wonderful Wino as is via its GUI. But to really make Wonderful Wino truly wwonderful, we need to configure Home Assistant a wwee bit more._**
 
 This concludes the initial configuration of the Wonderful Wino Addon itself. If you want to take it to the next level please consult the **Documentation tab** to forge ahead.  or..... 
 
