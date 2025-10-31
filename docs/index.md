@@ -754,7 +754,7 @@ On the Top far right:
 
 ☀️  **Sun**  🌙  **Moon**  for setting  **Light**  or  **Dark**  mode
 
-## Settings and Maintenance panel
+## Settings and Maintenance Panel
 
 ⚙️  **Gear**  for accessing the  **Settings**  and  **Maintenance**  panel
 
