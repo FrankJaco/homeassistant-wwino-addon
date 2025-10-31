@@ -100,7 +100,7 @@ Beyond the Wonderful Wino Add-on and its GUI, there are currently two additional
 4.  Name it  **WWino**  (or anything else you want) and click  **OK**
 5.  **Copy and paste**  it to the Configuration tab’s  `HA_LONG_LIVED_TOKEN`  textbox.
 
-_Don't forget to Click  **Save**  in lower right corner of this panel once you have all your configuration info set!_
+_Once you have all your configuration info all set, don't forget to Click  **Save**._
 
 ### Starting Wonderful Wino for the First Time
 
@@ -543,13 +543,13 @@ The URL includes a unique identifier, or “slug,” for the add-on. This slug, 
     
 **Copy the 8 random hex characters from *your* slug and replace the 8-X’s in each of the three ingress lines of the Subview Dashboard yaml above then Click Save.**
 
-Once you determine your URL, you can use this anywhere you want; as a favorite directly in a browser or in your own dashboards to navigate to the Wonderful Wino GUI and eliminate the Sidebar if you wish.
+Once you determine your URL, you can use this anywhere you want; save it as a "favorite" directly in a browser, or via a dashboard card using the navigate action to access the Wonderful Wino GUI. You could then eliminate the Sidebar if you wish.
 
-### Accessing the Vino Subview (ToDo Wine List) from your  Main Dashboard.
+### Accessing the Vino Subview (ToDo Wine List) from your Main Dashboard.
 
 ![Tile1](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/tile1.png)
 
-I like having a button on my main screen that gives me one-click access to the Vino Subview. You can handle this in many ways. For this document I will use a Tile card to provide navigation and display the number of unique wines in the collection on the Tile card. "Unique wines" are the number of different wines, not the number of bottles. For example if you have 3 bottles of Bogle Phantom 2021 and that is all you have, you have 1 unique wine. How did the Tile card "know" how many unique wines I have? The My Wine (todo.my_wine) entity contains a count of the number of entries in the ToDo list. When you have more than 1 bottle of the same wine/vintage, the QTY: of bottles will be displayed in the ToDo list entry, not each bottle on its own line.
+I like having a button on my main screen that gives me one-click access to the Vino Subview. You can handle this in many ways. For the purpose of this document, I will use a Tile card to provide navigation and display the number of unique wines in the collection on the Tile card. "Unique wines" are the number of different wines, not the number of bottles. For example if you have 3 bottles of Bogle Phantom 2021 and that is all you have, you have 1 unique wine. How did the Tile card "know" how many unique wines I have? The My Wine (todo.my_wine) entity contains a count of the number of entries in the ToDo list. When you have more than 1 bottle of the same wine/vintage, the quantity of bottles will be displayed in each ToDo list entry, not each bottle on its own line.
 
 ![Tile1](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/tile2.png)
 
@@ -582,13 +582,13 @@ Wonderful Wino stores it SQLite database in the Home Assistant standard location
 
 Also, Wonderful Wino displays a thumbnail of your wine bottle via a URL. If for some reason a thumbnail is not automatically obtained or you simply do not like the image, it is possible to change the URL to something from the web, or to something local via the standard Home Assistant `config/www/` "local" folder mechanism. If you wish to create and use your own thumbnails, create the folder `config/www/wwino_images`. You can use the Samba Add-on to copy your desired images there. The URL to use for a **locally held** image should be formatted like this:
 
-`http://<Your HomeAssistant IP>:8123/local/wwino_images/my_wine_image.jpg`
+`http://<YOUR_HOME_ASSISTANT_IP>:8123/local/wwino_images/my_wine_image.jpg`
 
 # Quick Visual Guide to Using Wonderful Wino
 
 ## Adding Wine
 
-Generally the tedium of adding entries to a personal database of any kind often is it’s downfall. This is where Wonderful Wino really shines. All the tools make short work of it.
+Generally the tedium of adding entries to a personal database of any kind is often it’s downfall. This is where Wonderful Wino really shines. All the tools make short work of it.
 
 Generally there are 4 ways to add wine to your Wonderful Wino’ database.
 
