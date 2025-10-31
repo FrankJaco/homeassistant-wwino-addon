@@ -627,11 +627,12 @@ The  **Other Tools**  button provides access to the Github repositories for the 
 
 _This is the most automatic solution of all for those who have an Android Phone or Tablet fitted with a camera and have the Vivino Android app loaded._
 
-
 **First Launch**
+
 On first launch of the Wonderful Wino Android Helper you will be prompted to enter the IP address of your Home Assistant Server. If you make a mistake or ever need to change the IP, you can access the configuration via the 🔧 Wrench icon on the main screen.
 
 **Using the Android Helper**
+
 Upon returning from the store with your latest “wine haul”, use the Vivino App to snap a picture of the wine bottle label you just purchased (or search on the Vivino app if you prefer). Vivino will display the wines’ page.
 
 Click the  **three-dots menu**  in upper right corner and select  **Share the Wine**.
@@ -660,9 +661,11 @@ _I could see a use-case for those people who use the Vivino App at the store to 
 If you use the Chrome Browser, with this extension you can add wine to your inventory without ever touching the Wonderful Wino GUI, or Home Assistant.
 
 **First Launch**
+
 On first launch of the Wonderful Wino Chrome Browser Extension you will be prompted to enter the IP address of your Home Assistant Server. If you make a mistake or ever need to change the IP, you can access the configuration via the ⚙️ gear icon on the main screen.
 
 **Using the Chrome Browser Extension**
+
 Search your wine on Vivino’s site using Chrome and drill down to the wine’s specific page. Click the  Wondeful Wino **Red Wine icon**  on the extensions bar to bring up the Wonderful Wino Chrome extension with the Vivino URL already pre-populated.
 
 ![CBE](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/cbe.png)
