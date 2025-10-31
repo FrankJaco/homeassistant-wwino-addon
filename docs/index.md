@@ -625,9 +625,14 @@ The  **Other Tools**  button provides access to the Github repositories for the 
 
 ### Wonderful Wino Android Helper App
 
-_This is the most automatic solution of all for those who are lucky enough to have an Android Phone or Tablet fitted with a camera and have the Vivino Android app loaded._
+_This is the most automatic solution of all for those who have an Android Phone or Tablet fitted with a camera and have the Vivino Android app loaded._
 
-**Important:**  The Wonderful Wino Android Helper app  **will only work on your home network**  as it communicates with the Wonderful Wino backend via standard HTTPS POST requests sent to a specific REST API endpoint exposed by the backend’s Flask web server. As 99.9% of the time you will likely be adding wine to your collection at home, this should not be a major limitation.
+**Important:**  The Wonderful Wino Android Helper app  **will only work on your home network**. It communicates with the Wonderful Wino backend via standard HTTPS POST requests sent to a specific REST API endpoint exposed by the backend’s web server. Most of the time you will likely be adding wine to your collection at home, so this should not be a major limitation. BUT...
+
+_I could see a use-case for those people who use the Vivino App at the store to validate the wine before they purchase, and want to immediately add it to their inventory before leaving the store. In a future release I may try to implement a feature that would allow for the caching of the URL's scanned, quantities, and cost tier ratings, that would auto upload to the backend upon returning home._
+
+**First Launch**
+On first launch of the Android Helper you will be prompted to enter the IP address of your Home Assistant Server. If you make a mistake or ever need to change the IP, you can access the configuration via the 🔧 Wrench icon on the main screen.
 
 Upon returning from the store with your latest “wine haul”, use the Vivino App to snap a picture of the wine bottle label you just purchased (or search on the Vivino app if you prefer). Vivino will display the wines’ page.
 
@@ -635,7 +640,7 @@ Click the  **three-dots menu**  in upper right corner and select  **Share the Wi
 
 ![VA1](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/va1.png)
 
-This will pop up the  **Android Sharing Intent Resolver**  (fancy name for “where do you want it to go??”)
+This will pop up the  **Android Sharing Intent Resolver**
 
 ![VA2](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/va2.png)
 
