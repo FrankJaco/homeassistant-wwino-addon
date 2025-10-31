@@ -116,7 +116,7 @@ Make a ToDo list called  **My Wine**  `todo.my_wine`
 
 For connectivity between Wonderful Wino and Home Assistant / Local ToDo list a small addition to the configuration.yaml file is required. You can use the  [FileEditor or VSCode add-ons](https://www.home-assistant.io/common-tasks/os/)  for this task.
 
-{% raw %}
+
 ```
 # Wonderful-Wino Stuff
 rest_command:
@@ -134,7 +134,7 @@ rest_command:
       }
 
 ```
-{% endraw %}
+
 
 **Don’t forget**  to put in your  **Home Assistant’s IP address**  where indicated!
  _Practice safe “yamling” by checking the configuration in  **Developer Tools**, then  **restart Home Assistant**_.
@@ -167,7 +167,7 @@ _Now with the 4 Helpers created, we can create our automation._
 
 The purpose of the automation is for the ToDo list functionality in where the user can “complete / consume” a wine via the ToDo list. The automation will trap that event, provide the user the option of rating the consumed wine, then send the data to the back end to decrement inventory and rate the wine.
 
-{% raw %}
+
 ```
 alias: "Wonderful-Wino: Prep for Wine Rating, then consume via ToDo"
 description: On consumption of a wine, it prepares the UI for an optional rating.
@@ -224,13 +224,13 @@ variables:
   list_entity: todo.my_wine
 
 ```
-{% endraw %}
+
 
 ### Home Assistant Script:
 
 As you may have noticed, the automation above calls a script. This script submits your wine rating back to the automation and onto Wonderful Wino. It also thanks you if you set a rating with a notification. It then re-hides the wine rating card from view.
 
-{% raw %}
+
 ```
     alias: "Wonderful-Wino: Submit Taste Rating"
     sequence:
@@ -260,7 +260,7 @@ As you may have noticed, the automation above calls a script. This script submit
     icon: mdi:send-check
     description: ""
 ```
-{% endraw %}
+
 
 ### Home Assistant Vino Subview Dashboard
 
