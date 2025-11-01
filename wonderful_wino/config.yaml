@@ -1,5 +1,5 @@
 name: Wonderful Wino
-version: "1.0.1"
+version: "1.0.2"
 slug: wonderful_wino
 description: Access your wines from within Home Assistant and its AI/Voice assistant
 url: https://github.com/FrankJaco/homeassistant-wwino-addon

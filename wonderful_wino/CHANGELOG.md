@@ -1,3 +1,5 @@
+### 1.0.2
+- Scraper update
 ### 1.0.1
 - Added link to documentation webpage via ? icon (top right)
 - Added link to GitHub project in footer
