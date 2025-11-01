@@ -89,14 +89,11 @@ def _perform_scrape_attempt_selenium(url: str):
         driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
         driver.get(url)
 
-        # *** MODIFIED/FIXED LOGIC START ***
         # Wait for the "Wine facts" section, which loads later on the page.
-        # This ensures JS has rendered the content we need (ABV, country links, etc.)
-        # The h1 will be present by this point.
+        # This is a critical step to ensure data is rendered by JS.
         WebDriverWait(driver, 25).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, "div[class*='wineFacts'], div[class*='wine-facts']"))
         )
-        # *** MODIFIED/FIXED LOGIC END ***
         
         final_url_after_scrape = driver.current_url
         page_source = driver.page_source
@@ -154,7 +151,8 @@ def _perform_scrape_attempt_selenium(url: str):
                 vintage_info = page_info.get('vintage', {})
                 wine_info = vintage_info.get('wine', {})
                 
-                # Try to get region and country from the JSON
+                # --- START COUNTRY & REGION JSON FIX ---
+                # 1. Try region (primary)
                 if wine_info.get('region'):
                     region_data = wine_info.get('region', {})
                     if region_data.get('name'):
@@ -167,7 +165,7 @@ def _perform_scrape_attempt_selenium(url: str):
                              wine_data['country'] = country_data['name']
                              logger.debug(f"Found Country from __PRELOADED_STATE__ (via region): {wine_data['country']}")
 
-                # Fallback check for country via the winery object
+                # 2. Fallback check for country via the winery object (more reliable for some wines)
                 if wine_data['country'] == 'Unknown Country' and wine_info.get('winery'):
                     winery_data = wine_info.get('winery', {})
                     if winery_data.get('country'):
@@ -175,6 +173,8 @@ def _perform_scrape_attempt_selenium(url: str):
                         if country_data.get('name'):
                             wine_data['country'] = country_data['name']
                             logger.debug(f"Found Country from __PRELOADED_STATE__ (via winery): {wine_data['country']}")
+                # --- END COUNTRY & REGION JSON FIX ---
+
 
                 if wine_data['image_url'] is None:
                     image_variations = vintage_info.get('image', {}).get('variations', {})
@@ -194,19 +194,24 @@ def _perform_scrape_attempt_selenium(url: str):
                     if wine_data['wine_type']:
                          logger.debug(f"Found Wine Type from __PRELOADED_STATE__: {wine_data['wine_type']}")
 
+                # --- START ABV JSON FIX (More Defensive) ---
                 if wine_data['alcohol_percent'] is None:
                     # Try vintage-specific facts, then vintage root, then general wine root
                     alcohol = (
                         vintage_info.get('wine_facts', {}).get('alcohol') or
                         vintage_info.get('alcohol') or
-                        wine_info.get('alcohol') # <-- NEW FALLBACK
+                        wine_info.get('alcohol')
                     )
                     if alcohol:
                         try:
+                            # Vivino stores this as a string, float, or integer. Ensure conversion.
+                            if isinstance(alcohol, str):
+                                alcohol = alcohol.replace('%', '').strip()
                             wine_data['alcohol_percent'] = float(alcohol)
                             logger.debug(f"Found Alcohol Percentage from __PRELOADED_STATE__: {wine_data['alcohol_percent']}%")
                         except (ValueError, TypeError):
                             logger.debug(f"Could not parse alcohol percentage '{alcohol}' from __PRELOADED_STATE__.")
+                # --- END ABV JSON FIX ---
 
             except json.JSONDecodeError:
                 logger.warning("Failed to decode __PRELOADED_STATE__ JSON.")
@@ -277,7 +282,7 @@ def _perform_scrape_attempt_selenium(url: str):
                 try: wine_data['vintage'] = int(match.group(0))
                 except ValueError: pass
     
-    # This is the old, less reliable fallback. We keep it just in case JSON fails.
+    # This is the old, less reliable fallback for country/region from <a> tags.
     # By waiting for the wineFacts block, this loop is now more reliable.
     for link in soup.find_all('a', href=re.compile(r'/(wine-countries|wine-regions|grapes)/')):
         href = link.get('href', '')
@@ -311,11 +316,10 @@ def _perform_scrape_attempt_selenium(url: str):
         except Exception as e:
             logger.debug(f"Could not parse wine type from breadcrumbs (non-critical): {e}")
 
-    # Fallback for Alcohol Percentage
+    # --- START ABV HTML FIX (Most Robust Fallback) ---
     if wine_data['alcohol_percent'] is None:
         try:
-            # *** MODIFIED/FIXED LOGIC START ***
-            # New, more specific fallback for span-based layouts
+            # 1. New, more specific fallback for span-based layouts
             label_span = soup.find('span', string=re.compile(r'^\s*Alcohol\s*$', re.I))
             if label_span:
                 # Find the next sibling, which should be the value span
@@ -324,9 +328,21 @@ def _perform_scrape_attempt_selenium(url: str):
                     match = re.search(r'(\d{1,2}(\.\d{1,2})?)\s*%', value_span.get_text())
                     if match:
                         wine_data['alcohol_percent'] = float(match.group(1))
-                        logger.debug(f"Found Alcohol Percentage from new HTML fallback (span): {wine_data['alcohol_percent']}%")
+                        logger.debug(f"Found Alcohol Percentage from specific HTML fallback (span): {wine_data['alcohol_percent']}%")
             
-            # Old fallback for table-based layouts, just in case
+            # 2. Most Robust Fallback: Search the entire 'Wine Facts' block for the word Alcohol and a percentage next to it.
+            if wine_data['alcohol_percent'] is None:
+                wine_facts_block = soup.find('div', class_=re.compile(r'wineFacts|wine-facts'))
+                if wine_facts_block:
+                    # Search for 'Alcohol' followed by any characters, and then the ABV pattern
+                    text_content = wine_facts_block.get_text(" ", strip=True)
+                    # Regex looks for 'Alcohol' followed by arbitrary characters, and then captures the number pattern
+                    match = re.search(r'Alcohol.*?(\d{1,2}(\.\d{1,2})?)\s*%', text_content, re.DOTALL | re.IGNORECASE)
+                    if match:
+                        wine_data['alcohol_percent'] = float(match.group(1))
+                        logger.debug(f"Found Alcohol Percentage from robust HTML fallback (text search): {wine_data['alcohol_percent']}%")
+
+            # 3. Old fallback for table-based layouts, just in case (kept for compatibility)
             if wine_data['alcohol_percent'] is None:
                 label_header = soup.find(['th', 'div'], string=re.compile(r'^Alcohol', re.I))
                 if label_header:
@@ -336,10 +352,11 @@ def _perform_scrape_attempt_selenium(url: str):
                         if match:
                             wine_data['alcohol_percent'] = float(match.group(1))
                             logger.debug(f"Found Alcohol Percentage from old facts table: {wine_data['alcohol_percent']}%")
-            # *** MODIFIED/FIXED LOGIC END ***
             
         except Exception as e:
             logger.debug(f"Could not parse alcohol percentage from facts table (non-critical): {e}")
+    # --- END ABV HTML FIX ---
+
 
     # Heuristics for varietal ordering
     if all_grape_names_collected or 'Unknown Wine' not in wine_data['name']:
@@ -462,4 +479,3 @@ def scrape_vivino_data(vivino_url):
 
     logger.error(f"All scrape and fallback attempts failed for {vivino_url}.")
     return None, None
-
