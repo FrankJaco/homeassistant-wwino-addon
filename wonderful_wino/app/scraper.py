@@ -260,18 +260,6 @@ def _perform_scrape_attempt_selenium(url: str):
                 try: wine_data['vintage'] = int(match.group(0))
                 except ValueError: pass
     
-    # This is the old, less reliable fallback. We keep it just in case JSON fails.
-    for link in soup.find_all('a', href=re.compile(r'/(wine-countries|wine-regions|grapes)/')):
-        href = link.get('href', '')
-        text = link.get_text(strip=True).strip()
-        if '/wine-countries/' in href and wine_data['country'] == 'Unknown Country': 
-            wine_data['country'] = text
-            logger.debug(f"Found Country from fallback <a> tag: {text}")
-        elif '/wine-regions/' in href and wine_data['region'] == 'Unknown Region': 
-            wine_data['region'] = text
-            logger.debug(f"Found Region from fallback <a> tag: {text}")
-        elif not found_grapes_in_json and '/grapes/' in href and text and 'blend' not in text.lower(): all_grape_names_collected.append(text)
-    
     # Fallback for Wine Type from breadcrumbs
     if wine_data['wine_type'] is None:
         try:
@@ -293,20 +281,54 @@ def _perform_scrape_attempt_selenium(url: str):
         except Exception as e:
             logger.debug(f"Could not parse wine type from breadcrumbs (non-critical): {e}")
 
-    # Fallback for Alcohol Percentage
-    if wine_data['alcohol_percent'] is None:
+    # --- START NEW/IMPROVED FALLBACK FOR ABV AND COUNTRY ---
+    # Since JSON is missing this data on some pages, we aggressively target the structured
+    # 'Wine Facts' list items which are more common than the old table structure.
+    if wine_data['alcohol_percent'] is None or wine_data['country'] == 'Unknown Country':
         try:
-            label_header = soup.find(['th', 'div'], string=re.compile(r'Alcohol content', re.I))
-            if label_header:
-                value_cell = label_header.find_next_sibling(['td', 'div'])
-                if value_cell:
-                    match = re.search(r'(\d{1,2}(\.\d{1,2})?)\s*%', value_cell.get_text())
+            # Targets common class patterns for the Wine Facts list
+            fact_elements = soup.find_all(['li', 'div'], class_=re.compile(r'(FactsListItem__row|wine-facts__fact)'))
+            for fact in fact_elements:
+                label = fact.find(class_=re.compile(r'(FactsListItem__label|fact-label)'))
+                value = fact.find(class_=re.compile(r'(FactsListItem__value|fact-value)'))
+
+                if not label or not value:
+                    continue
+                
+                label_text = label.get_text(strip=True).lower()
+                value_text = value.get_text(strip=True)
+
+                # 1. Alcohol Percentage (ABV)
+                if wine_data['alcohol_percent'] is None and ('alcohol' in label_text or 'abv' in label_text):
+                    # Finds percentage value (e.g., 14.5%)
+                    match = re.search(r'(\d{1,2}(\.\d{1,2})?)\s*%', value_text)
                     if match:
                         wine_data['alcohol_percent'] = float(match.group(1))
-                        logger.debug(f"Found Alcohol Percentage from facts table: {wine_data['alcohol_percent']}%")
-        except Exception as e:
-            logger.debug(f"Could not parse alcohol percentage from facts table (non-critical): {e}")
+                        logger.debug(f"Found Alcohol Percentage from structured fact list: {wine_data['alcohol_percent']}%")
 
+                # 2. Country
+                if wine_data['country'] == 'Unknown Country' and ('country' in label_text or 'origin' in label_text):
+                    # Vivino usually puts the country name directly in the value
+                    if value_text and len(value_text) > 2:
+                        wine_data['country'] = value_text
+                        logger.debug(f"Found Country from structured fact list: {wine_data['country']}")
+            
+        except Exception as e:
+            logger.debug(f"Could not parse wine facts from structured list (non-critical): {e}")
+    # --- END NEW/IMPROVED FALLBACK FOR ABV AND COUNTRY ---
+    
+    # This is the old, less reliable fallback. We keep it just in case JSON fails.
+    for link in soup.find_all('a', href=re.compile(r'/(wine-countries|wine-regions|grapes)/')):
+        href = link.get('href', '')
+        text = link.get_text(strip=True).strip()
+        if '/wine-countries/' in href and wine_data['country'] == 'Unknown Country': 
+            wine_data['country'] = text
+            logger.debug(f"Found Country from fallback <a> tag: {text}")
+        elif '/wine-regions/' in href and wine_data['region'] == 'Unknown Region': 
+            wine_data['region'] = text
+            logger.debug(f"Found Region from fallback <a> tag: {text}")
+        elif not found_grapes_in_json and '/grapes/' in href and text and 'blend' not in text.lower(): all_grape_names_collected.append(text)
+    
     # Heuristics for varietal ordering
     if all_grape_names_collected or 'Unknown Wine' not in wine_data['name']:
         cleaned_grapes = [g.strip() for g in all_grape_names_collected if g.strip().lower() not in ['wine']]
@@ -368,11 +390,16 @@ def scrape_vivino_data(vivino_url):
     if not canonical_url:
         canonical_url = vivino_url # Ensure canonical_url is not None
 
-    if wine_data:
+    if wine_data and wine_data.get('country') != 'Unknown Country' and wine_data.get('alcohol_percent') is not None:
         logger.info(f"Success on initial Selenium scrape for {canonical_url}")
         return wine_data, canonical_url
     
-    logger.warning(f"Initial Selenium scrape failed for {canonical_url}. Cooling down before checking nearby vintages.")
+    # Check if the initial scrape was missing the specific data points we are looking for
+    if wine_data:
+        logger.warning(f"Initial scrape succeeded but Country ({wine_data.get('country')}) or ABV ({wine_data.get('alcohol_percent')}) is missing. Proceeding to check nearby vintages.")
+    else:
+        logger.warning(f"Initial Selenium scrape failed for {canonical_url}. Cooling down before checking nearby vintages.")
+
     time.sleep(random.uniform(3.0, 5.0))
 
     try:
@@ -394,19 +421,38 @@ def scrape_vivino_data(vivino_url):
             logger.info(f"Attempting scrape of nearby vintage: {nearby_vintage_url}")
             nearby_data, _ = _perform_scrape_attempt_selenium(nearby_vintage_url)
             
-            if nearby_data:
-                logger.warning(f"Success scraping nearby vintage ({new_vintage}). Borrowing its data for original vintage ({original_vintage}).")
+            if nearby_data and nearby_data.get('country') != 'Unknown Country' and nearby_data.get('alcohol_percent') is not None:
+                logger.warning(f"Success scraping nearby vintage ({new_vintage}). Borrowing its essential data for original vintage ({original_vintage}).")
+                
+                # Check if the original scrape was good for some fields and only borrow the missing ones
+                final_data = wine_data if wine_data else {}
+
                 borrowed_data = {
                     'name': re.sub(r'\s*\b(19|20)\d{2}\b', '', nearby_data.get('name', 'Unknown Wine')).strip(),
                     'vintage': original_vintage,
-                    'varietal': nearby_data.get('varietal', 'Unknown Varietal'),
-                    'region': nearby_data.get('region', 'Unknown Region'),
-                    'country': nearby_data.get('country', 'Unknown Country'),
-                    'vivino_rating': None, # Rating is for the *other* vintage, so don't copy it
-                    'image_url': nearby_data.get('image_url'),
-                    'alcohol_percent': nearby_data.get('alcohol_percent'), # Usually consistent
-                    'wine_type': nearby_data.get('wine_type'), # Always consistent
+                    'varietal': nearby_data.get('varietal', final_data.get('varietal', 'Unknown Varietal')),
+                    'region': nearby_data.get('region', final_data.get('region', 'Unknown Region')),
+                    'country': nearby_data.get('country', final_data.get('country', 'Unknown Country')),
+                    'vivino_rating': final_data.get('vivino_rating'), # Never copy rating from a different vintage
+                    'image_url': nearby_data.get('image_url', final_data.get('image_url')),
+                    'alcohol_percent': nearby_data.get('alcohol_percent'), # Usually consistent, so borrow
+                    'wine_type': nearby_data.get('wine_type', final_data.get('wine_type')), # Always consistent, so borrow
                 }
+                
+                # If the initial scrape gave a name, keep it. Otherwise, use the borrowed name.
+                if final_data.get('name') and final_data.get('name') != 'Unknown Wine':
+                     borrowed_data['name'] = final_data['name']
+                
+                # Use data from the initial, incomplete scrape if it was better than the borrowed data, 
+                # but ensure Country and ABV are filled in.
+                
+                if borrowed_data['country'] == 'Unknown Country' and final_data.get('country') != 'Unknown Country':
+                    borrowed_data['country'] = final_data.get('country')
+
+                if borrowed_data['alcohol_percent'] is None and final_data.get('alcohol_percent') is not None:
+                    borrowed_data['alcohol_percent'] = final_data.get('alcohol_percent')
+
+
                 return borrowed_data, vivino_url
             
             time.sleep(random.uniform(2.0, 4.0))
