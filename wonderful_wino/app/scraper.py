@@ -92,27 +92,42 @@ def _perform_scrape_attempt_selenium(url: str):
         # *** MODIFIED/FIXED LOGIC START ***
         # Wait for the "Wine facts" section, which loads later on the page.
         # This ensures JS has rendered the content we need (ABV, country links, etc.)
-        # The h1 will be present by this point.
         WebDriverWait(driver, 25).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, "div[class*='wineFacts'], div[class*='wine-facts']"))
+            EC.presence_of_element_located(
+                (By.CSS_SELECTOR, "div[class*='wineFacts'], div[class*='wine-facts']")
+            )
         )
-        # *** MODIFIED/FIXED LOGIC END ***
-        
+
+        # --- NEW: ensure Vivino's dynamic "Facts" section has rendered ---
+        try:
+            WebDriverWait(driver, 8).until(
+                EC.presence_of_element_located(
+                    (By.CSS_SELECTOR, "div.facts__fact, div.wineFacts__fact")
+                )
+            )
+            logger.debug("Dynamic facts section detected before scraping page_source.")
+        except Exception:
+            logger.debug("Facts section did not appear within timeout; continuing anyway.")
+
         final_url_after_scrape = driver.current_url
         page_source = driver.page_source
         logger.debug(f"Selenium successfully loaded page. Final URL: {final_url_after_scrape}")
+        # *** MODIFIED/FIXED LOGIC END ***
 
     except TimeoutException:
         logger.error(f"Selenium timed out waiting for page content to load for URL: {url}")
-        if driver: driver.quit()
+        if driver:
+            driver.quit()
         return None, url
     except WebDriverException as e:
         logger.error(f"WebDriverException during Selenium execution for {url}: {e}", exc_info=True)
-        if driver: driver.quit()
+        if driver:
+            driver.quit()
         return None, url
     except Exception as e:
         logger.error(f"An unexpected error occurred during Selenium execution: {e}", exc_info=True)
-        if driver: driver.quit()
+        if driver:
+            driver.quit()
         return None, url
     finally:
         if driver:
