@@ -142,14 +142,34 @@ def _perform_scrape_attempt_selenium(url: str):
     if preloaded_state_script:
         logger.debug("Found __PRELOADED_STATE__ script tag. Parsing for detailed wine info.")
         script_content = preloaded_state_script.string
+        # Use a broader regex to find the JSON object, sometimes it's just assigned to the window variable
         json_str_match = re.search(r'window\.__PRELOADED_STATE__\.vintagePageInformation\s*=\s*(\{.*?\});', script_content, re.DOTALL)
-        if json_str_match:
+        
+        # New Fallback: Try to find the JSON in the raw HTML if the specific assignment isn't found
+        if not json_str_match:
+            json_str_match = re.search(r'window\.__PRELOADED_STATE__\s*=\s*(\{.*?\});', script_content, re.DOTALL)
+            if json_str_match:
+                logger.debug("Attempting to parse broader __PRELOADED_STATE__ structure.")
+                try:
+                    full_state = json.loads(json_str_match.group(1))
+                    page_info = full_state.get('vintagePageInformation')
+                except json.JSONDecodeError:
+                    page_info = None
+            else:
+                 page_info = None
+
+        if json_str_match and page_info is None: # If specific vintagePageInformation found
             try:
                 page_info = json.loads(json_str_match.group(1))
+            except json.JSONDecodeError:
+                 logger.warning("Failed to decode specific vintagePageInformation JSON.")
+                 page_info = None
+
+
+        if page_info:
+            try:
                 vintage_info = page_info.get('vintage', {})
                 wine_info = vintage_info.get('wine', {})
-                
-                # *** NEW LOGIC START: JSON-based extraction for Region, Country, and ABV ***
                 
                 # Try to get region and country from the JSON
                 if wine_info.get('region'):
@@ -164,8 +184,7 @@ def _perform_scrape_attempt_selenium(url: str):
                              wine_data['country'] = country_data['name']
                              logger.debug(f"Found Country from __PRELOADED_STATE__: {wine_data['country']}")
                 
-                # *** NEW LOGIC END ***
-
+                # Check for image URL
                 if wine_data['image_url'] is None:
                     image_variations = vintage_info.get('image', {}).get('variations', {})
                     image_url = image_variations.get('bottle_large') or image_variations.get('bottle_medium')
@@ -173,17 +192,30 @@ def _perform_scrape_attempt_selenium(url: str):
                         wine_data['image_url'] = 'https:' + image_url if image_url.startswith('//') else image_url
                         logger.debug(f"Found Image URL from __PRELOADED_STATE__: {image_url}")
 
+                # Check for Wine Type
                 if wine_data['wine_type'] is None:
-                    wine_type_id = wine_info.get('type_id')
-                    if wine_type_id == 1: wine_data['wine_type'] = 'Red'
-                    elif wine_type_id == 2: wine_data['wine_type'] = 'White'
-                    elif wine_type_id == 3: wine_data['wine_type'] = 'Sparkling'
-                    elif wine_type_id == 4: wine_data['wine_type'] = 'Rosé'
-                    elif wine_type_id == 7: wine_data['wine_type'] = 'Dessert'
-                    elif wine_type_id == 24: wine_data['wine_type'] = 'Fortified'
-                    if wine_data['wine_type']:
-                         logger.debug(f"Found Wine Type from __PRELOADED_STATE__: {wine_data['wine_type']}")
+                    # New check: look at wine.style.wine_type.name
+                    wine_style = wine_info.get('style', {})
+                    wine_type_info = wine_style.get('wine_type', {})
+                    if wine_type_info and wine_type_info.get('name'):
+                        wine_type_name = wine_type_info['name']
+                        if wine_type_name in WINE_TYPES:
+                            wine_data['wine_type'] = wine_type_name
+                            logger.debug(f"Found Wine Type from wine.style.wine_type.name in __PRELOADED_STATE__: {wine_data['wine_type']}")
 
+                    if wine_data['wine_type'] is None:
+                        # Original check: look at type_id
+                        wine_type_id = wine_info.get('type_id')
+                        if wine_type_id == 1: wine_data['wine_type'] = 'Red'
+                        elif wine_type_id == 2: wine_data['wine_type'] = 'White'
+                        elif wine_type_id == 3: wine_data['wine_type'] = 'Sparkling'
+                        elif wine_type_id == 4: wine_data['wine_type'] = 'Rosé'
+                        elif wine_type_id == 7: wine_data['wine_type'] = 'Dessert'
+                        elif wine_type_id == 24: wine_data['wine_type'] = 'Fortified'
+                        if wine_data['wine_type']:
+                            logger.debug(f"Found Wine Type from type_id in __PRELOADED_STATE__: {wine_data['wine_type']}")
+
+                # Check for Alcohol Percentage
                 if wine_data['alcohol_percent'] is None:
                     # Check both 'wine_facts' and vintage root for alcohol content
                     alcohol = vintage_info.get('wine_facts', {}).get('alcohol') or vintage_info.get('alcohol')
@@ -195,9 +227,11 @@ def _perform_scrape_attempt_selenium(url: str):
                         except (ValueError, TypeError):
                             logger.debug("Could not parse alcohol percentage from __PRELOADED_STATE__.")
 
-            except json.JSONDecodeError:
-                logger.warning("Failed to decode __PRELOADED_STATE__ JSON.")
+            except Exception as e:
+                logger.warning(f"Failed to extract specific data from parsed __PRELOADED_STATE__: {e}")
+                pass
     
+    # Secondary Method: Parse the application/ld+json script tags
     script_tags = soup.find_all('script', type='application/ld+json')
     for script in script_tags:
         try:
@@ -205,6 +239,7 @@ def _perform_scrape_attempt_selenium(url: str):
             if isinstance(json_ld, dict):
                 is_product = json_ld.get('@type') == 'Product'
                 is_wine = json_ld.get('@type') == 'Wine'
+                
                 if is_product:
                     if 'aggregateRating' in json_ld and wine_data['vivino_rating'] is None:
                         try: wine_data['vivino_rating'] = float(str(json_ld['aggregateRating'].get('ratingValue')).replace(',', '.'))
@@ -225,6 +260,17 @@ def _perform_scrape_attempt_selenium(url: str):
                     if wine_data['vintage'] is None and 'vintage' in json_ld:
                         try: wine_data['vintage'] = int(json_ld['vintage'])
                         except (ValueError, TypeError): pass
+                    
+                    # New check: Try to extract wine type from JSON-LD
+                    if wine_data['wine_type'] is None and 'category' in json_ld:
+                        category = json_ld['category']
+                        if isinstance(category, str):
+                            for wt in WINE_TYPES:
+                                if wt in category:
+                                    wine_data['wine_type'] = wt
+                                    logger.debug(f"Found Wine Type from JSON-LD category: {wt}")
+                                    break
+
         except (json.JSONDecodeError, KeyError, TypeError) as json_err:
             logger.debug(f"Vivino JSON-LD parsing error (may be benign): {json_err}")
             pass
@@ -253,6 +299,7 @@ def _perform_scrape_attempt_selenium(url: str):
         if match:
             try:
                 wine_data['vintage'] = int(match.group(0))
+                # IMPORTANT: Only remove vintage from name if the wine name contains the year
                 wine_data['name'] = " ".join(wine_data['name'].replace(match.group(0), '').strip().split())
             except ValueError: pass
 
@@ -264,7 +311,7 @@ def _perform_scrape_attempt_selenium(url: str):
                 try: wine_data['vintage'] = int(match.group(0))
                 except ValueError: pass
     
-    # Fallback for Wine Type from breadcrumbs
+    # Fallback 3: Wine Type from breadcrumbs
     if wine_data['wine_type'] is None:
         try:
             # Try to find breadcrumbs
@@ -285,9 +332,7 @@ def _perform_scrape_attempt_selenium(url: str):
         except Exception as e:
             logger.debug(f"Could not parse wine type from breadcrumbs (non-critical): {e}")
 
-    # --- START NEW/IMPROVED FALLBACK FOR ABV AND COUNTRY ---
-    # Since JSON is missing this data on some pages, we aggressively target the structured
-    # 'Wine Facts' list items which are more common than the old table structure.
+    # --- START IMPROVED FALLBACK FOR ABV AND COUNTRY ---
     if wine_data['alcohol_percent'] is None or wine_data['country'] == 'Unknown Country':
         try:
             # Targets common class patterns for the Wine Facts list
@@ -314,12 +359,17 @@ def _perform_scrape_attempt_selenium(url: str):
                 if wine_data['country'] == 'Unknown Country' and ('country' in label_text or 'origin' in label_text):
                     # Vivino usually puts the country name directly in the value
                     if value_text and len(value_text) > 2:
-                        wine_data['country'] = value_text
+                        # Check for links inside the value, which usually contain the country name
+                        country_link = value.find('a')
+                        if country_link:
+                            wine_data['country'] = country_link.get_text(strip=True)
+                        else:
+                            wine_data['country'] = value_text
                         logger.debug(f"Found Country from structured fact list: {wine_data['country']}")
             
         except Exception as e:
             logger.debug(f"Could not parse wine facts from structured list (non-critical): {e}")
-    # --- END NEW/IMPROVED FALLBACK FOR ABV AND COUNTRY ---
+    # --- END IMPROVED FALLBACK FOR ABV AND COUNTRY ---
 
 
     # This is the old, less reliable fallback. We keep it just in case JSON fails.
@@ -342,37 +392,49 @@ def _perform_scrape_attempt_selenium(url: str):
         name_lower = wine_data['name'].lower()
         current_grapes_lower = {g.lower() for g in unique_grapes_ordered}
         for grape in MASTER_GRAPE_LIST:
-            if grape.lower() not in current_grapes_lower:
+            # Bugfix: check if the grape name exists *anywhere* in the current grape list, 
+            # not just a case-sensitive match.
+            if not any(grape.lower() in existing_grape_lower for existing_grape_lower in current_grapes_lower):
                 if re.search(r'\b' + re.escape(grape.lower()) + r'\b', name_lower):
                     unique_grapes_ordered.append(grape)
                     logger.debug(f"Augmented grape list with '{grape}' from wine name.")
+        
         grapes_in_name = []
         for grape in unique_grapes_ordered:
             match = re.search(r'\b' + re.escape(grape.lower()) + r'\b', name_lower)
             if match:
                 grapes_in_name.append({'name': grape, 'pos': match.start()})
+        
         if grapes_in_name:
             grapes_in_name.sort(key=lambda x: x['pos'])
             prioritized_grapes = [g['name'] for g in grapes_in_name]
             remaining_grapes = [g for g in unique_grapes_ordered if g not in prioritized_grapes]
-            unique_grapes_ordered = prioritized_grapes + remaining_grapes
+            # Use list(dict.fromkeys(...)) to deduplicate after prioritization
+            unique_grapes_ordered = list(dict.fromkeys(prioritized_grapes + remaining_grapes))
+            
         preferred_syrah_term = None
-        if 'shiraz' in name_lower:
+        if 'shiraz' in name_lower and 'syrah' not in name_lower:
             preferred_syrah_term = 'Shiraz'
-        elif 'syrah' in name_lower:
+        elif 'syrah' in name_lower and 'shiraz' not in name_lower:
             preferred_syrah_term = 'Syrah'
+        
         final_grapes = []
         for grape in unique_grapes_ordered:
             is_syrah_family = 'syrah' in grape.lower() or 'shiraz' in grape.lower()
             if not is_syrah_family:
                 final_grapes.append(grape)
                 continue
+            
             term_to_use = 'Syrah'
             if preferred_syrah_term:
                 term_to_use = preferred_syrah_term
             elif wine_data.get('country') in ['Australia', 'South Africa']:
                 term_to_use = 'Shiraz'
-            final_grapes.append(term_to_use)
+
+            # Avoid adding both Syrah and Shiraz if they were derived from the same root
+            if term_to_use not in final_grapes:
+                 final_grapes.append(term_to_use)
+
         if final_grapes:
              wine_data['varietal'] = ", ".join(list(dict.fromkeys(final_grapes)))
 
