@@ -149,7 +149,8 @@ def _perform_scrape_attempt_selenium(url: str):
                 vintage_info = page_info.get('vintage', {})
                 wine_info = vintage_info.get('wine', {})
                 
-                # *** NEW LOGIC START ***
+                # *** MODIFIED/FIXED LOGIC START ***
+                
                 # Try to get region and country from the JSON
                 if wine_info.get('region'):
                     region_data = wine_info.get('region', {})
@@ -161,8 +162,18 @@ def _perform_scrape_attempt_selenium(url: str):
                         country_data = region_data.get('country', {})
                         if country_data.get('name'):
                              wine_data['country'] = country_data['name']
-                             logger.debug(f"Found Country from __PRELOADED_STATE__: {wine_data['country']}")
-                # *** NEW LOGIC END ***
+                             logger.debug(f"Found Country from __PRELOADED_STATE__ (via region): {wine_data['country']}")
+
+                # Fallback check for country via the winery object
+                if wine_data['country'] == 'Unknown Country' and wine_info.get('winery'):
+                    winery_data = wine_info.get('winery', {})
+                    if winery_data.get('country'):
+                        country_data = winery_data.get('country', {})
+                        if country_data.get('name'):
+                            wine_data['country'] = country_data['name']
+                            logger.debug(f"Found Country from __PRELOADED_STATE__ (via winery): {wine_data['country']}")
+                
+                # *** MODIFIED/FIXED LOGIC END ***
 
                 if wine_data['image_url'] is None:
                     image_variations = vintage_info.get('image', {}).get('variations', {})
@@ -182,14 +193,21 @@ def _perform_scrape_attempt_selenium(url: str):
                     if wine_data['wine_type']:
                          logger.debug(f"Found Wine Type from __PRELOADED_STATE__: {wine_data['wine_type']}")
 
+                # *** MODIFIED/FIXED LOGIC START ***
                 if wine_data['alcohol_percent'] is None:
-                    alcohol = vintage_info.get('wine_facts', {}).get('alcohol') or vintage_info.get('alcohol')
+                    # Try vintage-specific facts, then vintage root, then general wine root
+                    alcohol = (
+                        vintage_info.get('wine_facts', {}).get('alcohol') or
+                        vintage_info.get('alcohol') or
+                        wine_info.get('alcohol') # <-- NEW FALLBACK
+                    )
                     if alcohol:
                         try:
                             wine_data['alcohol_percent'] = float(alcohol)
                             logger.debug(f"Found Alcohol Percentage from __PRELOADED_STATE__: {wine_data['alcohol_percent']}%")
                         except (ValueError, TypeError):
-                            logger.debug("Could not parse alcohol percentage from __PRELOADED_STATE__.")
+                            logger.debug(f"Could not parse alcohol percentage '{alcohol}' from __PRELOADED_STATE__.")
+                # *** MODIFIED/FIXED LOGIC END ***
 
             except json.JSONDecodeError:
                 logger.warning("Failed to decode __PRELOADED_STATE__ JSON.")
@@ -296,7 +314,11 @@ def _perform_scrape_attempt_selenium(url: str):
     # Fallback for Alcohol Percentage
     if wine_data['alcohol_percent'] is None:
         try:
-            label_header = soup.find(['th', 'div'], string=re.compile(r'Alcohol content', re.I))
+            # *** MODIFIED/FIXED LOGIC START ***
+            # Make regex more flexible: matches "Alcohol", "Alcohol content", etc.
+            label_header = soup.find(['th', 'div'], string=re.compile(r'^Alcohol', re.I))
+            # *** MODIFIED/FIXED LOGIC END ***
+            
             if label_header:
                 value_cell = label_header.find_next_sibling(['td', 'div'])
                 if value_cell:
