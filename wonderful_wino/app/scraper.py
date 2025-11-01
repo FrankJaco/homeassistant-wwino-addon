@@ -340,6 +340,31 @@ def _perform_scrape_attempt_selenium(url: str):
         except Exception as e:
             logger.debug(f"Could not parse alcohol percentage from facts table (non-critical): {e}")
 
+        # === NEW UNIVERSAL FALLBACK for Vivino 2025 "wineFacts" div layout ===
+    try:
+        facts = soup.select("div.wineFacts__fact")
+        for fact in facts:
+            title = fact.select_one(".wineFacts__factTitle")
+            value = fact.select_one(".wineFacts__factValue")
+            if not title or not value:
+                continue
+            title_text = title.get_text(strip=True).lower()
+            value_text = value.get_text(strip=True)
+
+            # Country
+            if 'country' in title_text and wine_data['country'] == 'Unknown Country':
+                wine_data['country'] = value_text
+                logger.debug(f"Found Country from modern wineFacts layout: {value_text}")
+
+            # Alcohol content
+            if 'alcohol' in title_text and wine_data['alcohol_percent'] is None:
+                m = re.search(r'(\d{1,2}(\.\d{1,2})?)\s*%', value_text)
+                if m:
+                    wine_data['alcohol_percent'] = float(m.group(1))
+                    logger.debug(f"Found Alcohol Percentage from modern wineFacts layout: {wine_data['alcohol_percent']}%")
+    except Exception as e:
+        logger.debug(f"Modern wineFacts fallback parse failed: {e}")
+    
     # Heuristics for varietal ordering
     if all_grape_names_collected or 'Unknown Wine' not in wine_data['name']:
         cleaned_grapes = [g.strip() for g in all_grape_names_collected if g.strip().lower() not in ['wine']]
