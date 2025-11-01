@@ -49,14 +49,14 @@ def _parse_url_for_fallback_data(url: str):
         match = re.search(r'/(?:[a-zA-Z]{2}/)?([^/]+)/w/', parsed_url.path)
         if match:
             path_name = match.group(1).replace('-', ' ').title()
-            logger.debug(f"Fallback parser matched long URL format for name: {path_name}")
+            logger.info(f"Fallback parser matched long URL format for name: {path_name}")
             return {'name': path_name, 'vintage': vintage}
         
         match = re.search(r'/wines/(\d+)', parsed_url.path)
         if match:
             wine_id = match.group(1)
             path_name = f"Vivino Wine ID {wine_id}"
-            logger.debug(f"Fallback parser matched short URL format, created placeholder name: {path_name}")
+            logger.info(f"Fallback parser matched short URL format, created placeholder name: {path_name}")
             return {'name': path_name, 'vintage': vintage}
 
     except (ValueError, IndexError, TypeError) as e:
@@ -68,7 +68,7 @@ def _perform_scrape_attempt_selenium(url: str):
     """
     Performs a single, complete scrape attempt using a headless Chrome browser.
     """
-    logger.debug(f"Executing Selenium scrape attempt for URL: {url}")
+    logger.info(f"Executing Selenium scrape attempt for URL: {url}")
     
     options = Options()
     options.page_load_strategy = 'eager'
@@ -97,7 +97,7 @@ def _perform_scrape_attempt_selenium(url: str):
         
         final_url_after_scrape = driver.current_url
         page_source = driver.page_source
-        logger.debug(f"Selenium successfully loaded page. Final URL: {final_url_after_scrape}")
+        logger.info(f"Selenium successfully loaded page. Final URL: {final_url_after_scrape}")
 
     except TimeoutException:
         logger.error(f"Selenium timed out waiting for page content to load for URL: {url}")
@@ -142,7 +142,7 @@ def _perform_scrape_attempt_selenium(url: str):
     # Primary Method: Parse the __PRELOADED_STATE__ JSON blob.
     preloaded_state_script = soup.find('script', string=re.compile(r'window\.__PRELOADED_STATE__\.vintagePageInformation'))
     if preloaded_state_script:
-        logger.debug("Found __PRELOADED_STATE__ script tag. Parsing for detailed wine info.")
+        logger.info("Found __PRELOADED_STATE__ script tag. Parsing for detailed wine info.")
         script_content = preloaded_state_script.string
         json_str_match = re.search(r'window\.__PRELOADED_STATE__\.vintagePageInformation\s*=\s*(\{.*?\});', script_content, re.DOTALL)
         if json_str_match:
@@ -157,13 +157,13 @@ def _perform_scrape_attempt_selenium(url: str):
                     region_data = wine_info.get('region', {})
                     if region_data.get('name'):
                         wine_data['region'] = region_data['name']
-                        logger.debug(f"Found Region from __PRELOADED_STATE__: {wine_data['region']}")
+                        logger.info(f"[COUNTRY/REGION ATTEMPT 1] Found Region from JSON: {wine_data['region']}")
                     
                     if region_data.get('country'):
                         country_data = region_data.get('country', {})
                         if country_data.get('name'):
                              wine_data['country'] = country_data['name']
-                             logger.debug(f"Found Country from __PRELOADED_STATE__ (via region): {wine_data['country']}")
+                             logger.info(f"[COUNTRY/REGION ATTEMPT 1] Found Country from JSON (via region): {wine_data['country']}")
 
                 # 2. Fallback check for country via the winery object (more reliable for some wines)
                 if wine_data['country'] == 'Unknown Country' and wine_info.get('winery'):
@@ -172,7 +172,17 @@ def _perform_scrape_attempt_selenium(url: str):
                         country_data = winery_data.get('country', {})
                         if country_data.get('name'):
                             wine_data['country'] = country_data['name']
-                            logger.debug(f"Found Country from __PRELOADED_STATE__ (via winery): {wine_data['country']}")
+                            logger.info(f"[COUNTRY/REGION ATTEMPT 2] Found Country from JSON (via winery): {wine_data['country']}")
+                    
+                    # 3. New fallback: Check address/location in winery JSON
+                    if wine_data['country'] == 'Unknown Country':
+                         address = winery_data.get('seo_address') or winery_data.get('country_code')
+                         if address and len(address) > 1 and len(address) < 4: # If it's a short country code
+                            # This is a guess, but often better than Unknown
+                            wine_data['country'] = address.upper() 
+                            logger.info(f"[COUNTRY/REGION ATTEMPT 3] Found Country Code from JSON: {wine_data['country']}")
+
+
                 # --- END COUNTRY & REGION JSON FIX ---
 
 
@@ -181,7 +191,7 @@ def _perform_scrape_attempt_selenium(url: str):
                     image_url = image_variations.get('bottle_large') or image_variations.get('bottle_medium')
                     if image_url:
                         wine_data['image_url'] = 'https:' + image_url if image_url.startswith('//') else image_url
-                        logger.debug(f"Found Image URL from __PRELOADED_STATE__: {image_url}")
+                        logger.info(f"Found Image URL from JSON: {image_url}")
 
                 if wine_data['wine_type'] is None:
                     wine_type_id = wine_info.get('type_id')
@@ -192,7 +202,7 @@ def _perform_scrape_attempt_selenium(url: str):
                     elif wine_type_id == 7: wine_data['wine_type'] = 'Dessert'
                     elif wine_type_id == 24: wine_data['wine_type'] = 'Fortified'
                     if wine_data['wine_type']:
-                         logger.debug(f"Found Wine Type from __PRELOADED_STATE__: {wine_data['wine_type']}")
+                         logger.info(f"Found Wine Type from JSON: {wine_data['wine_type']}")
 
                 # --- START ABV JSON FIX (More Defensive) ---
                 if wine_data['alcohol_percent'] is None:
@@ -208,9 +218,9 @@ def _perform_scrape_attempt_selenium(url: str):
                             if isinstance(alcohol, str):
                                 alcohol = alcohol.replace('%', '').strip()
                             wine_data['alcohol_percent'] = float(alcohol)
-                            logger.debug(f"Found Alcohol Percentage from __PRELOADED_STATE__: {wine_data['alcohol_percent']}%")
+                            logger.info(f"[ABV ATTEMPT 1] Found Alcohol Percentage from JSON: {wine_data['alcohol_percent']}%")
                         except (ValueError, TypeError):
-                            logger.debug(f"Could not parse alcohol percentage '{alcohol}' from __PRELOADED_STATE__.")
+                            logger.warning(f"[ABV ATTEMPT 1] Could not parse alcohol percentage '{alcohol}' from JSON.")
                 # --- END ABV JSON FIX ---
 
             except json.JSONDecodeError:
@@ -239,12 +249,11 @@ def _perform_scrape_attempt_selenium(url: str):
                     if isinstance(grape_source, list): all_grape_names_collected.extend([g['name'] for g in grape_source if g and 'name' in g])
                     elif isinstance(grape_source, dict) and 'name' in grape_source: all_grape_names_collected.append(grape_source['name'].strip())
 
-                if is_wine:
-                    if wine_data['vintage'] is None and 'vintage' in json_ld:
-                        try: wine_data['vintage'] = int(json_ld['vintage'])
-                        except (ValueError, TypeError): pass
+                if wine_data['vintage'] is None and is_wine and 'vintage' in json_ld:
+                    try: wine_data['vintage'] = int(json_ld['vintage'])
+                    except (ValueError, TypeError): pass
         except (json.JSONDecodeError, KeyError, TypeError) as json_err:
-            logger.debug(f"Vivino JSON-LD parsing error (may be benign): {json_err}")
+            logger.info(f"Vivino JSON-LD parsing error (may be benign): {json_err}")
             pass
 
     # Fallback 1: Preload link
@@ -252,7 +261,7 @@ def _perform_scrape_attempt_selenium(url: str):
         preload_link = soup.find('link', rel='preload', attrs={'as': 'image'})
         if preload_link and preload_link.has_attr('href'):
             wine_data['image_url'] = preload_link['href']
-            logger.debug(f"Found Image URL from preload link: {wine_data['image_url']}")
+            logger.info(f"Found Image URL from preload link: {wine_data['image_url']}")
 
 
     # Fallback 2: Regular img tag
@@ -260,8 +269,7 @@ def _perform_scrape_attempt_selenium(url: str):
         image_tag = soup.find('img', class_=re.compile(r'wine-page-image__image|vivinoImage_image|image-preview__image'))
         if image_tag:
             wine_data['image_url'] = image_tag.get('src') or image_tag.get('data-src')
-            logger.debug(f"Found Image URL from img tag: {wine_data['image_url']}")
-
+            logger.info(f"Found Image URL from img tag: {wine_data['image_url']}")
 
     if wine_data['image_url'] and wine_data['image_url'].startswith('//'):
         wine_data['image_url'] = 'https:' + wine_data['image_url']
@@ -289,10 +297,10 @@ def _perform_scrape_attempt_selenium(url: str):
         text = link.get_text(strip=True).strip()
         if '/wine-countries/' in href and wine_data['country'] == 'Unknown Country': 
             wine_data['country'] = text
-            logger.debug(f"Found Country from fallback <a> tag: {text}")
+            logger.info(f"[COUNTRY/REGION ATTEMPT 4] Found Country from fallback <a> tag: {text}")
         elif '/wine-regions/' in href and wine_data['region'] == 'Unknown Region': 
             wine_data['region'] = text
-            logger.debug(f"Found Region from fallback <a> tag: {text}")
+            logger.info(f"Found Region from fallback <a> tag: {text}")
         elif not found_grapes_in_json and '/grapes/' in href and text and 'blend' not in text.lower(): all_grape_names_collected.append(text)
     
     # Fallback for Wine Type from breadcrumbs
@@ -309,15 +317,17 @@ def _perform_scrape_attempt_selenium(url: str):
                          for wt in WINE_TYPES:
                              if wt in link_text:
                                 wine_data['wine_type'] = wt
-                                logger.debug(f"Found Wine Type from breadcrumbs: {wt}")
+                                logger.info(f"Found Wine Type from breadcrumbs: {wt}")
                                 break
                     if wine_data['wine_type']:
                         break
         except Exception as e:
-            logger.debug(f"Could not parse wine type from breadcrumbs (non-critical): {e}")
+            logger.info(f"Could not parse wine type from breadcrumbs (non-critical): {e}")
 
     # --- START ABV HTML FIX (Most Robust Fallback) ---
+    wine_facts_block = soup.find('div', class_=re.compile(r'wineFacts|wine-facts'))
     if wine_data['alcohol_percent'] is None:
+        
         try:
             # 1. New, more specific fallback for span-based layouts
             label_span = soup.find('span', string=re.compile(r'^\s*Alcohol\s*$', re.I))
@@ -328,19 +338,17 @@ def _perform_scrape_attempt_selenium(url: str):
                     match = re.search(r'(\d{1,2}(\.\d{1,2})?)\s*%', value_span.get_text())
                     if match:
                         wine_data['alcohol_percent'] = float(match.group(1))
-                        logger.debug(f"Found Alcohol Percentage from specific HTML fallback (span): {wine_data['alcohol_percent']}%")
+                        logger.info(f"[ABV ATTEMPT 2] Found Alcohol Percentage from specific HTML fallback (span): {wine_data['alcohol_percent']}%")
             
             # 2. Most Robust Fallback: Search the entire 'Wine Facts' block for the word Alcohol and a percentage next to it.
-            if wine_data['alcohol_percent'] is None:
-                wine_facts_block = soup.find('div', class_=re.compile(r'wineFacts|wine-facts'))
-                if wine_facts_block:
-                    # Search for 'Alcohol' followed by any characters, and then the ABV pattern
-                    text_content = wine_facts_block.get_text(" ", strip=True)
-                    # Regex looks for 'Alcohol' followed by arbitrary characters, and then captures the number pattern
-                    match = re.search(r'Alcohol.*?(\d{1,2}(\.\d{1,2})?)\s*%', text_content, re.DOTALL | re.IGNORECASE)
-                    if match:
-                        wine_data['alcohol_percent'] = float(match.group(1))
-                        logger.debug(f"Found Alcohol Percentage from robust HTML fallback (text search): {wine_data['alcohol_percent']}%")
+            if wine_data['alcohol_percent'] is None and wine_facts_block:
+                # Search for 'Alcohol' followed by arbitrary characters, and then captures the number pattern
+                text_content = wine_facts_block.get_text(" ", strip=True)
+                # This regex is broad: looks for 'Alcohol' followed by a number that looks like a percentage.
+                match = re.search(r'Alcohol.*?(\d{1,2}(\.\d{1,2})?)\s*%', text_content, re.DOTALL | re.IGNORECASE)
+                if match:
+                    wine_data['alcohol_percent'] = float(match.group(1))
+                    logger.info(f"[ABV ATTEMPT 3] Found Alcohol Percentage from robust HTML fallback (text search): {wine_data['alcohol_percent']}%")
 
             # 3. Old fallback for table-based layouts, just in case (kept for compatibility)
             if wine_data['alcohol_percent'] is None:
@@ -351,10 +359,15 @@ def _perform_scrape_attempt_selenium(url: str):
                         match = re.search(r'(\d{1,2}(\.\d{1,2})?)\s*%', value_cell.get_text())
                         if match:
                             wine_data['alcohol_percent'] = float(match.group(1))
-                            logger.debug(f"Found Alcohol Percentage from old facts table: {wine_data['alcohol_percent']}%")
+                            logger.info(f"[ABV ATTEMPT 4] Found Alcohol Percentage from old facts table: {wine_data['alcohol_percent']}%")
             
         except Exception as e:
-            logger.debug(f"Could not parse alcohol percentage from facts table (non-critical): {e}")
+            logger.info(f"Could not parse alcohol percentage from facts section (non-critical): {e}")
+
+    # --- CRITICAL DEBUG DUMP ---
+    if wine_data['alcohol_percent'] is None and wine_facts_block:
+         logger.warning(f"ABV extraction failed. Dumping Wine Facts HTML content for manual inspection:\n{wine_facts_block}")
+    # --- END CRITICAL DEBUG DUMP ---
     # --- END ABV HTML FIX ---
 
 
@@ -368,7 +381,7 @@ def _perform_scrape_attempt_selenium(url: str):
             if grape.lower() not in current_grapes_lower:
                 if re.search(r'\b' + re.escape(grape.lower()) + r'\b', name_lower):
                     unique_grapes_ordered.append(grape)
-                    logger.debug(f"Augmented grape list with '{grape}' from wine name.")
+                    logger.info(f"Augmented grape list with '{grape}' from wine name.")
         grapes_in_name = []
         for grape in unique_grapes_ordered:
             match = re.search(r'\b' + re.escape(grape.lower()) + r'\b', name_lower)
