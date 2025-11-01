@@ -410,3 +410,6 @@ def scrape_wine_data(vivino_url):
 
     logger.error(f"Failed to extract any useful data for {vivino_url}.")
     return {'name': 'Scrape Failed', 'vivino_url': vivino_url, 'needs_review': True}, vivino_url
+
+# FIX: Create an alias to match the function name expected by the Flask application
+scrape_vivino_data = scrape_wine_data
