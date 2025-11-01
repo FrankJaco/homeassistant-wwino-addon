@@ -89,9 +89,14 @@ def _perform_scrape_attempt_selenium(url: str):
         driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
         driver.get(url)
 
+        # *** MODIFIED/FIXED LOGIC START ***
+        # Wait for the "Wine facts" section, which loads later on the page.
+        # This ensures JS has rendered the content we need (ABV, country links, etc.)
+        # The h1 will be present by this point.
         WebDriverWait(driver, 25).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, "h1[class*='wine-page-header__name'], h1[class*='VintageTitle__wine'], h1"))
+            EC.presence_of_element_located((By.CSS_SELECTOR, "div[class*='wineFacts'], div[class*='wine-facts']"))
         )
+        # *** MODIFIED/FIXED LOGIC END ***
         
         final_url_after_scrape = driver.current_url
         page_source = driver.page_source
@@ -149,8 +154,6 @@ def _perform_scrape_attempt_selenium(url: str):
                 vintage_info = page_info.get('vintage', {})
                 wine_info = vintage_info.get('wine', {})
                 
-                # *** MODIFIED/FIXED LOGIC START ***
-                
                 # Try to get region and country from the JSON
                 if wine_info.get('region'):
                     region_data = wine_info.get('region', {})
@@ -172,8 +175,6 @@ def _perform_scrape_attempt_selenium(url: str):
                         if country_data.get('name'):
                             wine_data['country'] = country_data['name']
                             logger.debug(f"Found Country from __PRELOADED_STATE__ (via winery): {wine_data['country']}")
-                
-                # *** MODIFIED/FIXED LOGIC END ***
 
                 if wine_data['image_url'] is None:
                     image_variations = vintage_info.get('image', {}).get('variations', {})
@@ -193,7 +194,6 @@ def _perform_scrape_attempt_selenium(url: str):
                     if wine_data['wine_type']:
                          logger.debug(f"Found Wine Type from __PRELOADED_STATE__: {wine_data['wine_type']}")
 
-                # *** MODIFIED/FIXED LOGIC START ***
                 if wine_data['alcohol_percent'] is None:
                     # Try vintage-specific facts, then vintage root, then general wine root
                     alcohol = (
@@ -207,7 +207,6 @@ def _perform_scrape_attempt_selenium(url: str):
                             logger.debug(f"Found Alcohol Percentage from __PRELOADED_STATE__: {wine_data['alcohol_percent']}%")
                         except (ValueError, TypeError):
                             logger.debug(f"Could not parse alcohol percentage '{alcohol}' from __PRELOADED_STATE__.")
-                # *** MODIFIED/FIXED LOGIC END ***
 
             except json.JSONDecodeError:
                 logger.warning("Failed to decode __PRELOADED_STATE__ JSON.")
@@ -279,6 +278,7 @@ def _perform_scrape_attempt_selenium(url: str):
                 except ValueError: pass
     
     # This is the old, less reliable fallback. We keep it just in case JSON fails.
+    # By waiting for the wineFacts block, this loop is now more reliable.
     for link in soup.find_all('a', href=re.compile(r'/(wine-countries|wine-regions|grapes)/')):
         href = link.get('href', '')
         text = link.get_text(strip=True).strip()
@@ -315,17 +315,29 @@ def _perform_scrape_attempt_selenium(url: str):
     if wine_data['alcohol_percent'] is None:
         try:
             # *** MODIFIED/FIXED LOGIC START ***
-            # Make regex more flexible: matches "Alcohol", "Alcohol content", etc.
-            label_header = soup.find(['th', 'div'], string=re.compile(r'^Alcohol', re.I))
-            # *** MODIFIED/FIXED LOGIC END ***
-            
-            if label_header:
-                value_cell = label_header.find_next_sibling(['td', 'div'])
-                if value_cell:
-                    match = re.search(r'(\d{1,2}(\.\d{1,2})?)\s*%', value_cell.get_text())
+            # New, more specific fallback for span-based layouts
+            label_span = soup.find('span', string=re.compile(r'^\s*Alcohol\s*$', re.I))
+            if label_span:
+                # Find the next sibling, which should be the value span
+                value_span = label_span.find_next_sibling('span')
+                if value_span:
+                    match = re.search(r'(\d{1,2}(\.\d{1,2})?)\s*%', value_span.get_text())
                     if match:
                         wine_data['alcohol_percent'] = float(match.group(1))
-                        logger.debug(f"Found Alcohol Percentage from facts table: {wine_data['alcohol_percent']}%")
+                        logger.debug(f"Found Alcohol Percentage from new HTML fallback (span): {wine_data['alcohol_percent']}%")
+            
+            # Old fallback for table-based layouts, just in case
+            if wine_data['alcohol_percent'] is None:
+                label_header = soup.find(['th', 'div'], string=re.compile(r'^Alcohol', re.I))
+                if label_header:
+                    value_cell = label_header.find_next_sibling(['td', 'div'])
+                    if value_cell:
+                        match = re.search(r'(\d{1,2}(\.\d{1,2})?)\s*%', value_cell.get_text())
+                        if match:
+                            wine_data['alcohol_percent'] = float(match.group(1))
+                            logger.debug(f"Found Alcohol Percentage from old facts table: {wine_data['alcohol_percent']}%")
+            # *** MODIFIED/FIXED LOGIC END ***
+            
         except Exception as e:
             logger.debug(f"Could not parse alcohol percentage from facts table (non-critical): {e}")
 
@@ -450,3 +462,4 @@ def scrape_vivino_data(vivino_url):
 
     logger.error(f"All scrape and fallback attempts failed for {vivino_url}.")
     return None, None
+
