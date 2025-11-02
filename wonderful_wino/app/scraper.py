@@ -383,6 +383,44 @@ def _perform_scrape_attempt_selenium(url: str):
 
     return wine_data, final_url_after_scrape
 
+def match_region(scraped_region: str, scraped_country: str = None):
+    """
+    Attempt to find the best matching region/subregion/country 
+    for a scraped Vivino region name using REGION_DATA.
+
+    - Matches are case-insensitive
+    - Returns a dict: {"country": ..., "region": ..., "subregion": ...}
+    - Returns None if no confident match found
+    """
+    if not scraped_region:
+        return None
+
+    region_clean = scraped_region.strip().lower()
+    country_match = None
+    region_match = None
+    subregion_match = None
+
+    # Step 1: If a country is provided, focus search there
+    if scraped_country and scraped_country in REGION_DATA:
+        search_space = {scraped_country: REGION_DATA[scraped_country]}
+    else:
+        search_space = REGION_DATA
+
+    # Step 2: Walk hierarchy
+    for country, regions in search_space.items():
+        for region, subregions in regions.items():
+            if region_clean == region.lower():
+                country_match, region_match = country, region
+            elif region_clean in [s.lower() for s in subregions]:
+                country_match, region_match, subregion_match = country, region, region_clean.title()
+
+    if country_match:
+        return {
+            "country": country_match,
+            "region": region_match,
+            "subregion": subregion_match
+        }
+    return None
 
 def scrape_vivino_url(vivino_url):
     """
@@ -394,9 +432,32 @@ def scrape_vivino_url(vivino_url):
     wine_data, canonical_url = _perform_scrape_attempt_selenium(vivino_url)
 
     if not canonical_url:
-        canonical_url = vivino_url # Ensure canonical_url is not None
+        canonical_url = vivino_url  # Ensure canonical_url is not None
 
     if wine_data:
+        # --- REGION NORMALIZATION USING YAML ---
+        try:
+            region = wine_data.get("region")
+            country = wine_data.get("country")
+
+            match = match_region(region, country)
+            if match:
+                if not country and match["country"]:
+                    country = match["country"]
+                if match["region"]:
+                    region = match["region"]
+                if match["subregion"]:
+                    wine_data["subregion"] = match["subregion"]
+                logger.debug(f"Region normalized via region.yaml: {match}")
+
+            # Update back into the wine data
+            wine_data["region"] = region
+            wine_data["country"] = country
+
+        except Exception as e:
+            logger.debug(f"Region YAML match attempt failed: {e}")
+        # --- END REGION NORMALIZATION ---
+
         logger.info(f"Success on initial Selenium scrape for {canonical_url}")
         return wine_data, canonical_url
     
@@ -430,10 +491,10 @@ def scrape_vivino_url(vivino_url):
                     'varietal': nearby_data.get('varietal', 'Unknown Varietal'),
                     'region': nearby_data.get('region', 'Unknown Region'),
                     'country': nearby_data.get('country', 'Unknown Country'),
-                    'vivino_rating': None, # Rating is for the *other* vintage, so don't copy it
+                    'vivino_rating': None,  # Rating is for the *other* vintage, so don't copy it
                     'image_url': nearby_data.get('image_url'),
-                    'alcohol_percent': nearby_data.get('alcohol_percent'), # Usually consistent
-                    'wine_type': nearby_data.get('wine_type'), # Always consistent
+                    'alcohol_percent': nearby_data.get('alcohol_percent'),  # Usually consistent
+                    'wine_type': nearby_data.get('wine_type'),  # Always consistent
                 }
                 return borrowed_data, vivino_url
             
