@@ -449,6 +449,45 @@ def scrape_vivino_url(vivino_url):
     if not canonical_url:
         canonical_url = vivino_url  # Ensure canonical_url is not None
 
+    # --- Normalize region using region.yaml ---
+    if wine_data and wine_data.get("region"):
+        region = wine_data.get("region")
+        country = wine_data.get("country")
+        region_info = match_region(region, country)
+
+        if region_info:
+            # Prefer the deepest available subregion for the short label
+            display_region = (
+                region_info.get("subsubregion")
+                or region_info.get("subregion")
+                or region_info.get("region")
+            )
+            display_country = region_info.get("country")
+
+            # Build a full hierarchical string (e.g., "Paso Robles – Central Coast – California – US")
+            parts = [
+                region_info.get("subsubregion"),
+                region_info.get("subregion"),
+                region_info.get("region"),
+            ]
+            region_full = " – ".join([p for p in parts if p])
+
+            # Append country code or name for clarity
+            if display_country:
+                country_obj = REGION_DATA.get(display_country, {})
+                country_code = country_obj.get("code", display_country[:2].upper())
+                region_full = f"{region_full} – {country_code}"
+
+            # Update wine_data with normalized region and full path
+            wine_data["region"] = display_region
+            wine_data["country"] = display_country
+            wine_data["region_full"] = region_full
+
+            logger.debug(f"Region normalized via region.yaml: {region_info}")
+            logger.debug(f"Derived display_region='{display_region}', region_full='{region_full}'")
+        else:
+            logger.debug(f"No region match found for '{region}' — using raw scraped values.")
+
     if wine_data:
         # --- REGION NORMALIZATION USING YAML ---
         try:
