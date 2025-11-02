@@ -420,13 +420,10 @@ def match_region(scraped_region: str, scraped_country: str = None):
             "region": region_match,
             "subregion": subregion_match
         }
+    logger.debug(f"No region match for '{region_clean}' in available YAML keys: {[k for k in REGION_DATA.keys()][:5]}...")
     return None
 
-def scrape_vivino_url(vivino_url):
-    """
-    Orchestrates scraping using a headless browser to be resilient to anti-bot measures.
-    (Function name corrected from the user's previous issue, assuming this is the final name)
-    """
+def scrape_vivino_url(vivino_url): 
     logger.info(f"Starting Selenium-based scrape for: {vivino_url}")
     
     wine_data, canonical_url = _perform_scrape_attempt_selenium(vivino_url)
