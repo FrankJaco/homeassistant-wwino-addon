@@ -44,6 +44,31 @@ GRAPE_VARIETALS = _load_grape_varietals()
 logger.info(f"Loaded {len(GRAPE_VARIETALS)} grape varietals for reference.")
 scraper.initialize_varietals(GRAPE_VARIETALS)
 
+# Define the path to the regions.yaml file
+REGIONS_YAML_PATH = os.path.join(os.path.dirname(__file__), 'data', 'regions.yaml')
+
+def _load_regions():
+    """Loads the regions data from the YAML file."""
+    try:
+        with open(REGIONS_YAML_PATH, 'r') as f:
+            data = yaml.safe_load(f)
+            # The YAML is expected to be structured as {Country: {Region: [Subregions...]}}
+            return data or {}
+    except FileNotFoundError:
+        logger.error(f"Regions file not found at: {REGIONS_YAML_PATH}")
+        return {}
+    except Exception as e:
+        logger.error(f"Error loading regions from YAML: {e}", exc_info=True)
+        return {}
+
+# Load the regions on application start
+REGION_DATA = _load_regions()
+logger.info(f"Loaded {len(REGION_DATA)} countries with region data for reference.")
+
+# Optionally initialize the scraper with region data (future extension)
+if hasattr(scraper, "initialize_regions"):
+    scraper.initialize_regions(REGION_DATA)
+
 class ReverseProxied:
     def __init__(self, app):
         self.app = app

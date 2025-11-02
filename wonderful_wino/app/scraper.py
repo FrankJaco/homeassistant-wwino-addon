@@ -27,8 +27,6 @@ USER_AGENTS = [
 
 WINE_TYPES = {'Red', 'White', 'Sparkling', 'Rosé', 'Fortified', 'Dessert'}
 
-# --- REVISED GRAPE LIST HANDLING ---
-
 # Placeholder for the list loaded from main.py
 GLOBAL_GRAPE_VARIETALS = []
 
@@ -43,7 +41,21 @@ def initialize_varietals(varietals_list):
     GLOBAL_GRAPE_VARIETALS = sorted(varietals_list, key=len, reverse=True)
     logger.info(f"Scraper initialized with {len(GLOBAL_GRAPE_VARIETALS)} grape varietals.")
 
-# --- END REVISED GRAPE LIST HANDLING ---
+# Optional region data storage
+REGION_DATA = {}
+
+def initialize_regions(data: dict):
+    """
+    Receives region/country hierarchy from main.py at startup.
+    This doesn't alter existing scraper behavior but allows
+    region matching or validation in future updates.
+    """
+    global REGION_DATA
+    if isinstance(data, dict):
+        REGION_DATA = data
+        logger.info(f"Initialized region data with {len(data)} countries.")
+    else:
+        logger.warning("initialize_regions called with invalid data type.")
 
 def _parse_url_for_fallback_data(url: str):
     """
