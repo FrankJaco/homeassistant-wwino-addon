@@ -5,6 +5,7 @@ from flask_cors import CORS
 from . import config, db, ha_service, scraper, formatting
 import re
 from urllib.parse import urlparse, urlunparse, parse_qs
+import yaml
 
 # Quieten down the very verbose output from underlying libraries
 logging.getLogger('selenium').setLevel(logging.WARNING)
@@ -17,6 +18,30 @@ logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"),
 logger = logging.getLogger(__name__)
 app = Flask(__name__, static_folder="../frontend", static_url_path="")
 CORS(app)
+
+# Define the path to the grapes.yaml file
+GRAPES_YAML_PATH = os.path.join(os.path.dirname(__file__), 'data', 'grapes.yaml')
+
+# Function to load the grape varietals
+def _load_grape_varietals():
+    """Loads the grape varietals list from the YAML file."""
+    try:
+        with open(GRAPES_YAML_PATH, 'r') as f:
+            data = yaml.safe_load(f)
+            # We assume the YAML is structured as: {'grapes': ['Grape 1', 'Grape 2', ...]}
+            varietals = data.get('grapes', [])
+            # Convert all varietal names to lowercase for case-insensitive matching later
+            return [v.lower() for v in varietals]
+    except FileNotFoundError:
+        logger.error(f"Grape varietals file not found at: {GRAPES_YAML_PATH}")
+        return []
+    except Exception as e:
+        logger.error(f"Error loading grape varietals from YAML: {e}", exc_info=True)
+        return []
+
+# Load the grape varietals on application start
+GRAPE_VARIETALS = _load_grape_varietals()
+logger.info(f"Loaded {len(GRAPE_VARIETALS)} grape varietals for reference.")
 
 class ReverseProxied:
     def __init__(self, app):
