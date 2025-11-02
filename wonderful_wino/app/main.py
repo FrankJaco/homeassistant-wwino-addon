@@ -42,6 +42,7 @@ def _load_grape_varietals():
 # Load the grape varietals on application start
 GRAPE_VARIETALS = _load_grape_varietals()
 logger.info(f"Loaded {len(GRAPE_VARIETALS)} grape varietals for reference.")
+scraper.initialize_varietals(GRAPE_VARIETALS)
 
 class ReverseProxied:
     def __init__(self, app):
@@ -139,7 +140,7 @@ def scan_wine():
     if not isinstance(quantity, int) or quantity < 1:
         quantity = 1
 
-    wine_data, canonical_url = scraper.scrape_vivino_data(url_for_scraper)
+    wine_data, canonical_url = scraper.scrape_vivino_url(url_for_scraper)
     
     if not wine_data or not canonical_url:
         return jsonify({"status": "error", "message": "Scraping failed: Could not identify valid wine details on the page."}), 500
