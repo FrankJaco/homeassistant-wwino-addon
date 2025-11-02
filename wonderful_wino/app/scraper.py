@@ -385,42 +385,60 @@ def _perform_scrape_attempt_selenium(url: str):
 
 def match_region(scraped_region: str, scraped_country: str = None):
     """
-    Attempt to find the best matching region/subregion/country 
+    Attempts to find the best matching region/subregion/country
     for a scraped Vivino region name using REGION_DATA.
 
-    - Matches are case-insensitive
-    - Returns a dict: {"country": ..., "region": ..., "subregion": ...}
-    - Returns None if no confident match found
+    Supports nested YAML format:
+    Country → regions → subregions → subsubregions
+
+    Returns a dict:
+      {"country": ..., "region": ..., "subregion": ..., "subsubregion": ...}
     """
     if not scraped_region:
         return None
 
     region_clean = scraped_region.strip().lower()
-    country_match = None
-    region_match = None
-    subregion_match = None
+    match = {"country": None, "region": None, "subregion": None, "subsubregion": None}
 
-    # Step 1: If a country is provided, focus search there
+    # Step 1: Focus search if country hint provided
     if scraped_country and scraped_country in REGION_DATA:
-        search_space = {scraped_country: REGION_DATA[scraped_country]}
+        countries_to_search = {scraped_country: REGION_DATA[scraped_country]}
     else:
-        search_space = REGION_DATA
+        countries_to_search = REGION_DATA
 
-    # Step 2: Walk hierarchy
-    for country, regions in search_space.items():
-        for region, subregions in regions.items():
-            if region_clean == region.lower():
-                country_match, region_match = country, region
-            elif region_clean in [s.lower() for s in subregions]:
-                country_match, region_match, subregion_match = country, region, region_clean.title()
+    # Step 2: Traverse nested structure
+    for country, country_data in countries_to_search.items():
+        regions = country_data.get("regions", {})
+        for region_name, region_data in regions.items():
+            # Level 1: region
+            if region_clean == region_name.lower():
+                match.update({"country": country, "region": region_name})
+                return match
 
-    if country_match:
-        return {
-            "country": country_match,
-            "region": region_match,
-            "subregion": subregion_match
-        }
-    logger.debug(f"No region match for '{region_clean}' in available YAML keys: {[k for k in REGION_DATA.keys()][:5]}...")
+            subregions = region_data.get("subregions", {})
+            for subregion_name, subregion_data in subregions.items():
+                # Level 2: subregion
+                if region_clean == subregion_name.lower():
+                    match.update({
+                        "country": country,
+                        "region": region_name,
+                        "subregion": subregion_name
+                    })
+                    return match
+
+                subsubs = subregion_data.get("subsubregions", [])
+                for subsub in subsubs:
+                    # Level 3: subsubregion
+                    if region_clean == subsub.lower():
+                        match.update({
+                            "country": country,
+                            "region": region_name,
+                            "subregion": subregion_name,
+                            "subsubregion": subsub
+                        })
+                        return match
+
+    logger.debug(f"No region match for '{region_clean}' in nested YAML under countries: {list(countries_to_search.keys())[:5]}")
     return None
 
 def scrape_vivino_url(vivino_url): 
