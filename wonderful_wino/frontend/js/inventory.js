@@ -67,7 +67,18 @@ function sortInventory(inventory, sortBy, sortDirection) {
     });
 }
 
-function displayInventory(inventory) {
+function const location = [item.region, item.country]
+    .filter(loc => loc && !loc.startsWith('Unknown'))
+    .join(', ');
+
+if (location) {
+    // Add tooltip only if region_full exists and differs from the short display
+    const tooltip = (item.region_full && item.region_full !== location)
+        ? ` title="${escapeAttr(item.region_full)}"`
+        : '';
+    detailsHtml += `<p${tooltip}><strong>Origin:</strong> ${location}</p>`;
+}
+y(inventory) {
     const container = document.getElementById('inventoryTableBody');
     const summaryEl = document.getElementById('inventory-summary');
     if (!container || !summaryEl) return;
@@ -124,9 +135,16 @@ function displayInventory(inventory) {
             detailsHtml += `<p><strong>Varietal:</strong> ${item.varietal}</p>`;
         }
 
-        const location = [item.region, item.country].filter(loc => loc && !loc.startsWith('Unknown')).join(', ');
+        const location = [item.region, item.country]
+            .filter(loc => loc && !loc.startsWith('Unknown'))
+            .join(', ');
+
         if (location) {
-            detailsHtml += `<p><strong>Origin:</strong> ${location}</p>`;
+            // Add tooltip only if region_full exists and differs from the short display
+            const tooltip = (item.region_full && item.region_full !== location)
+                ? ` title="${escapeAttr(item.region_full)}"`
+                : '';
+            detailsHtml += `<p${tooltip}><strong>Origin:</strong> ${location}</p>`;
         }
 
         const wineTypeColors = {
