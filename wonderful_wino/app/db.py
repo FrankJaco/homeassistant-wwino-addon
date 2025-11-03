@@ -80,6 +80,9 @@ def init_db():
         # Check if new columns exist in consumption_history table and add them if they don't
         cursor.execute("PRAGMA table_info(consumption_history)")
         ch_columns = [column['name'] for column in cursor.fetchall()]
+        if 'region_full' not in wines_columns:
+            cursor.execute("ALTER TABLE wines ADD COLUMN region_full TEXT")
+            logger.info("Added 'region_full' column to wines table.")
         if 'log_type' not in ch_columns:
             cursor.execute("ALTER TABLE consumption_history ADD COLUMN log_type TEXT DEFAULT 'consumed' NOT NULL")
             logger.info("Added 'log_type' column to consumption_history table.")
