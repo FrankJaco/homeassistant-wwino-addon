@@ -424,6 +424,9 @@ def scrape_vivino_url(vivino_url):
     """
     Main function to scrape a single Vivino URL using Selenium and apply
     post-processing (region and varietal normalization).
+    
+    Ensures that two values (wine_data dict, canonical_url string) are returned
+    in all execution paths.
     """
     
     wine_data, final_url = _perform_scrape_attempt_selenium(vivino_url)
@@ -454,16 +457,18 @@ def scrape_vivino_url(vivino_url):
             }
             minimal_data.update(fallback_data)
             logger.warning(f"Full scrape failed, returning partial data from URL for review: {fallback_data.get('name')}")
-            return minimal_data
+            # FIX: Ensure two return values are provided here
+            return minimal_data, vivino_url
         
         # Final failure
+        # FIX: Ensure two return values are provided here
         return {
             'name': 'Vivino Wine ID not found or unreachable', 'vintage': None, 'varietal': 'Unknown Varietal',
             'region': 'Unknown Region', 'country': 'Unknown Country',
             'vivino_rating': None, 'image_url': None,
             'alcohol_percent': None, 'wine_type': None,
             'needs_review': True
-        }
+        }, vivino_url
 
     # --- Phase 2: Region normalization (if scraped data is available) ---
     region_hints = {}
@@ -588,4 +593,5 @@ def scrape_vivino_url(vivino_url):
         logger.warning(f"Wine scraped successfully but varietal is missing or ambiguous: {wine_data['name']}")
         wine_data['needs_review'] = True # Mark for review if key data is missing but scrape succeeded
 
-    return wine_data
+    # FIX: Final successful path needs to return both data and URL
+    return wine_data, final_url
