@@ -27,6 +27,7 @@ def init_db():
                 varietal TEXT,
                 region TEXT,
                 country TEXT,
+                region_full TEXT,
                 vivino_rating REAL,
                 image_url TEXT,
                 quantity INTEGER DEFAULT 1,
@@ -199,13 +200,13 @@ def add_or_update_wine(wine_data: dict, quantity: int, cost_tier: int):
             else:
                 cursor.execute('''
                     UPDATE wines SET
-                        quantity = ?, name = ?, vintage = ?, varietal = ?, region = ?,
+                        quantity = ?, name = ?, vintage = ?, varietal = ?, region = ?, region_full = ?,
                         country = ?, vivino_rating = ?, image_url = ?, cost_tier = ?,
                         alcohol_percent = ?, wine_type = ?, needs_review = ?
                     WHERE id = ?
                 ''', (
                     new_quantity, wine_data.get('name'), wine_data.get('vintage'), wine_data.get('varietal'),
-                    wine_data.get('region'), wine_data.get('country'), wine_data.get('vivino_rating'),
+                    wine_data.get('region'), wine_data.get('region_full'), wine_data.get('country'), wine_data.get('vivino_rating'),
                     wine_data.get('image_url'), cost_tier, wine_data.get('alcohol_percent'),
                     wine_data.get('wine_type'), False, wine_id
                 ))
@@ -213,13 +214,13 @@ def add_or_update_wine(wine_data: dict, quantity: int, cost_tier: int):
         else:
             cursor.execute('''
                 INSERT INTO wines (
-                    vivino_url, name, vintage, varietal, region, country, vivino_rating,
+                    vivino_url, name, vintage, varietal, region, region_full = ?, country, vivino_rating,
                     image_url, quantity, cost_tier, personal_rating, tasting_notes,
                     alcohol_percent, wine_type, needs_review
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 wine_data.get('vivino_url'), wine_data.get('name'), wine_data.get('vintage'), wine_data.get('varietal'),
-                wine_data.get('region'), wine_data.get('country'), wine_data.get('vivino_rating'),
+                wine_data.get('region'), wine_data.get('region_full'), wine_data.get('country'), wine_data.get('vivino_rating'),
                 wine_data.get('image_url'), quantity, cost_tier, None, None,
                 wine_data.get('alcohol_percent'), wine_data.get('wine_type'), needs_review_flag
             ))
