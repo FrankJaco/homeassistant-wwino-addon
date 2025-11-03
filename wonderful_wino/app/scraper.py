@@ -441,7 +441,11 @@ def match_region(scraped_region: str, scraped_country: str = None):
     logger.debug(f"No region match for '{region_clean}' in nested YAML under countries: {list(countries_to_search.keys())[:5]}")
     return None
 
-def scrape_vivino_url(vivino_url): 
+def scrape_vivino_url(vivino_url):
+    """
+    Orchestrates scraping using a headless browser to be resilient to anti-bot measures.
+    Handles fallback to nearby vintages and URL-based parsing if scraping fails.
+    """
     logger.info(f"Starting Selenium-based scrape for: {vivino_url}")
     
     wine_data, canonical_url = _perform_scrape_attempt_selenium(vivino_url)
@@ -453,65 +457,45 @@ def scrape_vivino_url(vivino_url):
     if wine_data and wine_data.get("region"):
         region = wine_data.get("region")
         country = wine_data.get("country")
-        region_info = match_region(region, country)
+        try:
+            region_info = match_region(region, country)
 
-        if region_info:
-            # Prefer the deepest available subregion for the short label
-            display_region = (
-                region_info.get("subsubregion")
-                or region_info.get("subregion")
-                or region_info.get("region")
-            )
-            display_country = region_info.get("country")
+            if region_info:
+                # Prefer the deepest available subregion for the short label
+                display_region = (
+                    region_info.get("subsubregion")
+                    or region_info.get("subregion")
+                    or region_info.get("region")
+                )
+                display_country = region_info.get("country")
 
-            # Build a full hierarchical string (e.g., "Paso Robles – Central Coast – California – US")
-            parts = [
-                region_info.get("subsubregion"),
-                region_info.get("subregion"),
-                region_info.get("region"),
-            ]
-            region_full = " – ".join([p for p in parts if p])
+                # Build a full hierarchical string (e.g., "Paso Robles – Central Coast – California – US")
+                parts = [
+                    region_info.get("subsubregion"),
+                    region_info.get("subregion"),
+                    region_info.get("region"),
+                ]
+                region_full = " – ".join([p for p in parts if p])
 
-            # Append country code or name for clarity
-            if display_country:
-                country_obj = REGION_DATA.get(display_country, {})
-                country_code = country_obj.get("code", display_country[:2].upper())
-                region_full = f"{region_full} – {country_code}"
+                # Append country code or name for clarity
+                if display_country:
+                    country_obj = REGION_DATA.get(display_country, {})
+                    country_code = country_obj.get("code", display_country[:2].upper())
+                    region_full = f"{region_full} – {country_code}"
 
-            # Update wine_data with normalized region and full path
-            wine_data["region"] = display_region
-            wine_data["country"] = display_country
-            wine_data["region_full"] = region_full
+                # Update wine_data with normalized region and full path
+                wine_data["region"] = display_region
+                wine_data["country"] = display_country
+                wine_data["region_full"] = region_full
 
-            logger.debug(f"Region normalized via region.yaml: {region_info}")
-            logger.debug(f"Derived display_region='{display_region}', region_full='{region_full}'")
-        else:
-            logger.debug(f"No region match found for '{region}' — using raw scraped values.")
+                logger.debug(f"Region normalized via region.yaml: {region_info}")
+                logger.debug(f"Derived display_region='{display_region}', region_full='{region_full}'")
+            else:
+                logger.debug(f"No region match found for '{region}' — using raw scraped values.")
+        except Exception as e:
+            logger.debug(f"Region normalization failed: {e}")
 
     if wine_data:
-        # --- REGION NORMALIZATION USING YAML ---
-        try:
-            region = wine_data.get("region")
-            country = wine_data.get("country")
-
-            match = match_region(region, country)
-            if match:
-                if not country and match["country"]:
-                    country = match["country"]
-                if match["region"]:
-                    region = match["region"]
-                if match["subregion"]:
-                    wine_data["subregion"] = match["subregion"]
-                logger.debug(f"Region normalized via region.yaml: {match}")
-
-            # Update back into the wine data
-            wine_data["region"] = region
-            wine_data["country"] = country
-
-        except Exception as e:
-            logger.debug(f"Region YAML match attempt failed: {e}")
-        # --- END REGION NORMALIZATION ---
-
         logger.info(f"Success on initial Selenium scrape for {canonical_url}")
         return wine_data, canonical_url
     
@@ -559,10 +543,15 @@ def scrape_vivino_url(vivino_url):
     
     if fallback_data and 'Vivino Wine ID' not in fallback_data.get('name', ''):
         minimal_data = {
-            'name': 'Unknown Wine', 'vintage': None, 'varietal': 'Unknown Varietal', 
-            'region': 'Unknown Region', 'country': 'Unknown Country', 
-            'vivino_rating': None, 'image_url': None,
-            'alcohol_percent': None, 'wine_type': None,
+            'name': 'Unknown Wine',
+            'vintage': None,
+            'varietal': 'Unknown Varietal',
+            'region': 'Unknown Region',
+            'country': 'Unknown Country',
+            'vivino_rating': None,
+            'image_url': None,
+            'alcohol_percent': None,
+            'wine_type': None,
             'needs_review': True  # Flag this entry for user review
         }
         minimal_data.update(fallback_data)
