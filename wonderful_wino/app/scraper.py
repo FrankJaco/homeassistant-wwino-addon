@@ -349,52 +349,17 @@ def _perform_scrape_attempt_selenium(url: str):
         except Exception as e:
             logger.debug(f"Could not parse alcohol percentage from facts table (non-critical): {e}")
 
-    # Heuristics for varietal ordering
+    # --- START REFACTOR ---
+    # Varietal processing is MOVED to scrape_vivino_url() so it can access region.yaml hints.
+    # We will just collect and store the raw grape list here.
+    
+    raw_grapes = []
     if all_grape_names_collected or 'Unknown Wine' not in wine_data['name']:
         cleaned_grapes = [g.strip() for g in all_grape_names_collected if g.strip().lower() not in ['wine']]
-        unique_grapes_ordered = list(dict.fromkeys(cleaned_grapes))
-        name_lower = wine_data['name'].lower()
-        current_grapes_lower = {g.lower() for g in unique_grapes_ordered}
-        
-        # --- REVISED: Use GLOBAL_GRAPE_VARIETALS instead of MASTER_GRAPE_LIST ---
-        for grape_lower in GLOBAL_GRAPE_VARIETALS: 
-            if grape_lower not in current_grapes_lower:
-                # Check for word boundary match in the wine name
-                if re.search(r'\b' + re.escape(grape_lower) + r'\b', name_lower):
-                    # Use title case for appending to keep the capitalization format consistent
-                    capitalized_grape = grape_lower.title() 
-                    unique_grapes_ordered.append(capitalized_grape)
-                    logger.debug(f"Augmented grape list with '{capitalized_grape}' from wine name.")
-        
-        grapes_in_name = []
-        for grape in unique_grapes_ordered:
-            match = re.search(r'\b' + re.escape(grape.lower()) + r'\b', name_lower)
-            if match:
-                grapes_in_name.append({'name': grape, 'pos': match.start()})
-        if grapes_in_name:
-            grapes_in_name.sort(key=lambda x: x['pos'])
-            prioritized_grapes = [g['name'] for g in grapes_in_name]
-            remaining_grapes = [g for g in unique_grapes_ordered if g not in prioritized_grapes]
-            unique_grapes_ordered = prioritized_grapes + remaining_grapes
-        preferred_syrah_term = None
-        if 'shiraz' in name_lower:
-            preferred_syrah_term = 'Shiraz'
-        elif 'syrah' in name_lower:
-            preferred_syrah_term = 'Syrah'
-        final_grapes = []
-        for grape in unique_grapes_ordered:
-            is_syrah_family = 'syrah' in grape.lower() or 'shiraz' in grape.lower()
-            if not is_syrah_family:
-                final_grapes.append(grape)
-                continue
-            term_to_use = 'Syrah'
-            if preferred_syrah_term:
-                term_to_use = preferred_syrah_term
-            elif wine_data.get('country') in ['Australia', 'South Africa']:
-                term_to_use = 'Shiraz'
-            final_grapes.append(term_to_use)
-        if final_grapes:
-             wine_data['varietal'] = ", ".join(list(dict.fromkeys(final_grapes)))
+        raw_grapes = list(dict.fromkeys(cleaned_grapes))
+    
+    wine_data['raw_grapes'] = raw_grapes
+    # --- END REFACTOR ---
 
     if wine_data['vivino_rating'] is None:
         rating_tag = soup.find('div', class_=re.compile(r'vivinoRating_averageValue|community-score__score'))
@@ -403,6 +368,24 @@ def _perform_scrape_attempt_selenium(url: str):
             except (ValueError, TypeError): pass
 
     return wine_data, final_url_after_scrape
+
+def _collect_hints(data_dict: dict, collected: dict):
+    """Helper to recursively merge hints, with deeper hints overwriting."""
+    if isinstance(data_dict, dict):
+        if "hints" in data_dict and isinstance(data_dict["hints"], dict):
+            # Merge/overwrite hints from this level
+            for key, value in data_dict["hints"].items():
+                if key not in collected:
+                    collected[key] = value
+                # This simple merge works for bank_type, etc.
+                # For dict hints like varietal_name_override, we need to merge the dicts
+                elif isinstance(value, dict) and isinstance(collected[key], dict):
+                    collected[key].update(value)
+                else:
+                    # Deeper hint overwrites shallower one
+                    collected[key] = value
+    return collected
+
 
 def match_region(scraped_region: str, scraped_country: str = None):
     """
@@ -413,13 +396,15 @@ def match_region(scraped_region: str, scraped_country: str = None):
     Country → regions → subregions → subsubregions
 
     Returns a dict:
-      {"country": ..., "region": ..., "subregion": ..., "subsubregion": ...}
+      {"country": ..., "region": ..., "subregion": ..., "subsubregion": ..., "hints": {...}}
     """
     if not scraped_region:
         return None
 
     region_clean = scraped_region.strip().lower()
-    match = {"country": None, "region": None, "subregion": None, "subsubregion": None}
+    
+    # Default match object now includes a hints dictionary
+    match = {"country": None, "region": None, "subregion": None, "subsubregion": None, "hints": {}}
 
     # Step 1: Focus search if country hint provided
     if scraped_country and scraped_country in REGION_DATA:
@@ -429,11 +414,16 @@ def match_region(scraped_region: str, scraped_country: str = None):
 
     # Step 2: Traverse nested structure
     for country, country_data in countries_to_search.items():
+        # --- HINT LOGIC: Collect hints from Country level ---
+        _collect_hints(country_data, match["hints"])
+
         regions = country_data.get("regions", {})
         for region_name, region_data in regions.items():
             # Level 1: region
             if region_clean == region_name.lower():
                 match.update({"country": country, "region": region_name})
+                # --- HINT LOGIC: Collect hints from Region level ---
+                _collect_hints(region_data, match["hints"])
                 return match
 
             subregions = region_data.get("subregions", {})
@@ -445,6 +435,9 @@ def match_region(scraped_region: str, scraped_country: str = None):
                         "region": region_name,
                         "subregion": subregion_name
                     })
+                    # --- HINT LOGIC: Collect hints from Region AND Subregion level ---
+                    _collect_hints(region_data, match["hints"]) # Region level
+                    _collect_hints(subregion_data, match["hints"]) # Subregion level
                     return match
 
                 subsubs = subregion_data.get("subsubregions", [])
@@ -457,10 +450,19 @@ def match_region(scraped_region: str, scraped_country: str = None):
                             "subregion": subregion_name,
                             "subsubregion": subsub
                         })
+                        # --- HINT LOGIC: Collect hints from all levels ---
+                        _collect_hints(region_data, match["hints"]) # Region
+                        _collect_hints(subregion_data, match["hints"]) # Subregion
+                        # (subsubregions are a list, so no hints)
                         return match
 
     logger.debug(f"No region match for '{region_clean}' in nested YAML under countries: {list(countries_to_search.keys())[:5]}")
-    return None
+    # Return match with only country-level hints if no region was found
+    if match["country"] is None and scraped_country and scraped_country in REGION_DATA:
+        match["country"] = scraped_country
+    
+    return match if match.get("region") else None
+
 
 def scrape_vivino_url(vivino_url):
     """
@@ -489,12 +491,15 @@ def scrape_vivino_url(vivino_url):
             wine_data["country"] = region_hint.get("country")
 
     # --- Region normalization using region.yaml ---
+    region_hints = {} # Initialize hints dict
     if wine_data and wine_data.get("region"):
         region = wine_data.get("region")
         country = wine_data.get("country")
         region_info = match_region(region, country)
-
+        
+        # --- NEW: Store hints for varietal processing ---
         if region_info:
+            region_hints = region_info.get("hints", {})
             display_region = (
                 region_info.get("subsubregion")
                 or region_info.get("subregion")
@@ -522,6 +527,112 @@ def scrape_vivino_url(vivino_url):
             logger.debug(f"Derived display_region='{display_region}', region_full='{region_full}'")
         else:
             logger.debug(f"No region match found for '{region}' — using raw scraped values.")
+            # --- NEW: Fallback to get country hints even if region fails ---
+            if country and country in REGION_DATA:
+                country_data = REGION_DATA[country]
+                _collect_hints(country_data, region_hints)
+                logger.debug(f"Collected fallback country hints for {country}: {region_hints}")
+
+    # --- START REFACTOR: Varietal processing logic moved here ---
+    raw_grapes = wine_data.pop('raw_grapes', []) # Get raw grapes from scrape attempt
+    if raw_grapes or 'Unknown Wine' not in wine_data['name']:
+        unique_grapes_ordered = raw_grapes # Start with the raw list
+        name_lower = wine_data['name'].lower()
+        current_grapes_lower = {g.lower() for g in unique_grapes_ordered}
+        
+        # 1. Augment from wine name using GLOBAL_GRAPE_VARIETALS
+        for grape_lower in GLOBAL_GRAPE_VARIETALS: 
+            if grape_lower not in current_grapes_lower:
+                # Check for word boundary match in the wine name
+                if re.search(r'\b' + re.escape(grape_lower) + r'\b', name_lower):
+                    # Use title case for appending to keep the capitalization format consistent
+                    capitalized_grape = grape_lower.title() 
+                    unique_grapes_ordered.append(capitalized_grape)
+                    logger.debug(f"Augmented grape list with '{capitalized_grape}' from wine name.")
+        
+        # --- NEW STEP: 2. Apply Regional Blend Order Heuristics ---
+        bordeaux_bank = region_hints.get('bank_type')
+        if bordeaux_bank:
+            logger.debug(f"Applying Bordeaux blend override for {bordeaux_bank}.")
+            
+            # Define the dominant varietals for the region
+            if bordeaux_bank == 'Left Bank':
+                priority_list = ['Cabernet Sauvignon', 'Merlot', 'Cabernet Franc', 'Petit Verdot']
+            elif bordeaux_bank == 'Right Bank':
+                priority_list = ['Merlot', 'Cabernet Franc', 'Cabernet Sauvignon']
+            else:
+                priority_list = []
+
+            if priority_list:
+                new_order = []
+                # 2a. Iterate through the regional priority list and place them first
+                for grape in priority_list:
+                    grape_in_list = next((g for g in unique_grapes_ordered if g.lower() == grape.lower()), None)
+                    if grape_in_list and grape_in_list not in new_order:
+                        new_order.append(grape_in_list)
+                
+                # 2b. Add all remaining grapes (preserving their original relative order)
+                for grape in unique_grapes_ordered:
+                    if grape not in new_order:
+                        new_order.append(grape)
+                        
+                unique_grapes_ordered = new_order
+        
+        # 3. Sort by position in name (was step 2)
+        grapes_in_name = []
+        for grape in unique_grapes_ordered:
+            match = re.search(r'\b' + re.escape(grape.lower()) + r'\b', name_lower)
+            if match:
+                grapes_in_name.append({'name': grape, 'pos': match.start()})
+        
+        if grapes_in_name:
+            grapes_in_name.sort(key=lambda x: x['pos'])
+            prioritized_grapes = [g['name'] for g in grapes_in_name]
+            remaining_grapes = [g for g in unique_grapes_ordered if g not in prioritized_grapes]
+            unique_grapes_ordered = prioritized_grapes + remaining_grapes
+        
+        # --- NEW HINT-BASED SYRAH/SHIRAZ LOGIC ---
+        
+        # 4. Determine the correct term for Syrah/Shiraz (was step 3)
+        preferred_syrah_term = None
+        
+        # A. Check name first (most specific)
+        if 'shiraz' in name_lower:
+            preferred_syrah_term = 'Shiraz'
+        elif 'syrah' in name_lower:
+            preferred_syrah_term = 'Syrah'
+        
+        # B. If not in name, check region.yaml hints
+        if not preferred_syrah_term:
+            override_hints = region_hints.get('varietal_name_override', {})
+            if 'Syrah' in override_hints: # e.g., {'Syrah': 'Shiraz'}
+                preferred_syrah_term = override_hints['Syrah']
+            elif 'Shiraz' in override_hints: # e.g., {'Shiraz': 'Syrah'}
+                preferred_syrah_term = override_hints['Shiraz']
+
+        # C. If no hint, default to 'Syrah'
+        if not preferred_syrah_term:
+            preferred_syrah_term = 'Syrah' # This is our new default
+            
+        # 5. Apply the final term (was step 4)
+        final_grapes = []
+        for grape in unique_grapes_ordered:
+            is_syrah_family = 'syrah' in grape.lower() or 'shiraz' in grape.lower()
+            if not is_syrah_family:
+                final_grapes.append(grape)
+                continue
+            
+            # Add the correct term, but only once
+            if preferred_syrah_term not in final_grapes:
+                final_grapes.append(preferred_syrah_term)
+
+        if final_grapes:
+             wine_data['varietal'] = ", ".join(final_grapes)
+        elif not raw_grapes:
+             # If no grapes were found, keep the default
+             wine_data['varietal'] = 'Unknown Varietal'
+
+    # --- END REFACTOR ---
 
     # --- Handle fallback or failure ---
     if wine_data:
@@ -562,3 +673,4 @@ def scrape_vivino_url(vivino_url):
 
     logger.error(f"All scrape and fallback attempts failed for {vivino_url}.")
     return None, None
+
