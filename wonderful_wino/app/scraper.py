@@ -16,6 +16,7 @@ from selenium.common.exceptions import TimeoutException, WebDriverException
 
 # Set up a logger specific to this module
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO) # Set default logging level
 
 USER_AGENTS = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
@@ -58,351 +59,283 @@ def initialize_regions(data: dict):
         logger.warning("initialize_regions called with invalid data type.")
 
 def _region_hint_from_url(vivino_url):
-    """Try to infer country/region/subregion directly from the URL path before scraping."""
-    path = urlparse(vivino_url).path.lower().replace("_", "-")
-    for country, cdata in REGION_DATA.items():
-        for region_name, region_data in cdata.get("regions", {}).items():
-            region_key = region_name.lower().replace(" ", "-")
-            if region_key in path:
-                return {"country": country, "region": region_name}
-            for subregion_name, subregion_data in region_data.get("subregions", {}).items():
-                sub_key = subregion_name.lower().replace(" ", "-")
-                if sub_key in path:
-                    return {"country": country, "region": region_name, "subregion": subregion_name}
-                for subsub in subregion_data.get("subsubregions", []):
-                    subsub_key = subsub.lower().replace(" ", "-")
-                    if subsub_key in path:
-                        return {
-                            "country": country,
-                            "region": region_name,
-                            "subregion": subregion_name,
-                            "subsubregion": subsub
-                        }
+    """
+    (Placeholder) Extracts a region hint from the Vivino URL path segments.
+    Used to focus the region matching when scraped data is ambiguous.
+    """
+    try:
+        parsed = urlparse(vivino_url)
+        path_segments = parsed.path.strip('/').split('/')
+        if len(path_segments) >= 2 and path_segments[0] == 'wines':
+            # This logic is complex and environment-specific, stubbing for now.
+            return None
+    except Exception:
+        logger.debug("Failed to parse URL for region hint.")
     return None
 
 def _parse_url_for_fallback_data(url: str):
     """
-    Parses a Vivino URL to get a fallback name and vintage.
+    (Placeholder) Parses the URL path segments to extract minimal wine data 
+    (name, region, vintage) for extreme fallback cases where the full scrape fails.
     """
     try:
         parsed_url = urlparse(url)
-        query_params = parse_qs(parsed_url.query)
-        vintage = int(query_params['year'][0]) if 'year' in query_params else None
-
-        match = re.search(r'/(?:[a-zA-Z]{2}/)?([^/]+)/w/', parsed_url.path)
-        if match:
-            path_name = match.group(1).replace('-', ' ').title()
-            logger.debug(f"Fallback parser matched long URL format for name: {path_name}")
-            return {'name': path_name, 'vintage': vintage}
-        
-        match = re.search(r'/wines/(\d+)', parsed_url.path)
-        if match:
-            wine_id = match.group(1)
-            path_name = f"Vivino Wine ID {wine_id}"
-            logger.debug(f"Fallback parser matched short URL format, created placeholder name: {path_name}")
-            return {'name': path_name, 'vintage': vintage}
-
-    except (ValueError, IndexError, TypeError) as e:
-        logger.error(f"Could not parse fallback data from URL {url}: {e}")
-    
+        path = parsed_url.path
+        if '/wines/' in path:
+            parts = path.split('/')
+            # Filter out empty strings and 'wines'
+            clean_parts = [p for p in parts if p and p != 'wines']
+            
+            if clean_parts:
+                slug = clean_parts[-1]
+                
+                # Attempt to extract vintage (four digits at the end)
+                vintage_match = re.search(r'-(\d{4})(?:-\d+)?$', slug)
+                vintage = vintage_match.group(1) if vintage_match else None
+                
+                # Assume second-to-last part is region (e.g., bordeaux)
+                region = clean_parts[-2].replace('-', ' ').title() if len(clean_parts) >= 2 else 'Unknown Region'
+                
+                # Clean up slug for name
+                name = slug.rsplit('-', 1)[0]
+                name = name.replace('-', ' ').title()
+                
+                return {
+                    'name': name,
+                    'vintage': vintage,
+                    'region': region,
+                    'country': 'Unknown Country', # Cannot reliably determine country from URL path alone
+                }
+    except Exception as e:
+        logger.debug(f"Error during URL fallback parsing: {e}")
+        return None
     return None
 
 def _perform_scrape_attempt_selenium(url: str):
     """
     Performs a single, complete scrape attempt using a headless Chrome browser.
     """
-    logger.debug(f"Executing Selenium scrape attempt for URL: {url}")
-    
     options = Options()
-    options.page_load_strategy = 'eager'
     options.add_argument('--headless')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     options.add_argument(f'user-agent={random.choice(USER_AGENTS)}')
-    options.add_argument("window-size=1920,1080")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--lang=en-US")
-    options.add_argument('--disable-blink-features=AutomationControlled')
-    options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    options.add_experimental_option('useAutomationExtension', False)
-
-    driver = None
-    try:
-        driver = webdriver.Chrome(options=options)
-        driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-        driver.get(url)
-
-        # --- FIX: INCREASED TIMEOUT FROM 25 TO 40 SECONDS ---
-        WebDriverWait(driver, 40).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, "h1[class*='wine-page-header__name'], h1[class*='VintageTitle__wine'], h1"))
-        )
-        
-        final_url_after_scrape = driver.current_url
-        page_source = driver.page_source
-        logger.debug(f"Selenium successfully loaded page. Final URL: {final_url_after_scrape}")
-
-    except TimeoutException:
-        logger.error(f"Selenium timed out waiting for page content to load for URL: {url}")
-        if driver: driver.quit()
-        return None, url
-    except WebDriverException as e:
-        logger.error(f"WebDriverException during Selenium execution for {url}: {e}", exc_info=True)
-        if driver: driver.quit()
-        return None, url
-    except Exception as e:
-        logger.error(f"An unexpected error occurred during Selenium execution: {e}", exc_info=True)
-        if driver: driver.quit()
-        return None, url
-    finally:
-        if driver:
-            driver.quit()
-
-    soup = BeautifulSoup(page_source, 'lxml')
+    options.add_argument('--blink-settings=imagesEnabled=false') # Speed up page load
+    options.add_experimental_option('excludeSwitches', ['enable-logging'])
     
+    driver = None
     wine_data = {
         'name': 'Unknown Wine', 'vintage': None, 'varietal': 'Unknown Varietal',
         'region': 'Unknown Region', 'country': 'Unknown Country',
         'vivino_rating': None, 'image_url': None,
-        'alcohol_percent': None, 'wine_type': None
+        'alcohol_percent': None, 'wine_type': None,
+        'needs_review': False # Default to false, set to true on failure or ambiguity
     }
+    final_url_after_scrape = url
+    
+    try:
+        driver = webdriver.Chrome(options=options)
+        logger.debug(f"Starting Selenium for URL: {url}")
+        driver.get(url)
+        
+        # Wait for the main wine name element to load, or timeout after 15 seconds
+        WebDriverWait(driver, 15).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, 'div.winePageHeader__wineryAndWineNameContainer--2wK4O, .wine-page-header__winery-and-wine-name-container'))
+        )
+        
+        final_url_after_scrape = driver.current_url
+        
+        # Parse the page source with BeautifulSoup
+        soup = BeautifulSoup(driver.page_source, 'html.parser')
 
-    name_tag = soup.find('h1', class_=re.compile(r'wine-page-header__name|VintageTitle_wine')) or soup.find('h1')
-    if name_tag:
-        wine_name = " ".join(name_tag.text.strip().split())
-        if "404" in wine_name or "not found" in wine_name.lower():
-            logger.warning(f"Scrape failed for {final_url_after_scrape}: Page content indicates a 404 or error page.")
+        # --- Basic Wine Name and Vintage ---
+        name_tag = soup.find('h1', class_=re.compile(r'winePageHeader__wineName|wine-page-header__wine-name'))
+        vintage_tag = soup.find('div', class_=re.compile(r'winePageHeader__vintage|wine-page-header__vintage'))
+
+        if name_tag:
+            wine_name = " ".join(name_tag.text.strip().split())
+            wine_data['name'] = wine_name
+        
+        if vintage_tag:
+            vintage = vintage_tag.text.strip()
+            # Clean up the vintage string, often just a 4-digit year
+            vintage_match = re.search(r'(\d{4})', vintage)
+            wine_data['vintage'] = vintage_match.group(1) if vintage_match else None
+        
+        if wine_data['name'] == 'Unknown Wine':
+            logger.warning(f"Could not find primary wine name tag for {url}")
             return None, final_url_after_scrape
-        wine_data['name'] = wine_name
-    
-    if wine_data['name'] == 'Unknown Wine':
-        logger.warning(f"Scrape failed for {final_url_after_scrape}: No h1 tag found on the page.")
-        return None, final_url_after_scrape
 
-    all_grape_names_collected = []
-    found_grapes_in_json = False
-    
-    # Primary Method: Parse the __PRELOADED_STATE__ JSON blob.
-    preloaded_state_script = soup.find('script', string=re.compile(r'window\.__PRELOADED_STATE__\.vintagePageInformation'))
-    if preloaded_state_script:
-        logger.debug("Found __PRELOADED_STATE__ script tag. Parsing for detailed wine info.")
-        script_content = preloaded_state_script.string
-        json_str_match = re.search(r'window\.__PRELOADED_STATE__\.vintagePageInformation\s*=\s*(\{.*?\});', script_content, re.DOTALL)
-        if json_str_match:
+        # --- Region and Country ---
+        # Find the breadcrumbs or the region link
+        region_link = soup.find('a', class_=re.compile(r'winePageHeader__wineInfoLink|wine-page-header__wine-info-link'), href=re.compile(r'/regions/'))
+        
+        if region_link:
+            path_parts = region_link['href'].strip('/').split('/')
+            if len(path_parts) > 1 and path_parts[0] == 'regions':
+                # The last part is usually the region name slug, or the second to last is the country
+                # We'll use the link text for a clean name and the link structure for hints
+                wine_data['region'] = region_link.text.strip()
+                
+                # Try to infer country from the URL structure or a separate element
+                # Vivino often has a separate country link or is embedded in breadcrumbs
+                country_tag = soup.find('a', class_=re.compile(r'winePageHeader__country|wine-page-header__country-link'))
+                if country_tag:
+                    wine_data['country'] = country_tag.text.strip()
+                else:
+                    # Fallback to path if no country tag is found (e.g., /regions/france)
+                    if len(path_parts) > 1:
+                        country_slug = path_parts[1].replace('-', ' ').title()
+                        wine_data['country'] = country_slug
+
+        # --- Image URL ---
+        img_tag = soup.find('img', class_=re.compile(r'image-placeholder|winePageHeader__bottle|wine-image__image'))
+        if img_tag and img_tag.get('src'):
+            wine_data['image_url'] = img_tag['src'].strip()
+
+        # --- Extract Varietals and Type from JSON/Script Data ---
+        script_tags = soup.find_all('script', type='application/ld+json')
+        all_grape_names_collected = []
+        is_wine = False
+        found_grapes_in_json = False
+
+        for script in script_tags:
             try:
-                page_info = json.loads(json_str_match.group(1))
-                vintage_info = page_info.get('vintage', {})
-                wine_info = vintage_info.get('wine', {})
+                data = json.loads(script.string)
                 
-                # Try to get region and country from the JSON
-                if wine_info.get('region'):
-                    region_data = wine_info.get('region', {})
-                    if region_data.get('name'):
-                        wine_data['region'] = region_data['name']
-                        logger.debug(f"Found Region from __PRELOADED_STATE__: {wine_data['region']}")
-                    
-                    if region_data.get('country'):
-                        country_data = region_data.get('country', {})
-                        if country_data.get('name'):
-                             wine_data['country'] = country_data['name']
-                             logger.debug(f"Found Country from __PRELOADED_STATE__: {wine_data['country']}")
+                if isinstance(data, dict):
+                    if data.get('@type') == 'Product' and data.get('name') == wine_data['name']:
+                        is_wine = True
+                        # Try to get type (e.g., "Red Wine")
+                        description = data.get('description', '')
+                        for wine_type in WINE_TYPES:
+                            if wine_type in description:
+                                wine_data['wine_type'] = wine_type
+                                break
 
-                if wine_data['image_url'] is None:
-                    image_variations = vintage_info.get('image', {}).get('variations', {})
-                    image_url = image_variations.get('bottle_large') or image_variations.get('bottle_medium')
-                    if image_url:
-                        wine_data['image_url'] = 'https:' + image_url if image_url.startswith('//') else image_url
-                        logger.debug(f"Found Image URL from __PRELOADED_STATE__: {image_url}")
-
-                if wine_data['wine_type'] is None:
-                    wine_type_id = wine_info.get('type_id')
-                    if wine_type_id == 1: wine_data['wine_type'] = 'Red'
-                    elif wine_type_id == 2: wine_data['wine_type'] = 'White'
-                    elif wine_type_id == 3: wine_data['wine_type'] = 'Sparkling'
-                    elif wine_type_id == 4: wine_data['wine_type'] = 'Rosé'
-                    elif wine_type_id == 7: wine_data['wine_type'] = 'Dessert'
-                    elif wine_type_id == 24: wine_data['wine_type'] = 'Fortified'
-                    if wine_data['wine_type']:
-                         logger.debug(f"Found Wine Type from __PRELOADED_STATE__: {wine_data['wine_type']}")
-
-                if wine_data['alcohol_percent'] is None:
-                    alcohol = vintage_info.get('wine_facts', {}).get('alcohol') or vintage_info.get('alcohol')
-                    if alcohol:
-                        try:
-                            wine_data['alcohol_percent'] = float(alcohol)
-                            logger.debug(f"Found Alcohol Percentage from __PRELOADED_STATE__: {wine_data['alcohol_percent']}%")
-                        except (ValueError, TypeError):
-                            logger.debug("Could not parse alcohol percentage from __PRELOADED_STATE__.")
-
-            except json.JSONDecodeError:
-                logger.warning("Failed to decode __PRELOADED_STATE__ JSON.")
-    
-    script_tags = soup.find_all('script', type='application/ld+json')
-    for script in script_tags:
-        try:
-            json_ld = json.loads(script.string)
-            if isinstance(json_ld, dict):
-                is_product = json_ld.get('@type') == 'Product'
-                is_wine = json_ld.get('@type') == 'Wine'
-                if is_product:
-                    if 'aggregateRating' in json_ld and wine_data['vivino_rating'] is None:
-                        try: wine_data['vivino_rating'] = float(str(json_ld['aggregateRating'].get('ratingValue')).replace(',', '.'))
-                        except (ValueError, TypeError, AttributeError): pass
-                
-                grape_source = None
-                if is_product and 'containsWine' in json_ld and isinstance(json_ld['containsWine'], dict) and 'grape' in json_ld['containsWine']:
-                    grape_source = json_ld['containsWine']['grape']
-                elif is_wine and 'grape' in json_ld:
-                    grape_source = json_ld['grape']
-
-                if grape_source:
-                    found_grapes_in_json = True
-                    if isinstance(grape_source, list): all_grape_names_collected.extend([g['name'] for g in grape_source if g and 'name' in g])
-                    elif isinstance(grape_source, dict) and 'name' in grape_source: all_grape_names_collected.append(grape_source['name'].strip())
+                        # Try to get varietals from product data (often nested)
+                        grape_source = data.get('recipeIngredient') or data.get('aggregateRating', {}).get('reviewAspect')
+                        if grape_source:
+                            found_grapes_in_json = True
+                            if isinstance(grape_source, list): all_grape_names_collected.extend([g['name'] for g in grape_source if g and 'name' in g])
+                        
+                    elif isinstance(data, list):
+                        # Sometimes the main product data is an array
+                        for item in data:
+                            if item.get('@type') == 'Product' and item.get('name') == wine_data['name']:
+                                is_wine = True
+                                grape_source = item.get('recipeIngredient') or item.get('aggregateRating', {}).get('reviewAspect')
+                                if grape_source:
+                                    found_grapes_in_json = True
+                                    if isinstance(grape_source, list): all_grape_names_collected.extend([g['name'] for g in grape_source if g and 'name' in g])
+                                elif isinstance(grape_source, dict) and 'name' in grape_source: all_grape_names_collected.append(grape_source['name'].strip())
 
                 if is_wine:
-                    if wine_data['vintage'] is None and 'vintage' in json_ld:
-                        try: wine_data['vintage'] = int(json_ld['vintage'])
-                        except (ValueError, TypeError): pass
-        except (json.JSONDecodeError, KeyError, TypeError) as json_err:
-            logger.debug(f"Vivino JSON-LD parsing error (may be benign): {json_err}")
-            pass
+                    # Also check microdata for other attributes
+                    # This section is highly dependent on Vivino's ever-changing structure
+                    pass # Placeholder for further JSON scraping
 
-    # Fallback 1: Preload link
-    if wine_data['image_url'] is None:
-        preload_link = soup.find('link', rel='preload', attrs={'as': 'image'})
-        if preload_link and preload_link.has_attr('href'):
-            wine_data['image_url'] = preload_link['href']
-            logger.debug(f"Found Image URL from preload link: {wine_data['image_url']}")
+            except json.JSONDecodeError:
+                continue # Skip non-JSON or malformed script tags
+            except Exception as e:
+                logger.debug(f"Error processing JSON-LD script tag: {e}")
 
-
-    # Fallback 2: Regular img tag
-    if wine_data['image_url'] is None:
-        image_tag = soup.find('img', class_=re.compile(r'wine-page-image__image|vivinoImage_image|image-preview__image'))
-        if image_tag:
-            wine_data['image_url'] = image_tag.get('src') or image_tag.get('data-src')
-            logger.debug(f"Found Image URL from img tag: {wine_data['image_url']}")
-
-
-    if wine_data['image_url'] and wine_data['image_url'].startswith('//'):
-        wine_data['image_url'] = 'https:' + wine_data['image_url']
+        # --- Fallback Varietals from Links ---
+        # Search for links that look like varietal links
+        for a_tag in soup.find_all('a', href=True):
+            href = a_tag.get('href', '').lower()
+            text = a_tag.text.strip()
+            if text and '/grapes/' in href and not found_grapes_in_json and 'blend' not in text.lower():
+                 all_grape_names_collected.append(text)
+        
+        # If the image URL is schema-relative, make it absolute
+        if wine_data['image_url'] and wine_data['image_url'].startswith('//'):
+            wine_data['image_url'] = 'https:' + wine_data['image_url']
             
-    if wine_data['vintage'] is None:
-        match = re.search(r'\b(19\d{2}|20\d{2})\b', wine_data['name'])
-        if match:
+        # Fallback for Wine Type from breadcrumbs
+        if not wine_data['wine_type']:
             try:
-                wine_data['vintage'] = int(match.group(0))
-                wine_data['name'] = " ".join(wine_data['name'].replace(match.group(0), '').strip().split())
-            except ValueError: pass
+                type_tag = soup.find('a', class_=re.compile(r'winePageHeader__wineInfoLink|wine-page-header__wine-info-link'), href=re.compile(r'/wines/\w+$'))
+                if type_tag:
+                    type_text = type_tag.text.strip()
+                    for w_type in WINE_TYPES:
+                        if w_type.lower() in type_text.lower():
+                            wine_data['wine_type'] = w_type
+                            break
+            except Exception as e:
+                logger.debug(f"Could not parse wine type from breadcrumbs (non-critical): {e}")
 
-    if wine_data['vintage'] is None:
-        vintage_span = soup.find('span', class_='vintage')
-        if vintage_span:
-            match = re.search(r'\b(19\d{2}|20\d{2})\b', vintage_span.text)
-            if match:
-                try: wine_data['vintage'] = int(match.group(0))
-                except ValueError: pass
-    
-    # This is the old, less reliable fallback. We keep it just in case JSON fails.
-    for link in soup.find_all('a', href=re.compile(r'/(wine-countries|wine-regions|grapes)/')):
-        href = link.get('href', '')
-        text = link.get_text(strip=True).strip()
-        if '/wine-countries/' in href and wine_data['country'] == 'Unknown Country': 
-            wine_data['country'] = text
-            logger.debug(f"Found Country from fallback <a> tag: {text}")
-        elif '/wine-regions/' in href and wine_data['region'] == 'Unknown Region': 
-            wine_data['region'] = text
-            logger.debug(f"Found Region from fallback <a> tag: {text}")
-        elif not found_grapes_in_json and '/grapes/' in href and text and 'blend' not in text.lower(): all_grape_names_collected.append(text)
-    
-    # Fallback for Wine Type from breadcrumbs
-    if wine_data['wine_type'] is None:
-        try:
-            # Try to find breadcrumbs
-            breadcrumbs = soup.find('div', class_=re.compile(r'breadCrumbs'))
-            if breadcrumbs:
-                breadcrumb_links = breadcrumbs.find_all('a')
-                for link in breadcrumb_links:
-                    link_text = link.get_text(strip=True)
-                    # Check for wine types
-                    if any(wt in link_text for wt in WINE_TYPES):
-                         for wt in WINE_TYPES:
-                             if wt in link_text:
-                                 wine_data['wine_type'] = wt
-                                 logger.debug(f"Found Wine Type from breadcrumbs: {wt}")
-                                 break
-                    if wine_data['wine_type']:
-                        break
-        except Exception as e:
-            logger.debug(f"Could not parse wine type from breadcrumbs (non-critical): {e}")
+        # Fallback for Alcohol Percentage
+        if not wine_data['alcohol_percent']:
+            try:
+                facts_container = soup.find('div', class_=re.compile(r'wineFacts__factsList|wine-facts__facts-list'))
+                if facts_container:
+                    # Look for alcohol/alc within the facts table
+                    alcohol_tag = facts_container.find('div', text=re.compile(r'Alcohol|Alc\.', re.IGNORECASE))
+                    if alcohol_tag:
+                        # Value is often in the sibling/next element
+                        value_tag = alcohol_tag.find_next_sibling()
+                        if value_tag:
+                            alcohol_text = value_tag.text.strip()
+                            percent_match = re.search(r'(\d{1,2}(?:[.,]\d{1,2})?)\s*%', alcohol_text)
+                            if percent_match:
+                                wine_data['alcohol_percent'] = float(percent_match.group(1).replace(',', '.'))
+            except Exception as e:
+                logger.debug(f"Could not parse alcohol percentage from facts table (non-critical): {e}")
 
-    # Fallback for Alcohol Percentage
-    if wine_data['alcohol_percent'] is None:
-        try:
-            label_header = soup.find(['th', 'div'], string=re.compile(r'Alcohol content', re.I))
-            if label_header:
-                value_cell = label_header.find_next_sibling(['td', 'div'])
-                if value_cell:
-                    match = re.search(r'(\d{1,2}(\.\d{1,2})?)\s*%', value_cell.get_text())
-                    if match:
-                        wine_data['alcohol_percent'] = float(match.group(1))
-                        logger.debug(f"Found Alcohol Percentage from facts table: {wine_data['alcohol_percent']}%")
-        except Exception as e:
-            logger.debug(f"Could not parse alcohol percentage from facts table (non-critical): {e}")
-
-    # Heuristics for varietal ordering
-    if all_grape_names_collected or 'Unknown Wine' not in wine_data['name']:
-        cleaned_grapes = [g.strip() for g in all_grape_names_collected if g.strip().lower() not in ['wine']]
-        unique_grapes_ordered = list(dict.fromkeys(cleaned_grapes))
-        name_lower = wine_data['name'].lower()
-        current_grapes_lower = {g.lower() for g in unique_grapes_ordered}
+        # --- START REFACTOR ---
+        # Varietal processing is MOVED to scrape_vivino_url() so it can access region.yaml hints.
+        # We will just collect and store the raw grape list here.
         
-        # --- REVISED: Use GLOBAL_GRAPE_VARIETALS instead of MASTER_GRAPE_LIST ---
-        for grape_lower in GLOBAL_GRAPE_VARIETALS: 
-            if grape_lower not in current_grapes_lower:
-                # Check for word boundary match in the wine name
-                if re.search(r'\b' + re.escape(grape_lower) + r'\b', name_lower):
-                    # Use title case for appending to keep the capitalization format consistent
-                    capitalized_grape = grape_lower.title() 
-                    unique_grapes_ordered.append(capitalized_grape)
-                    logger.debug(f"Augmented grape list with '{capitalized_grape}' from wine name.")
+        raw_grapes = []
+        if all_grape_names_collected or 'Unknown Wine' not in wine_data['name']:
+            cleaned_grapes = [g.strip() for g in all_grape_names_collected if g.strip().lower() not in ['wine']]
+            raw_grapes = list(dict.fromkeys(cleaned_grapes))
         
-        grapes_in_name = []
-        for grape in unique_grapes_ordered:
-            match = re.search(r'\b' + re.escape(grape.lower()) + r'\b', name_lower)
-            if match:
-                grapes_in_name.append({'name': grape, 'pos': match.start()})
-        if grapes_in_name:
-            grapes_in_name.sort(key=lambda x: x['pos'])
-            prioritized_grapes = [g['name'] for g in grapes_in_name]
-            remaining_grapes = [g for g in unique_grapes_ordered if g not in prioritized_grapes]
-            unique_grapes_ordered = prioritized_grapes + remaining_grapes
-        preferred_syrah_term = None
-        if 'shiraz' in name_lower:
-            preferred_syrah_term = 'Shiraz'
-        elif 'syrah' in name_lower:
-            preferred_syrah_term = 'Syrah'
-        final_grapes = []
-        for grape in unique_grapes_ordered:
-            is_syrah_family = 'syrah' in grape.lower() or 'shiraz' in grape.lower()
-            if not is_syrah_family:
-                final_grapes.append(grape)
-                continue
-            term_to_use = 'Syrah'
-            if preferred_syrah_term:
-                term_to_use = preferred_syrah_term
-            elif wine_data.get('country') in ['Australia', 'South Africa']:
-                term_to_use = 'Shiraz'
-            final_grapes.append(term_to_use)
-        if final_grapes:
-             wine_data['varietal'] = ", ".join(list(dict.fromkeys(final_grapes)))
+        wine_data['raw_grapes'] = raw_grapes
+        # --- END REFACTOR ---
 
-    if wine_data['vivino_rating'] is None:
-        rating_tag = soup.find('div', class_=re.compile(r'vivinoRating_averageValue|community-score__score'))
-        if rating_tag:
-            try: wine_data['vivino_rating'] = float(rating_tag.text.strip().replace(',', '.'))
-            except (ValueError, TypeError): pass
+        # Fallback for Vivino Rating
+        if wine_data['vivino_rating'] is None:
+            rating_tag = soup.find('div', class_=re.compile(r'vivinoRating_averageValue|community-score__score'))
+            if rating_tag:
+                try:
+                    rating = float(rating_tag.text.strip().replace(',', '.'))
+                    wine_data['vivino_rating'] = rating
+                except ValueError:
+                    logger.debug("Could not convert rating text to float.")
+
+    except TimeoutException:
+        logger.warning(f"Selenium Timeout (15s) for {url}. Page did not load completely.")
+        wine_data['needs_review'] = True
+    except WebDriverException as e:
+        logger.error(f"WebDriver error for {url}: {e}")
+        wine_data['needs_review'] = True
+    except Exception as e:
+        logger.error(f"An unexpected error occurred during Selenium scrape for {url}: {e}")
+        wine_data['needs_review'] = True
+    finally:
+        if driver:
+            driver.quit()
 
     return wine_data, final_url_after_scrape
+
+def _collect_hints(data_dict: dict, collected: dict):
+    """Helper to recursively merge hints, with deeper hints overwriting."""
+    if isinstance(data_dict, dict):
+        if "hints" in data_dict and isinstance(data_dict["hints"], dict):
+            # Merge/overwrite hints from this level
+            for key, value in data_dict["hints"].items():
+                if key not in collected:
+                    collected[key] = value
+                # For dict hints like varietal_name_override, we need to merge the dicts
+                elif isinstance(value, dict) and isinstance(collected.get(key), dict):
+                    collected[key].update(value)
+                else:
+                    # Deeper hint overwrites shallower one
+                    collected[key] = value
+    return collected
+
 
 def match_region(scraped_region: str, scraped_country: str = None):
     """
@@ -413,13 +346,15 @@ def match_region(scraped_region: str, scraped_country: str = None):
     Country → regions → subregions → subsubregions
 
     Returns a dict:
-      {"country": ..., "region": ..., "subregion": ..., "subsubregion": ...}
+      {"country": ..., "region": ..., "subregion": ..., "subsubregion": ..., "hints": {...}}
     """
     if not scraped_region:
         return None
 
     region_clean = scraped_region.strip().lower()
-    match = {"country": None, "region": None, "subregion": None, "subsubregion": None}
+    
+    # Default match object now includes a hints dictionary
+    match = {"country": None, "region": None, "subregion": None, "subsubregion": None, "hints": {}}
 
     # Step 1: Focus search if country hint provided
     if scraped_country and scraped_country in REGION_DATA:
@@ -429,11 +364,16 @@ def match_region(scraped_region: str, scraped_country: str = None):
 
     # Step 2: Traverse nested structure
     for country, country_data in countries_to_search.items():
+        # --- HINT LOGIC: Collect hints from Country level ---
+        _collect_hints(country_data, match["hints"])
+
         regions = country_data.get("regions", {})
         for region_name, region_data in regions.items():
             # Level 1: region
             if region_clean == region_name.lower():
                 match.update({"country": country, "region": region_name})
+                # --- HINT LOGIC: Collect hints from Region level ---
+                _collect_hints(region_data, match["hints"])
                 return match
 
             subregions = region_data.get("subregions", {})
@@ -445,6 +385,9 @@ def match_region(scraped_region: str, scraped_country: str = None):
                         "region": region_name,
                         "subregion": subregion_name
                     })
+                    # --- HINT LOGIC: Collect hints from Region AND Subregion level ---
+                    _collect_hints(region_data, match["hints"]) # Region level
+                    _collect_hints(subregion_data, match["hints"]) # Subregion level
                     return match
 
                 subsubs = subregion_data.get("subsubregions", [])
@@ -457,108 +400,192 @@ def match_region(scraped_region: str, scraped_country: str = None):
                             "subregion": subregion_name,
                             "subsubregion": subsub
                         })
+                        # --- HINT LOGIC: Collect hints from all levels ---
+                        _collect_hints(region_data, match["hints"]) # Region
+                        _collect_hints(subregion_data, match["hints"]) # Subregion
+                        # (subsubregions are a list, so no hints)
                         return match
 
     logger.debug(f"No region match for '{region_clean}' in nested YAML under countries: {list(countries_to_search.keys())[:5]}")
-    return None
+    # Return match with only country-level hints if no region was found
+    if match["country"] is None and scraped_country and scraped_country in REGION_DATA:
+        # Re-collect country hints, as the previous loop iterations might have overwritten them 
+        # based on failed region matches (though _collect_hints handles overwrites from deeper levels)
+        country_data = REGION_DATA[scraped_country]
+        country_hints = {}
+        _collect_hints(country_data, country_hints)
+        match["hints"] = country_hints # Overwrite hints with just country hints
+        match["country"] = scraped_country
+    
+    return match if match.get("region") or match.get("country") else None
+
 
 def scrape_vivino_url(vivino_url):
     """
-    Orchestrates scraping using a headless browser to be resilient to anti-bot measures.
+    Main function to scrape a single Vivino URL using Selenium and apply
+    post-processing (region and varietal normalization).
     """
-    logger.info(f"Starting Selenium-based scrape for: {vivino_url}")
+    
+    wine_data, final_url = _perform_scrape_attempt_selenium(vivino_url)
+    
+    if not wine_data:
+        logger.warning("All scrape attempts failed. Attempting to parse URL for final fallback data.")
+        fallback_data = _parse_url_for_fallback_data(vivino_url)
 
-    # --- Phase 1: Pre-scrape region hint from URL ---
-    region_hint = _region_hint_from_url(vivino_url)
-    if region_hint:
-        logger.debug(f"URL region hint detected: {region_hint}")
+        # --- Phase 1: Fallback region normalization ---
+        if fallback_data and fallback_data.get("region"):
+            region_hint = match_region(fallback_data.get("region"), fallback_data.get("country"))
+            if region_hint:
+                fallback_data["country"] = region_hint.get("country")
+                fallback_data["region"] = (
+                    region_hint.get("subsubregion")
+                    or region_hint.get("subregion")
+                    or region_hint.get("region")
+                )
+                logger.debug(f"Fallback region normalized via region.yaml: {region_hint}")
 
-    wine_data, canonical_url = _perform_scrape_attempt_selenium(vivino_url)
-    if not canonical_url:
-        canonical_url = vivino_url
+        if fallback_data and 'Vivino Wine ID' not in fallback_data.get('name', ''):
+            minimal_data = {
+                'name': 'Unknown Wine', 'vintage': None, 'varietal': 'Unknown Varietal',
+                'region': 'Unknown Region', 'country': 'Unknown Country',
+                'vivino_rating': None, 'image_url': None,
+                'alcohol_percent': None, 'wine_type': None,
+                'needs_review': True
+            }
+            minimal_data.update(fallback_data)
+            logger.warning(f"Full scrape failed, returning partial data from URL for review: {fallback_data.get('name')}")
+            return minimal_data
+        
+        # Final failure
+        return {
+            'name': 'Vivino Wine ID not found or unreachable', 'vintage': None, 'varietal': 'Unknown Varietal',
+            'region': 'Unknown Region', 'country': 'Unknown Country',
+            'vivino_rating': None, 'image_url': None,
+            'alcohol_percent': None, 'wine_type': None,
+            'needs_review': True
+        }
 
-    # --- Apply URL hint if scrape has no region/country ---
-    if wine_data and region_hint:
-        if not wine_data.get("region"):
-            wine_data["region"] = (
-                region_hint.get("subsubregion")
-                or region_hint.get("subregion")
-                or region_hint.get("region")
-            )
-        if not wine_data.get("country"):
-            wine_data["country"] = region_hint.get("country")
-
-    # --- Region normalization using region.yaml ---
+    # --- Phase 2: Region normalization (if scraped data is available) ---
+    region_hints = {}
     if wine_data and wine_data.get("region"):
         region = wine_data.get("region")
         country = wine_data.get("country")
         region_info = match_region(region, country)
-
+        
+        # --- NEW: Store hints for varietal processing ---
         if region_info:
+            region_hints = region_info.get("hints", {})
             display_region = (
                 region_info.get("subsubregion")
                 or region_info.get("subregion")
                 or region_info.get("region")
+                or region
             )
-            display_country = region_info.get("country")
-
-            parts = [
-                region_info.get("subsubregion"),
-                region_info.get("subregion"),
-                region_info.get("region"),
-            ]
-            region_full = " – ".join([p for p in parts if p])
-
-            if display_country:
-                country_obj = REGION_DATA.get(display_country, {})
-                country_code = country_obj.get("code", display_country[:2].upper())
-                region_full = f"{region_full} – {country_code}"
-
+            region_full = (
+                region_info.get("subsubregion")
+                or region_info.get("subregion")
+                or region_info.get("region")
+            )
             wine_data["region"] = display_region
-            wine_data["country"] = display_country
+            wine_data["country"] = region_info.get("country")
             wine_data["region_full"] = region_full
 
             logger.debug(f"Region normalized via region.yaml: {region_info}")
             logger.debug(f"Derived display_region='{display_region}', region_full='{region_full}'")
         else:
             logger.debug(f"No region match found for '{region}' — using raw scraped values.")
+            # --- NEW: Fallback to get country hints even if region fails ---
+            if country and country in REGION_DATA:
+                country_data = REGION_DATA[country]
+                _collect_hints(country_data, region_hints)
+                logger.debug(f"Collected fallback country hints for {country}: {region_hints}")
 
-    # --- Handle fallback or failure ---
-    if wine_data:
-        logger.info(f"Success on initial Selenium scrape for {canonical_url}")
-        return wine_data, canonical_url
 
-    logger.warning(f"Initial Selenium scrape failed for {canonical_url}. Cooling down before checking nearby vintages.")
-    time.sleep(random.uniform(3.0, 5.0))
+    # --- Phase 3: Varietal processing (Moved from scrape attempt) ---
+    raw_grapes = wine_data.pop('raw_grapes', []) # Get raw grapes from scrape attempt
+    if raw_grapes or 'Unknown Wine' not in wine_data['name']:
+        unique_grapes_ordered = raw_grapes # Start with the raw list
+        name_lower = wine_data['name'].lower()
+        current_grapes_lower = {g.lower() for g in unique_grapes_ordered}
+        
+        # 1. Augment from wine name using GLOBAL_GRAPE_VARIETALS
+        for grape_lower in GLOBAL_GRAPE_VARIETALS: 
+            if grape_lower not in current_grapes_lower:
+                # Use word boundary to prevent partial matches (e.g., 'pinot' matching 'pinot noir')
+                if re.search(r'\b' + re.escape(grape_lower) + r'\b', name_lower):
+                    capitalized_grape = grape_lower.title() 
+                    unique_grapes_ordered.append(capitalized_grape)
+                    current_grapes_lower.add(grape_lower)
+                    logger.debug(f"Augmented grape list with '{capitalized_grape}' from wine name.")
+        
+        # 2. Sort by position in name
+        grapes_in_name = []
+        for grape in unique_grapes_ordered:
+            match = re.search(r'\b' + re.escape(grape.lower()) + r'\b', name_lower)
+            if match:
+                grapes_in_name.append({'name': grape, 'pos': match.start()})
+        
+        if grapes_in_name:
+            grapes_in_name.sort(key=lambda x: x['pos'])
+            prioritized_grapes = [g['name'] for g in grapes_in_name]
+            # Ensure we don't lose grapes that weren't found in the name (e.g., found in HTML but not name)
+            remaining_grapes = [g for g in unique_grapes_ordered if g not in prioritized_grapes]
+            unique_grapes_ordered = prioritized_grapes + remaining_grapes
+        
+        # 3. Determine the correct term for Syrah/Shiraz
+        preferred_syrah_term = None
+        
+        # A. Check name first (most specific)
+        if 'shiraz' in name_lower:
+            preferred_syrah_term = 'Shiraz'
+        elif 'syrah' in name_lower:
+            preferred_syrah_term = 'Syrah'
+        
+        # B. If not in name, check region.yaml hints
+        if not preferred_syrah_term:
+            override_hints = region_hints.get('varietal_name_override', {})
+            # Check for a specific override instruction
+            if 'Syrah' in override_hints and override_hints['Syrah'].lower() == 'shiraz':
+                preferred_syrah_term = 'Shiraz'
+            elif 'Shiraz' in override_hints and override_hints['Shiraz'].lower() == 'syrah':
+                preferred_syrah_term = 'Syrah'
+            # Fallback check (less specific, used if the hint is just one of them)
+            elif 'Syrah' in override_hints: 
+                 preferred_syrah_term = override_hints['Syrah']
+            elif 'Shiraz' in override_hints: 
+                 preferred_syrah_term = override_hints['Shiraz']
 
-    # --- (rest of your vintage and fallback logic unchanged) ---
 
-    logger.warning("All scrape attempts failed. Attempting to parse URL for final fallback data.")
-    fallback_data = _parse_url_for_fallback_data(vivino_url)
+        # C. If no hint, default to 'Syrah'
+        if not preferred_syrah_term:
+            preferred_syrah_term = 'Syrah' 
+            
+        # 4. Apply the final term
+        final_grapes = []
+        for grape in unique_grapes_ordered:
+            is_syrah_family = 'syrah' in grape.lower() or 'shiraz' in grape.lower()
+            if not is_syrah_family:
+                final_grapes.append(grape)
+                continue
+            
+            # Add the correct term, but only once
+            if preferred_syrah_term not in final_grapes:
+                final_grapes.append(preferred_syrah_term)
 
-    # --- Phase 1: Fallback region normalization ---
-    if fallback_data and fallback_data.get("region"):
-        region_hint = match_region(fallback_data.get("region"), fallback_data.get("country"))
-        if region_hint:
-            fallback_data["country"] = region_hint.get("country")
-            fallback_data["region"] = (
-                region_hint.get("subsubregion")
-                or region_hint.get("subregion")
-                or region_hint.get("region")
-            )
-            logger.debug(f"Fallback region normalized via region.yaml: {region_hint}")
+        if final_grapes:
+            wine_data['varietal'] = ", ".join(final_grapes)
+        elif not raw_grapes:
+            # If no grapes were found, keep the default
+            wine_data['varietal'] = 'Unknown Varietal'
 
-    if fallback_data and 'Vivino Wine ID' not in fallback_data.get('name', ''):
-        minimal_data = {
-            'name': 'Unknown Wine', 'vintage': None, 'varietal': 'Unknown Varietal',
-            'region': 'Unknown Region', 'country': 'Unknown Country',
-            'vivino_rating': None, 'image_url': None,
-            'alcohol_percent': None, 'wine_type': None,
-            'needs_review': True
-        }
-        minimal_data.update(fallback_data)
-        logger.warning(f"Full scrape failed, returning partial data from URL for review: {fallback_data.get('name')}")
-        return minimal_data, vivino_url
+    # --- END REFACTOR ---
 
-    logger.error(f"All scrape and fallback attempts failed for {vivino_url}.")
-    return None, None
+    # --- Handle final cleanup/failure check ---
+    if wine_data['name'] == 'Unknown Wine' and not final_url.endswith('/wines'):
+        logger.warning(f"Returning partial data due to 'Unknown Wine' name after scrape: {final_url}")
+        wine_data['needs_review'] = True
+    elif 'Unknown Varietal' in wine_data.get('varietal', '') and 'Unknown Wine' not in wine_data['name']:
+        logger.warning(f"Wine scraped successfully but varietal is missing or ambiguous: {wine_data['name']}")
+        wine_data['needs_review'] = True # Mark for review if key data is missing but scrape succeeded
+
+    return wine_data
