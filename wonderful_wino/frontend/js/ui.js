@@ -156,6 +156,13 @@ export function collapseAddWinePanel() {
     }
     clearTimeout(state.panelCollapseTimer);
     state.setPanelCollapseTimer(null);
+        // Also hide any status message when collapsing
+    const msgEl = document.getElementById('scanMessage');
+    if (msgEl) {
+        msgEl.classList.add('hidden');
+        msgEl.textContent = '';
+        clearTimeout(msgEl._hideTimer);
+    }
 }
 
 export function startPanelCollapseTimer() {
@@ -169,4 +176,31 @@ export function resetVivinoPanel() {
     document.getElementById('vivinoUrlInput').value = '';
     document.getElementById('quantityInput').value = '1';
     updateMainCostTierSelector(null);
+}
+export function showScanMessage(message, type = 'info', duration = 7000) {
+    const msgEl = document.getElementById('scanMessage');
+    if (!msgEl) return;
+
+    // Style based on message type
+    msgEl.classList.remove('hidden', 'text-green-600', 'text-red-600', 'text-blue-600');
+    msgEl.classList.add(
+        type === 'success' ? 'text-green-600' :
+        type === 'error'   ? 'text-red-600' :
+                             'text-blue-600'
+    );
+    msgEl.textContent = message;
+
+    // Show and auto-hide after `duration` ms
+    clearTimeout(msgEl._hideTimer);
+    msgEl._hideTimer = setTimeout(() => {
+        msgEl.classList.add('hidden');
+        msgEl.textContent = '';
+    }, duration);
+
+    // Allow manual dismissal by click
+    msgEl.onclick = () => {
+        msgEl.classList.add('hidden');
+        msgEl.textContent = '';
+        clearTimeout(msgEl._hideTimer);
+    };
 }
