@@ -214,7 +214,7 @@ def add_or_update_wine(wine_data: dict, quantity: int, cost_tier: int):
         else:
             cursor.execute('''
                 INSERT INTO wines (
-                    vivino_url, name, vintage, varietal, region, region_full = ?, country, vivino_rating,
+                    vivino_url, name, vintage, varietal, region, region_full, country, vivino_rating,
                     image_url, quantity, cost_tier, personal_rating, tasting_notes,
                     alcohol_percent, wine_type, needs_review
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
