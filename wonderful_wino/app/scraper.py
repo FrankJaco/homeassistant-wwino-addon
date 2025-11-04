@@ -385,6 +385,15 @@ def _collect_hints(data_dict: dict, collected: dict):
                     collected[key] = value
     return collected
 
+def _normalize_name(name: str):
+    """
+    Cleans a string by removing spaces and hyphens for a robust comparison.
+    Converts to lowercase.
+    """
+    if not name:
+        return ""
+    # Remove spaces and hyphens, then convert to lowercase
+    return name.lower().replace(" ", "").replace("-", "")
 
 def match_region(scraped_region: str, scraped_country: str = None):
     """
@@ -399,7 +408,7 @@ def match_region(scraped_region: str, scraped_country: str = None):
     """
     if not scraped_region:
         return None
-
+    region_clean_norm = _normalize_name(scraped_region)
     region_clean = scraped_region.strip().lower()
     
     # Default match object now includes a hints dictionary
@@ -419,7 +428,7 @@ def match_region(scraped_region: str, scraped_country: str = None):
         regions = country_data.get("regions", {})
         for region_name, region_data in regions.items():
             # Level 1: region
-            if region_clean == region_name.lower():
+            if region_clean_norm == _normalize_name(region_name):
                 match.update({"country": country, "region": region_name})
                 # --- HINT LOGIC: Collect hints from Region level ---
                 _collect_hints(region_data, match["hints"])
@@ -428,7 +437,7 @@ def match_region(scraped_region: str, scraped_country: str = None):
             subregions = region_data.get("subregions", {})
             for subregion_name, subregion_data in subregions.items():
                 # Level 2: subregion
-                if region_clean == subregion_name.lower():
+                if region_clean_norm == _normalize_name(subregion_name):
                     match.update({
                         "country": country,
                         "region": region_name,
@@ -442,7 +451,7 @@ def match_region(scraped_region: str, scraped_country: str = None):
                 subsubs = subregion_data.get("subsubregions", [])
                 for subsub in subsubs:
                     # Level 3: subsubregion
-                    if region_clean == subsub.lower():
+                    if region_clean_norm == _normalize_name(subsub):
                         match.update({
                             "country": country,
                             "region": region_name,
