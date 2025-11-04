@@ -430,11 +430,54 @@ def normalize_region_name(region_name):
     
     return normalized_name
 
+def _check_pipe_match(scraped_normalized_name, region_name_from_yaml, _normalize_name_func):
+    """
+    Checks if a normalized scraped name matches a YAML entry, 
+    supporting the 'Base |Suffix' syntax for optional suffixes.
+    
+    Args:
+        scraped_normalized_name (str): The hyphen/space-stripped scraped name (e.g., 'napa').
+        region_name_from_yaml (str): The name read from YAML (e.g., 'Napa |Valley').
+        _normalize_name_func (function): Reference to your existing _normalize_name function.
+        
+    Returns:
+        tuple: (bool: True if matched, str: the full canonical name if matched)
+    """
+    if '|' in region_name_from_yaml:
+        # Handle 'Base |Suffix' logic (e.g., 'Napa |Valley')
+        parts = region_name_from_yaml.split('|', 1)
+        base_name = parts[0].strip()
+        suffix = parts[1].strip()
+        
+        # 1. Full Canonical Name (Napa Valley)
+        full_canonical_name = f"{base_name} {suffix}".strip()
+        full_normalized = _normalize_name_func(full_canonical_name)
+
+        # 2. Base Name Only (Napa)
+        base_normalized = _normalize_name_func(base_name)
+
+        if scraped_normalized_name == full_normalized:
+            return True, full_canonical_name
+        
+        if scraped_normalized_name == base_normalized:
+            # Match found via short-form, but return the full canonical name
+            return True, full_canonical_name
+            
+        return False, None
+    else:
+        # Handle standard name with no pipe (e.g., 'Stags Leap' or existing 'Napa Valley')
+        yaml_normalized = _normalize_name_func(region_name_from_yaml)
+        if scraped_normalized_name == yaml_normalized:
+            # For non-pipe entries, the canonical name is the YAML entry itself
+            return True, region_name_from_yaml
+            
+        return False, None
+
 def match_region(scraped_region: str, scraped_country: str = None):
     """
     Attempts to find the best matching region/subregion/country
     for a scraped Vivino region name using REGION_DATA.
-
+    
     Supports nested YAML format:
     Country → regions → subregions → subsubregions
 
@@ -443,6 +486,8 @@ def match_region(scraped_region: str, scraped_country: str = None):
     """
     if not scraped_region:
         return None
+        
+    # NOTE: You must ensure _normalize_name is defined and accessible here.
     region_clean_norm = _normalize_name(scraped_region)
     region_clean = scraped_region.strip().lower()
     
@@ -462,42 +507,64 @@ def match_region(scraped_region: str, scraped_country: str = None):
 
         regions = country_data.get("regions", {})
         for region_name, region_data in regions.items():
-            # Level 1: region
-            if region_clean_norm == _normalize_name(region_name):
-                match.update({"country": country, "region": region_name})
+            
+            # ------------------------------------------------------------------
+            # Level 1: region (e.g., California, Bordeaux)
+            # Use pipe match logic for robustness, though rare at this level.
+            is_match, canonical_region_name = _check_pipe_match(
+                region_clean_norm, region_name, _normalize_name
+            )
+            
+            if is_match:
+                match.update({"country": country, "region": canonical_region_name})
                 # --- HINT LOGIC: Collect hints from Region level ---
                 _collect_hints(region_data, match["hints"])
                 return match
+            # ------------------------------------------------------------------
 
             subregions = region_data.get("subregions", {})
             for subregion_name, subregion_data in subregions.items():
-                # Level 2: subregion
-                if region_clean_norm == _normalize_name(subregion_name):
+                
+                # ------------------------------------------------------------------
+                # Level 2: subregion (e.g., Napa |Valley, Barossa |Valley)
+                is_match, canonical_subregion_name = _check_pipe_match(
+                    region_clean_norm, subregion_name, _normalize_name
+                )
+                
+                if is_match:
                     match.update({
                         "country": country,
                         "region": region_name,
-                        "subregion": subregion_name
+                        "subregion": canonical_subregion_name # Use canonical name
                     })
                     # --- HINT LOGIC: Collect hints from Region AND Subregion level ---
-                    _collect_hints(region_data, match["hints"]) # Region level
-                    _collect_hints(subregion_data, match["hints"]) # Subregion level
+                    _collect_hints(region_data, match["hints"])
+                    _collect_hints(subregion_data, match["hints"])
                     return match
+                # ------------------------------------------------------------------
 
                 subsubs = subregion_data.get("subsubregions", [])
-                for subsub in subsubs:
-                    # Level 3: subsubregion
-                    if region_clean_norm == _normalize_name(subsub):
+                for subsub_name in subsubs:
+                    
+                    # ------------------------------------------------------------------
+                    # Level 3: subsubregion (list items, e.g., Russian River |Valley)
+                    is_match, canonical_subsub_name = _check_pipe_match(
+                        region_clean_norm, subsub_name, _normalize_name
+                    )
+
+                    if is_match:
                         match.update({
                             "country": country,
                             "region": region_name,
                             "subregion": subregion_name,
-                            "subsubregion": subsub
+                            "subsubregion": canonical_subsub_name # Use canonical name
                         })
                         # --- HINT LOGIC: Collect hints from all levels ---
-                        _collect_hints(region_data, match["hints"]) # Region
-                        _collect_hints(subregion_data, match["hints"]) # Subregion
+                        _collect_hints(region_data, match["hints"])
+                        _collect_hints(subregion_data, match["hints"])
                         # (subsubregions are a list, so no hints)
                         return match
+                    # ------------------------------------------------------------------
 
     logger.debug(f"No region match for '{region_clean}' in nested YAML under countries: {list(countries_to_search.keys())[:5]}")
     # Return match with only country-level hints if no region was found
@@ -505,8 +572,6 @@ def match_region(scraped_region: str, scraped_country: str = None):
         match["country"] = scraped_country
     
     return match if match.get("region") else None
-
-
 def scrape_vivino_url(vivino_url):
     """
     Orchestrates scraping using a headless browser to be resilient to anti-bot measures.
