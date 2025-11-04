@@ -572,6 +572,16 @@ def match_region(scraped_region: str, scraped_country: str = None):
         match["country"] = scraped_country
     
     return match if match.get("region") else None
+
+def strip_pipe_suffix(region_name: str) -> str:
+    """Removes the '|Suffix' used for region matching aliases."""
+    if not region_name:
+        return ""
+    # Find the pipe, and take everything before it.
+    if '|' in region_name:
+        return region_name.split('|')[0].strip()
+    return region_name.strip()
+
 def scrape_vivino_url(vivino_url):
     """
     Orchestrates scraping using a headless browser to be resilient to anti-bot measures.
@@ -624,7 +634,7 @@ def scrape_vivino_url(vivino_url):
             parts = [
                 region_info.get("subsubregion"),
                 region_info.get("subregion"),
-                region_info.get("region"),
+                strip_pipe_suffix(region_info.get("region")),
             ]
             region_full = " – ".join([p for p in parts if p])
 
