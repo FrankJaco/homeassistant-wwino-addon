@@ -377,7 +377,6 @@ def _collect_hints(data_dict: dict, collected: dict):
             for key, value in data_dict["hints"].items():
                 if key not in collected:
                     collected[key] = value
-                # This simple merge works for bank_type, etc.
                 # For dict hints like varietal_name_override, we need to merge the dicts
                 elif isinstance(value, dict) and isinstance(collected[key], dict):
                     collected[key].update(value)
@@ -581,18 +580,18 @@ def scrape_vivino_url(vivino_url):
 
         if priority_list:
             new_order = []
-                # 2a. Iterate through the regional priority list and place them first
-                for grape in priority_list:
-                    grape_in_list = next((g for g in unique_grapes_ordered if g.lower() == grape.lower()), None)
-                    if grape_in_list and grape_in_list not in new_order:
-                        new_order.append(grape_in_list)
-                
-                # 2b. Add all remaining grapes (preserving their original relative order)
+            # 2a. Iterate through the regional priority list and place them first
+            for grape in priority_list:
+                grape_in_list = next((g for g in unique_grapes_ordered if g.lower() == grape.lower()), None)
+                if grape_in_list and grape_in_list not in new_order:
+                    new_order.append(grape_in_list)
+            
+            # 2b. Add all remaining grapes (preserving their original relative order)
             for grape in unique_grapes_ordered:
-                    if grape not in new_order:
-                        new_order.append(grape)
-                        
-                unique_grapes_ordered = new_order
+                if grape not in new_order:
+                    new_order.append(grape)
+                    
+            unique_grapes_ordered = new_order
         
         # 3. Sort by position in name (was step 2)
         grapes_in_name = []
