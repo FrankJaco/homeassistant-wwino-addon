@@ -3,7 +3,7 @@ United States:
   regions:
     California:
       subregions:
-        Napa Valley:
+        Napa |Valley:
           subsubregions:
             - Stags Leap
             - Rutherford
@@ -17,7 +17,7 @@ United States:
           subsubregions:
             - Russian River Valley
             - Alexander Valley
-            - Dry Creek Valley
+            - Dry Creek |Valley
             - Sonoma Coast
             - Bennett Valley
             - Sonoma Valley
@@ -398,7 +398,7 @@ Australia:
   regions:
     South Australia:
       subregions:
-        Barossa Valley:
+        Barossa |Valley:
           subsubregions: []
         McLaren Vale:
           subsubregions: []
