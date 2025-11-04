@@ -395,6 +395,41 @@ def _normalize_name(name: str):
     # Remove spaces and hyphens, then convert to lowercase
     return name.lower().replace(" ", "").replace("-", "")
 
+def normalize_region_name(region_name):
+    """
+    Normalizes a region name by stripping common, redundant
+    AVA/appellation suffixes from the end of the string.
+    """
+    if not region_name:
+        return region_name
+
+    normalized_name = region_name.strip()
+    
+    # Regex to match common suffixes (with optional preceding hyphen or space)
+    suffixes_pattern = (
+        r'\s*The Rocks District of Milton-Freewater'
+        r'|\s*District—Lake County'
+        r'|\s*District'
+        r'|\s*AVA'
+        r'|\s*Appellation'
+        r'|\s*Zone'
+        r'|\s*County'
+        r'|\s*I\.G\.T\.'  # Italy: Indicazione Geografica Tipica
+        r'|\s*D\.O\.C\.'  # Italy: Denominazione di Origine Controllata
+        r'|\s*D\.O\.C\.G\.' # Italy: Denominazione di Origine Controllata e Garantita
+    )
+    
+    # Use re.sub to remove the pattern from the end of the string, ignoring case
+    # The $ anchor ensures we only match at the end.
+    normalized_name = re.sub(
+        f'({suffixes_pattern})$',
+        '',
+        normalized_name,
+        flags=re.IGNORECASE
+    ).strip()
+    
+    return normalized_name
+
 def match_region(scraped_region: str, scraped_country: str = None):
     """
     Attempts to find the best matching region/subregion/country
@@ -500,12 +535,18 @@ def scrape_vivino_url(vivino_url):
 
     # --- Region normalization using region.yaml ---
     region_hints = {} # Initialize hints dict
+
     if wine_data and wine_data.get("region"):
+        # NEW: Apply suffix-stripping normalization first
+        raw_region = wine_data.get("region")
+        wine_data["region"] = normalize_region_name(raw_region)
+        logger.debug(f"Suffix-stripped region name from '{raw_region}' to '{wine_data['region']}'")
+        
         region = wine_data.get("region")
         country = wine_data.get("country")
         region_info = match_region(region, country)
         
-        # --- NEW: Store hints for varietal processing ---
+        # --- Store hints for varietal processing ---
         if region_info:
             region_hints = region_info.get("hints", {})
             display_region = (
@@ -673,6 +714,11 @@ def scrape_vivino_url(vivino_url):
 
     # --- Phase 1: Fallback region normalization ---
     if fallback_data and fallback_data.get("region"):
+        # NEW: Apply suffix-stripping normalization first
+        raw_region = fallback_data.get("region")
+        fallback_data["region"] = normalize_region_name(raw_region)
+        logger.debug(f"Fallback suffix-stripped region name from '{raw_region}' to '{fallback_data['region']}'")
+
         region_hint = match_region(fallback_data.get("region"), fallback_data.get("country"))
         if region_hint:
             fallback_data["country"] = region_hint.get("country")
