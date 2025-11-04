@@ -418,6 +418,8 @@ def normalize_region_name(region_name):
         r'|\s*I\.G\.T\.'  # Italy: Indicazione Geografica Tipica
         r'|\s*D\.O\.C\.'  # Italy: Denominazione di Origine Controllata
         r'|\s*D\.O\.C\.G\.' # Italy: Denominazione di Origine Controllata e Garantita
+        r'|\s*Classico' 
+        r'|\s*Superiore'
     )
     
     # Use re.sub to remove the pattern from the end of the string, ignoring case
