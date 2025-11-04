@@ -582,24 +582,21 @@ def scrape_vivino_url(vivino_url):
                 _collect_hints(country_data, region_hints)
                 logger.debug(f"Collected fallback country hints for {country}: {region_hints}")
 
-    # --- START REFACTOR: Varietal processing logic moved here ---
-    raw_grapes = wine_data.pop('raw_grapes', []) # Get raw grapes from scrape attempt
+    # --- Varietal processing logic moved here ---
+    raw_grapes = wine_data.pop('raw_grapes', [])
     if raw_grapes or 'Unknown Wine' not in wine_data['name']:
         unique_grapes_ordered = raw_grapes # Start with the raw list
         name_lower = wine_data['name'].lower()
-        current_grapes_lower = {g.lower() for g in unique_grapes_ordered}
-        
-        # 1. Augment from wine name using GLOBAL_GRAPE_VARIETALS
+        found_grapes_lower = {g.lower() for g in unique_grapes_ordered}
         for grape_lower in GLOBAL_GRAPE_VARIETALS: 
-            if grape_lower not in current_grapes_lower:
-                # Check for word boundary match in the wine name
+            if grape_lower not in found_grapes_lower:
                 if re.search(r'\b' + re.escape(grape_lower) + r'\b', name_lower):
-                    # Use title case for appending to keep the capitalization format consistent
                     capitalized_grape = grape_lower.title() 
                     unique_grapes_ordered.append(capitalized_grape)
+                    found_grapes_lower.add(grape_lower)                
                     logger.debug(f"Augmented grape list with '{capitalized_grape}' from wine name.")
-        
-        # --- NEW STEP: 2. Apply Regional Blend Order Heuristics ---
+
+        # --- Apply Regional Blend Order Heuristics ---
         bordeaux_bank = region_hints.get('bank_type')
         rhone_style = region_hints.get('rhone_style') # <-- ADD THIS
 
