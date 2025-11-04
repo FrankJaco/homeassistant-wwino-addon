@@ -377,6 +377,7 @@ def _collect_hints(data_dict: dict, collected: dict):
             for key, value in data_dict["hints"].items():
                 if key not in collected:
                     collected[key] = value
+                # This simple merge works for bank_type, etc.
                 # For dict hints like varietal_name_override, we need to merge the dicts
                 elif isinstance(value, dict) and isinstance(collected[key], dict):
                     collected[key].update(value)
@@ -670,10 +671,11 @@ def scrape_vivino_url(vivino_url):
                     unique_grapes_ordered.append(capitalized_grape)
                     found_grapes_lower.add(grape_lower)                
                     logger.debug(f"Augmented grape list with '{capitalized_grape}' from wine name.")
-
+        
         # --- Apply Regional Blend Order Heuristics ---
         bordeaux_bank = region_hints.get('bank_type')
-        rhone_style = region_hints.get('rhone_style') # <-- ADD THIS
+        rhone_style = region_hints.get('rhone_style')
+        blend_style = region_hints.get('blend_style') # <-- 1. ADD THIS
 
         if bordeaux_bank:
             logger.debug(f"Applying Bordeaux blend override for {bordeaux_bank}.")
@@ -686,7 +688,7 @@ def scrape_vivino_url(vivino_url):
             else:
                 priority_list = []
         
-        elif rhone_style: # <-- ADD THIS BLOCK
+        elif rhone_style:
             logger.debug(f"Applying Rhône blend override for {rhone_style}.")
             if rhone_style == 'North':
                 # Northern Rhône is Syrah-dominant (sometimes with Viognier)
@@ -697,7 +699,16 @@ def scrape_vivino_url(vivino_url):
             else:
                 priority_list = []
         
-        else: # <-- ADD THIS
+        elif blend_style: # <-- 2. ADD THIS BLOCK
+            logger.debug(f"Applying regional blend_style override for {blend_style}.")
+            if blend_style == 'Valpolicella':
+                priority_list = ['Corvina', 'Corvinone', 'Rondinella', 'Molinara']
+            elif blend_style == 'Rioja Red':
+                priority_list = ['Tempranillo', 'Garnacha', 'Graciano', 'Mazuelo']
+            else:
+                priority_list = []
+
+        else:
             priority_list = []
 
         if priority_list:
@@ -815,3 +826,4 @@ def scrape_vivino_url(vivino_url):
 
     logger.error(f"All scrape and fallback attempts failed for {vivino_url}.")
     return None, None
+
