@@ -552,6 +552,8 @@ def scrape_vivino_url(vivino_url):
         
         # --- NEW STEP: 2. Apply Regional Blend Order Heuristics ---
         bordeaux_bank = region_hints.get('bank_type')
+        rhone_style = region_hints.get('rhone_style') # <-- ADD THIS
+
         if bordeaux_bank:
             logger.debug(f"Applying Bordeaux blend override for {bordeaux_bank}.")
             
@@ -562,9 +564,23 @@ def scrape_vivino_url(vivino_url):
                 priority_list = ['Merlot', 'Cabernet Franc', 'Cabernet Sauvignon']
             else:
                 priority_list = []
+        
+        elif rhone_style: # <-- ADD THIS BLOCK
+            logger.debug(f"Applying Rhône blend override for {rhone_style}.")
+            if rhone_style == 'North':
+                # Northern Rhône is Syrah-dominant (sometimes with Viognier)
+                priority_list = ['Syrah', 'Viognier', 'Marsanne', 'Roussanne']
+            elif rhone_style == 'South':
+                # Southern Rhône is Grenache-dominant (GSM blends)
+                priority_list = ['Grenache', 'Syrah', 'Mourvèdre', 'Cinsault', 'Counoise']
+            else:
+                priority_list = []
+        
+        else: # <-- ADD THIS
+            priority_list = []
 
-            if priority_list:
-                new_order = []
+        if priority_list:
+            new_order = []
                 # 2a. Iterate through the regional priority list and place them first
                 for grape in priority_list:
                     grape_in_list = next((g for g in unique_grapes_ordered if g.lower() == grape.lower()), None)
@@ -572,7 +588,7 @@ def scrape_vivino_url(vivino_url):
                         new_order.append(grape_in_list)
                 
                 # 2b. Add all remaining grapes (preserving their original relative order)
-                for grape in unique_grapes_ordered:
+            for grape in unique_grapes_ordered:
                     if grape not in new_order:
                         new_order.append(grape)
                         
@@ -673,4 +689,3 @@ def scrape_vivino_url(vivino_url):
 
     logger.error(f"All scrape and fallback attempts failed for {vivino_url}.")
     return None, None
-
