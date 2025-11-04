@@ -15,64 +15,64 @@ United States:
             - Calistoga
         Sonoma County:
           subsubregions:
-            - Russian River Valley
-            - Alexander Valley
+            - Russian River |Valley
+            - Alexander |Valley
             - Dry Creek |Valley
             - Sonoma Coast
-            - Bennett Valley
-            - Sonoma Valley
+            - Bennett |Valley
+            - Sonoma |Valley
         Central Coast:
           subsubregions:
             - Paso Robles
             - Santa Barbara
             - Happy Canyon of Santa Barbara
-            - Santa Maria Valley
-            - Santa Ynez Valley
+            - Santa Maria |Valley
+            - Santa Ynez |Valley
             - Monterey
             - Arroyo Seco
-            - Edna Valley
+            - Edna |Valley
             - San Luis Obispo
         Central Valley:
           subsubregions:
             - Lodi
-            - San Joaquin Valley
+            - San Joaquin |Valley
         Sierra Foothills:
           subsubregions:
             - El Dorado
-            - Shenandoah Valley
+            - Shenandoah |Valley
     Oregon:
       subregions:
-        Willamette Valley:
+        Willamette |Valley:
           subsubregions:
             - Dundee Hills
             - Eola-Amity Hills
             - Yamhill-Carlton
             - McMinnville
             - Chehalem Mountains
-        Rogue Valley:
+        Rogue |Valley:
           subsubregions:
-            - Applegate Valley
+            - Applegate |Valley
     Washington:
       subregions:
-        Columbia Valley:
+        Columbia |Valley:
           subsubregions:
-            - Yakima Valley
-            - Walla Walla Valley
+            - Yakima |Valley
+            - Walla Walla |Valley
             - Red Mountain
     New York:
       subregions:
         Finger Lakes:
           subsubregions:
-            - Seneca Lake
-            - Cayuga Lake
+            - Seneca |Lake
+            - Cayuga |Lake
     Virginia:
       subregions:
         Virginia:
           subsubregions:
-            - Monticello AVA
+            - Monticello |AVA
     Oregon-Coast:
       subregions:
-        Umpqua Valley: 
+        Umpqua |Valley: 
           subsubregions: []
 France:
   code: FR
@@ -288,7 +288,7 @@ Portugal:
           subsubregions: []
         Cima Corgo:
           subsubregions: []
-    Vinho Verde:
+    Vinho |Verde:
       subregions:
         Vinho Verde:
           subsubregions: []
@@ -317,7 +317,7 @@ Argentina:
           subsubregions: []
         Maipú:
           subsubregions: []
-        Valle de Uco:
+        Valle de Uco |Uco:
           subsubregions:
             - Tunuyán
             - Tupungato
@@ -339,30 +339,30 @@ Argentina:
 Chile:
   code: CL
   regions:
-    Maipo:
+    Maipo |Region:
       subregions:
-        Maipo Valley:
+        Maipo |Valley:
           subsubregions:
             - Alto Maipo
-    Colchagua:
+    Colchagua |Region:
       subregions:
-        Colchagua Valley:
+        Colchagua |Valley:
           subsubregions: []
-    Casablanca:
+    Casablanca |Region:
       subregions:
-        Casablanca Valley:
+        Casablanca |Valley:
           subsubregions: []
-    Aconcagua:
+    Aconcagua |Region:
       subregions:
-        Aconcagua Valley:
+        Aconcagua |Valley:
           subsubregions: []
-    Maule:
+    Maule |Region:
       subregions:
-        Maule Valley:
+        Maule |Valley:
           subsubregions: []
     Itata:
       subregions:
-        Itata:
+        Itata |Region:
           subsubregions: []
 South Africa:
   code: ZA
@@ -402,15 +402,15 @@ Australia:
           subsubregions: []
         McLaren Vale:
           subsubregions: []
-        Clare Valley:
+        Clare |Valley:
           subsubregions: []
-        Eden Valley:
+        Eden |Valley:
           subsubregions: []
     Victoria:
       subregions:
-        Yarra Valley:
+        Yarra |Valley:
           subsubregions: []
-        Mornington Peninsula:
+        Mornington |Peninsula:
           subsubregions: []
     Western Australia:
       subregions:
@@ -418,7 +418,7 @@ Australia:
           subsubregions: []
     New South Wales:
       subregions:
-        Hunter Valley:
+        Hunter |Valley:
           subsubregions: []
     Tasmania:
       subregions:
@@ -429,9 +429,9 @@ New Zealand:
   regions:
     Marlborough:
       subregions:
-        Wairau Valley:
+        Wairau |Valley:
           subsubregions: []
-        Awatere Valley:
+        Awatere |Valley:
           subsubregions: []
     Central Otago:
       subregions:
@@ -458,7 +458,7 @@ Germany:
           subsubregions: []
     Rheingau:
       subregions:
-        RheingHau:
+        Rheingau:
           subsubregions:
             - Rüdesheim
     Pfalz:
