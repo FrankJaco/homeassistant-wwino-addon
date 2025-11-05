@@ -313,6 +313,7 @@ def update_wine_details(wine_id, updates):
         cursor = conn.cursor()
 
         # Filter the updates dictionary against the security whitelist
+        # This is the critical step that prevents SQL injection via column names.
         safe_updates = {
             k: v for k, v in updates.items() 
             if k in ALLOWED_WINE_UPDATE_COLUMNS
@@ -322,13 +323,13 @@ def update_wine_details(wine_id, updates):
             logger.warning(f"No valid update columns provided for wine ID {wine_id}. Updates tried: {updates.keys()}")
             return True # Nothing valid to update, still considered successful
 
-        # Build the SET part of the query dynamically using ONLY the safe keys
+        # Build the SET part of the query dynamically using ONLY the safe, whitelisted keys.
+        # Values are parameterized using '?' placeholders to prevent injection in values.
         set_clauses = [f"{key} = ?" for key in safe_updates.keys()]
         
-        # --- CODEQL FIX: Avoid f-string for final query assembly ---
-        # While the whitelist provides protection, using .format() here may
-        # satisfy static analysis by making the template more explicit.
         query_set_part = ', '.join(set_clauses)
+        
+        # The column names here are guaranteed safe by the whitelist.
         query = "UPDATE wines SET {} WHERE id = ?".format(query_set_part)
         
         values = list(safe_updates.values()) + [wine_id]
