@@ -6,6 +6,8 @@ from . import config, db, ha_service, scraper, formatting
 import re
 from urllib.parse import urlparse, urlunparse, parse_qs
 import yaml
+import threading
+import time
 
 # Quieten down the very verbose output from underlying libraries
 logging.getLogger('selenium').setLevel(logging.WARNING)
@@ -44,6 +46,17 @@ GRAPE_VARIETALS = _load_grape_varietals()
 logger.info(f"Loaded {len(GRAPE_VARIETALS)} grape varietals for reference.")
 scraper.initialize_varietals(GRAPE_VARIETALS)
 
+# Periodic background task to update HA sensors
+def _ha_sync_loop():
+    """A background thread loop to periodically update HA sensors."""
+    SYNC_INTERVAL_SECONDS = 3600 # 1 hour
+    while True:
+        try:
+            ha_service.update_ha_inventory_sensors()
+        except Exception as e:
+            logger.error(f"Error in periodic HA sensor sync: {e}", exc_info=True)
+        time.sleep(SYNC_INTERVAL_SECONDS)
+        
 # Define the path to the regions.yaml file
 REGIONS_YAML_PATH = os.path.join(os.path.dirname(__file__), 'data', 'regions.yaml')
 
@@ -485,6 +498,12 @@ def serve_static(path):
 
 if __name__ == '__main__':
     db.init_db()
+    sync_thread = threading.Thread(target=_ha_sync_loop, daemon=True)
+    sync_thread.start()
+    logger.info("Started background HA sensor sync thread.")
+    
+    # Run an initial sensor update on startup
+    ha_service.update_ha_inventory_sensors()
     logger.info(f"Starting Wonderful Wino on port 5000 with log level {config.LOG_LEVEL}")
     print("\n---> NOTE: The following 'WARNING' is a standard benign message from the internal web server.\n"
           "---> It is normal and expected for a Home Assistant add-on and can be safely ignored.\n")

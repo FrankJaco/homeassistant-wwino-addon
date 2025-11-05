@@ -2,6 +2,7 @@ import sqlite3
 import logging
 from .config import DB_PATH
 import os
+from collections import defaultdict # For Home Assistant inventory counts
 
 logger = logging.getLogger(__name__)
 
@@ -12,12 +13,16 @@ def get_db_connection():
     return conn
 
 def init_db():
-    """Initializes the database tables if they don't exist."""
+    """Initializes the database tables and performs schema migrations if necessary."""
     conn = None
     try:
         os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
         conn = get_db_connection()
         cursor = conn.cursor()
+
+        # --- Base Table Creation ---
+        
+        # Wines Table: Stores the details of each unique wine
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS wines (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -42,231 +47,157 @@ def init_db():
                 image_zoom REAL DEFAULT 1
             )
         ''')
+
+        # Settings Table (Restored)
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS settings (
                 key TEXT PRIMARY KEY,
                 value TEXT
             )
         ''')
+
+        # Inventory History Table: Logs all changes (ADD, CONSUME, REVIEW, DELETE)
         cursor.execute('''
-            CREATE TABLE IF NOT EXISTS consumption_history (
+            CREATE TABLE IF NOT EXISTS inventory_history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 wine_id INTEGER NOT NULL,
-                consumed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                personal_rating REAL,
-                log_type TEXT DEFAULT 'consumed' NOT NULL,
-                cost_tier INTEGER,
-                FOREIGN KEY (wine_id) REFERENCES wines (id) ON DELETE CASCADE
+                change_type TEXT NOT NULL, -- 'ADD', 'CONSUME', 'REVIEW', 'DELETE'
+                quantity_change INTEGER NOT NULL,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (wine_id) REFERENCES wines (id)
             )
         ''')
-        
-        # Check if new columns exist in wines table and add them if they don't
+
+        # --- SCHEMA MIGRATION LOGIC (RESTORED) ---
+
+        # Check wines table columns
         cursor.execute("PRAGMA table_info(wines)")
-        wines_columns = [column['name'] for column in cursor.fetchall()]
+        wines_columns = [col[1] for col in cursor.fetchall()]
+
         if 'alcohol_percent' not in wines_columns:
             cursor.execute("ALTER TABLE wines ADD COLUMN alcohol_percent REAL")
-            logger.info("Added 'alcohol_percent' column to wines table.")
+            logger.info("Migrated wines table: Added alcohol_percent column.")
+        
         if 'wine_type' not in wines_columns:
             cursor.execute("ALTER TABLE wines ADD COLUMN wine_type TEXT")
-            logger.info("Added 'wine_type' column to wines table.")
+            logger.info("Migrated wines table: Added wine_type column.")
+            
         if 'image_focal_point' not in wines_columns:
             cursor.execute("ALTER TABLE wines ADD COLUMN image_focal_point TEXT DEFAULT '50%'")
-            logger.info("Added 'image_focal_point' column to wines table.")
-        # ADD MIGRATION LOGIC FOR ZOOM
+            logger.info("Migrated wines table: Added image_focal_point column.")
+
         if 'image_zoom' not in wines_columns:
             cursor.execute("ALTER TABLE wines ADD COLUMN image_zoom REAL DEFAULT 1")
-            logger.info("Added 'image_zoom' column to wines table.")
+            logger.info("Migrated wines table: Added image_zoom column.")
 
-        # Check if new columns exist in consumption_history table and add them if they don't
-        cursor.execute("PRAGMA table_info(consumption_history)")
-        ch_columns = [column['name'] for column in cursor.fetchall()]
-        if 'region_full' not in wines_columns:
-            cursor.execute("ALTER TABLE wines ADD COLUMN region_full TEXT")
-            logger.info("Added 'region_full' column to wines table.")
-        if 'log_type' not in ch_columns:
-            cursor.execute("ALTER TABLE consumption_history ADD COLUMN log_type TEXT DEFAULT 'consumed' NOT NULL")
-            logger.info("Added 'log_type' column to consumption_history table.")
-        if 'cost_tier' not in ch_columns:
-            cursor.execute("ALTER TABLE consumption_history ADD COLUMN cost_tier INTEGER")
-            logger.info("Added 'cost_tier' column to consumption_history table.")
+        if 'needs_review' not in wines_columns:
+            cursor.execute("ALTER TABLE wines ADD COLUMN needs_review BOOLEAN DEFAULT FALSE")
+            logger.info("Migrated wines table: Added needs_review column.")
+
+        if 'added_at' not in wines_columns:
+            cursor.execute("ALTER TABLE wines ADD COLUMN added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+            logger.info("Migrated wines table: Added added_at column.")
+        
+        # Check history table columns for older, non-standard names and replace/adjust if necessary
+        # The history table name changed from 'consumption_history' to 'inventory_history' for robustness
+        # If the old table exists, the app will continue to use the new one, but we don't attempt to migrate data
+        # between them here for safety, just ensuring the new, critical columns exist on wines.
 
         conn.commit()
-        logger.info(f"Database initialized at {DB_PATH}")
+        logger.info(f"Database initialized successfully at {DB_PATH}")
     except sqlite3.Error as e:
-        logger.error(f"Database initialization failed: {e}")
+        logger.error(f"Database initialization error: {e}")
     finally:
         if conn:
             conn.close()
 
 def reinitialize_database():
-    """Drops all existing tables and then recreates them by calling init_db()."""
+    """Drops all existing tables and re-initializes the database."""
     conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        logger.warning("Reinitializing database: Dropping existing tables.")
-        cursor.execute("DROP TABLE IF EXISTS consumption_history")
+        logger.warning("Dropping all database tables for re-initialization.")
         cursor.execute("DROP TABLE IF EXISTS wines")
         cursor.execute("DROP TABLE IF EXISTS settings")
+        cursor.execute("DROP TABLE IF EXISTS inventory_history")
         conn.commit()
         init_db()
-        logger.info("Database tables re-created.")
+        logger.info("Database successfully re-initialized.")
     except sqlite3.Error as e:
-        logger.error(f"Database error during reinitialization: {e}")
+        logger.error(f"Database re-initialization error: {e}")
         if conn:
             conn.rollback()
     finally:
         if conn:
             conn.close()
 
-def update_image_focal_point(vivino_url: str, focal_point: str):
-    """Updates the image focal point for a specific wine."""
-    conn = None
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute(
-            "UPDATE wines SET image_focal_point = ? WHERE vivino_url = ?",
-            (focal_point, vivino_url)
-        )
-        conn.commit()
-        logger.info(f"Updated focal point for {vivino_url} to {focal_point}")
-        return cursor.rowcount > 0
-    except sqlite3.Error as e:
-        logger.error(f"Database error updating focal point: {e}")
-        if conn:
-            conn.rollback()
-        return False
-    finally:
-        if conn:
-            conn.close()
 
-def add_consumption_record(wine_id, personal_rating):
-    """Adds a new record to the consumption_history table."""
-    conn = None
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO consumption_history (wine_id, personal_rating, log_type) VALUES (?, ?, 'consumed')",
-            (wine_id, personal_rating)
-        )
-        conn.commit()
-        logger.info(f"Added consumption record for wine_id: {wine_id}")
-        return True
-    except sqlite3.Error as e:
-        logger.error(f"Database error adding consumption record: {e}")
-        if conn:
-            conn.rollback()
-        return False
-    finally:
-        if conn:
-            conn.close()
+# --- CRUD and Core Functions ---
 
-def get_consumption_history(wine_id: int):
-    """Fetches all consumption records for a given wine_id."""
+def add_wine(vivino_url, name, vintage, varietal, region, country, region_full, vivino_rating, image_url, alcohol_percent, wine_type, quantity, needs_review):
     conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute(
-            "SELECT * FROM consumption_history WHERE wine_id = ? ORDER BY consumed_at DESC",
-            (wine_id,)
-        )
-        history = cursor.fetchall()
-        return [dict(row) for row in history]
-    except sqlite3.Error as e:
-        logger.error(f"Database error getting consumption history: {e}")
-        return []
-    finally:
-        if conn:
-            conn.close()
 
-def add_or_update_wine(wine_data: dict, quantity: int, cost_tier: int):
-    conn = None
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT id, quantity FROM wines WHERE vivino_url = ?", (wine_data['vivino_url'],))
+        # Check if wine already exists by vivino_url
+        cursor.execute("SELECT id, quantity FROM wines WHERE vivino_url = ?", (vivino_url,))
         existing_wine = cursor.fetchone()
 
-        needs_review_flag = wine_data.get('needs_review', False) or \
-                            wine_data.get('name', '').startswith(('Review Wine', 'Vivino Wine ID'))
-
         if existing_wine:
-            wine_id, current_quantity = existing_wine
-            new_quantity = current_quantity + quantity
-
-            if needs_review_flag:
-                cursor.execute('UPDATE wines SET quantity = ? WHERE id = ?', (new_quantity, wine_id))
-                logger.info(f"Updated quantity only for '{wine_data['name']}' to {new_quantity} as it needs review.")
-            else:
-                cursor.execute('''
-                    UPDATE wines SET
-                        quantity = ?, name = ?, vintage = ?, varietal = ?, region = ?, region_full = ?,
-                        country = ?, vivino_rating = ?, image_url = ?, cost_tier = ?,
-                        alcohol_percent = ?, wine_type = ?, needs_review = ?
-                    WHERE id = ?
-                ''', (
-                    new_quantity, wine_data.get('name'), wine_data.get('vintage'), wine_data.get('varietal'),
-                    wine_data.get('region'), wine_data.get('region_full'), wine_data.get('country'), wine_data.get('vivino_rating'),
-                    wine_data.get('image_url'), cost_tier, wine_data.get('alcohol_percent'),
-                    wine_data.get('wine_type'), False, wine_id
-                ))
-                logger.info(f"Updated and refreshed data for '{wine_data.get('name')}' with new quantity {new_quantity}.")
+            # Wine exists, increment quantity
+            wine_id = existing_wine['id']
+            new_quantity = existing_wine['quantity'] + quantity
+            cursor.execute("UPDATE wines SET quantity = ? WHERE id = ?", (new_quantity, wine_id))
+            conn.commit()
+            logger.info(f"Updated quantity for existing wine ID {wine_id} to {new_quantity}.")
+            # Log the change
+            log_inventory_change(wine_id, 'ADD', quantity)
+            return wine_id
         else:
+            # New wine, insert it
             cursor.execute('''
                 INSERT INTO wines (
-                    vivino_url, name, vintage, varietal, region, region_full, country, vivino_rating,
-                    image_url, quantity, cost_tier, personal_rating, tasting_notes,
-                    alcohol_percent, wine_type, needs_review
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    vivino_url, name, vintage, varietal, region, country, region_full,
+                    vivino_rating, image_url, alcohol_percent, wine_type, quantity, needs_review
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
-                wine_data.get('vivino_url'), wine_data.get('name'), wine_data.get('vintage'), wine_data.get('varietal'),
-                wine_data.get('region'), wine_data.get('region_full'), wine_data.get('country'), wine_data.get('vivino_rating'),
-                wine_data.get('image_url'), quantity, cost_tier, None, None,
-                wine_data.get('alcohol_percent'), wine_data.get('wine_type'), needs_review_flag
+                vivino_url, name, vintage, varietal, region, country, region_full,
+                vivino_rating, image_url, alcohol_percent, wine_type, quantity, needs_review
             ))
-            new_wine_id = cursor.lastrowid
-            cursor.execute('''
-                INSERT INTO consumption_history (wine_id, log_type, cost_tier)
-                VALUES (?, 'acquired', ?)
-            ''', (new_wine_id, cost_tier))
-            logger.info(f"New wine '{wine_data.get('name')}' inserted with quantity {quantity} and logged 'acquired' event.")
+            conn.commit()
+            wine_id = cursor.lastrowid
+            logger.info(f"Added new wine ID {wine_id}: {name} ({vintage}).")
+            # Log the change
+            log_inventory_change(wine_id, 'ADD', quantity)
+            return wine_id
 
-        conn.commit()
-        return True
+    except sqlite3.IntegrityError:
+        logger.warning(f"Attempted to add duplicate Vivino URL: {vivino_url}. Handled by update logic.")
+        return None 
     except sqlite3.Error as e:
-        logger.error(f"Database error inserting/updating wine data: {e}")
-        if conn:
-            conn.rollback()
-        return False
+        logger.error(f"Database error adding wine: {e}")
+        return None
     finally:
-        if conn:
-            conn.close()
+        if conn: conn.close()
 
-def get_all_wines(status_filter: str = 'on_hand'):
+def get_wine_by_id(wine_id):
     conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        query = "SELECT * FROM wines"
-        if status_filter == 'on_hand':
-            query += " WHERE quantity > 0"
-        elif status_filter == 'history':
-            query += " WHERE quantity = 0"
-        query += " ORDER BY added_at DESC"
-        cursor.execute(query)
-        wines = cursor.fetchall()
-        return [dict(wine) for wine in wines]
+        cursor.execute("SELECT * FROM wines WHERE id = ?", (wine_id,))
+        wine = cursor.fetchone()
+        return dict(wine) if wine else None
     except sqlite3.Error as e:
-        logger.error(f"Database error getting all wines: {e}")
-        return []
+        logger.error(f"Database error getting wine by ID: {e}")
+        return None
     finally:
-        if conn:
-            conn.close()
+        if conn: conn.close()
 
-def get_wine_by_url(vivino_url: str):
+def get_wine_by_url(vivino_url):
+    """Fetches a wine by its Vivino URL."""
     conn = None
     try:
         conn = get_db_connection()
@@ -278,214 +209,7 @@ def get_wine_by_url(vivino_url: str):
         logger.error(f"Database error getting wine by URL: {e}")
         return None
     finally:
-        if conn:
-            conn.close()
-
-def update_wine_details(vivino_url, name, vintage, quantity, varietal, region, country, cost_tier, personal_rating, tasting_notes, alcohol_percent, wine_type):
-    conn = None
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute('''
-            UPDATE wines SET name = ?, vintage = ?, varietal = ?, region = ?, country = ?,
-            quantity = ?, cost_tier = ?, personal_rating = ?, tasting_notes = ?,
-            alcohol_percent = ?, wine_type = ?, needs_review = FALSE
-            WHERE vivino_url = ?
-        ''', (name, vintage, varietal, region, country, quantity, cost_tier, personal_rating, tasting_notes, alcohol_percent, wine_type, vivino_url))
-        conn.commit()
-        return cursor.rowcount > 0
-    except sqlite3.Error as e:
-        logger.error(f"Database error updating wine details: {e}")
-        if conn:
-            conn.rollback()
-        return False
-    finally:
-        if conn:
-            conn.close()
-
-def update_wine_quantity(vivino_url, new_quantity):
-    conn = None
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("UPDATE wines SET quantity = ? WHERE vivino_url = ?", (new_quantity, vivino_url))
-        conn.commit()
-        return cursor.rowcount > 0
-    except sqlite3.Error as e:
-        logger.error(f"Database error updating wine quantity: {e}")
-        if conn:
-            conn.rollback()
-        return False
-    finally:
-        if conn:
-            conn.close()
-
-def update_personal_rating(vivino_url, rating):
-    conn = None
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("UPDATE wines SET personal_rating = ? WHERE vivino_url = ?", (rating, vivino_url))
-        conn.commit()
-        return cursor.rowcount > 0
-    except sqlite3.Error as e:
-        logger.error(f"Database error updating personal rating: {e}")
-        if conn:
-            conn.rollback()
-        return False
-    finally:
-        if conn:
-            conn.close()
-
-def update_wine_notes_and_image(vivino_url, notes, image_url, image_zoom):
-    conn = None
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        updates = []
-        params = []
-        if notes is not None:
-            updates.append("tasting_notes = ?")
-            params.append(notes)
-        if image_url is not None:
-            updates.append("image_url = ?")
-            params.append(image_url)
-        if image_zoom is not None:
-            updates.append("image_zoom = ?")
-            params.append(image_zoom)
-
-        if updates:
-            query = f"UPDATE wines SET {', '.join(updates)} WHERE vivino_url = ?"
-            params.append(vivino_url)
-            cursor.execute(query, tuple(params))
-            conn.commit()
-            return cursor.rowcount > 0
-        return True
-    except sqlite3.Error as e:
-        logger.error(f"Database error updating notes/image: {e}")
-        if conn:
-            conn.rollback()
-        return False
-    finally:
-        if conn:
-            conn.close()
-
-def delete_wine_by_url(vivino_url):
-    conn = None
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM wines WHERE vivino_url = ?", (vivino_url,))
-        conn.commit()
-        return cursor.rowcount > 0
-    except sqlite3.Error as e:
-        logger.error(f"Database error deleting wine: {e}")
-        if conn:
-            conn.rollback()
-        return False
-    finally:
-        if conn:
-            conn.close()
-
-def update_wine_quantity_and_rating(vivino_url, new_quantity, personal_rating):
-    conn = None
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        if personal_rating is not None:
-            cursor.execute("UPDATE wines SET quantity = ?, personal_rating = ? WHERE vivino_url = ?", (new_quantity, personal_rating, vivino_url))
-        else:
-            cursor.execute("UPDATE wines SET quantity = ? WHERE vivino_url = ?", (new_quantity, vivino_url))
-        conn.commit()
-        return get_wine_by_url(vivino_url)
-    except sqlite3.Error as e:
-        logger.error(f"Database error updating quantity and rating: {e}")
-        if conn:
-            conn.rollback()
-        return None
-    finally:
-        if conn:
-            conn.close()
-
-def get_settings():
-    conn = None
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT key, value FROM settings")
-        rows = cursor.fetchall()
-        return {row['key']: row['value'] for row in rows}
-    except sqlite3.Error as e:
-        logger.error(f"Database error getting settings: {e}")
-        return {}
-    finally:
-        if conn:
-            conn.close()
-
-def update_settings(data):
-    conn = None
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        for key, value in data.items():
-            cursor.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
-        conn.commit()
-        return True
-    except sqlite3.Error as e:
-        logger.error(f"Database error updating settings: {e}")
-        if conn:
-            conn.rollback()
-        return False
-    finally:
-        if conn:
-            conn.close()
-
-def backup_database():
-    conn = None
-    backup_conn = None
-    try:
-        backup_dir = os.path.dirname(DB_PATH)
-        backup_path = os.path.join(backup_dir, "wonderful_wino_backup.db")
-        source_conn = get_db_connection()
-        backup_conn = sqlite3.connect(backup_path)
-        with backup_conn:
-            source_conn.backup(backup_conn)
-        source_conn.close()
-        logger.info(f"Database backup completed successfully to {backup_path}.")
-        return True, f"Backup successful! File saved in {backup_dir}."
-    except sqlite3.Error as e:
-        logger.error(f"Database backup failed: {e}")
-        return False, "Database backup failed."
-    except Exception as e:
-        logger.error(f"Unexpected error during backup: {e}")
-        return False, "An unexpected error occurred."
-    finally:
         if conn: conn.close()
-        if backup_conn: backup_conn.close()
-
-def restore_database():
-    conn = None
-    backup_conn = None
-    try:
-        backup_dir = os.path.dirname(DB_PATH)
-        backup_path = os.path.join(backup_dir, "wonderful_wino_backup.db")
-        if not os.path.exists(backup_path):
-            return False, "Backup file not found."
-        source_conn = sqlite3.connect(backup_path)
-        dest_conn = get_db_connection()
-        with dest_conn:
-            source_conn.backup(dest_conn)
-        source_conn.close()
-        return True, "Database restored successfully."
-    except sqlite3.Error as e:
-        logger.error(f"Database restore failed: {e}")
-        return False, "Database restore failed."
-    except Exception as e:
-        logger.error(f"Unexpected error during restore: {e}")
-        return False, "An unexpected error occurred."
-    finally:
-        if conn: conn.close()
-        if backup_conn: backup_conn.close()
 
 def get_wine_by_name_and_vintage(name, vintage):
     conn = None
@@ -505,18 +229,329 @@ def get_wine_by_name_and_vintage(name, vintage):
         if conn:
             conn.close()
 
-def get_all_historical_wines():
+def get_all_wines(status_filter='on_hand', sort_by='name'):
     conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
+
+        query = "SELECT * FROM wines"
+
+        # Apply filter based on status
+        if status_filter == 'on_hand':
+            query += " WHERE quantity > 0"
+        elif status_filter == 'needs_review':
+            query += " WHERE needs_review = TRUE AND quantity > 0"
+        elif status_filter == 'consumed':
+            query += " WHERE quantity = 0"
+        # 'all' filter needs no WHERE clause
+
+        # Apply sorting
+        if sort_by == 'rating':
+            # Order by personal_rating (non-null first), then vivino_rating
+            query += " ORDER BY personal_rating IS NULL, personal_rating DESC, vivino_rating IS NULL, vivino_rating DESC, name ASC"
+        elif sort_by == 'vintage':
+            query += " ORDER BY vintage DESC, name ASC"
+        elif sort_by == 'added_at':
+            query += " ORDER BY added_at DESC"
+        elif sort_by == 'name':
+            query += " ORDER BY name COLLATE NOCASE ASC"
+        else:
+            query += " ORDER BY name COLLATE NOCASE ASC"
+
+        cursor.execute(query)
+        wines = cursor.fetchall()
+        return [dict(wine) for wine in wines]
+    except sqlite3.Error as e:
+        logger.error(f"Database error getting all wines: {e}")
+        return []
+    finally:
+        if conn: conn.close()
+
+def get_all_historical_wines():
+    """
+    Returns ALL wines ever added (including those with quantity=0),
+    used primarily for HA list cleanup during force-clear/restore.
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        # Note: We select all records from 'wines' table, regardless of quantity.
         query = "SELECT * FROM wines"
         cursor.execute(query)
         wines = cursor.fetchall()
         return [dict(wine) for wine in wines]
     except sqlite3.Error as e:
-        logger.error(f"Database error getting historical wines: {e}")
+        logger.error(f"Database error getting all historical wines: {e}")
         return []
     finally:
         if conn:
             conn.close()
+
+def update_wine_details(wine_id, updates):
+    """
+    Updates general details for a wine by ID. Used for notes, rating, focal point, etc.
+    Updates is a dict of {column_name: new_value}.
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Build the SET part of the query dynamically
+        set_clauses = [f"{key} = ?" for key in updates.keys()]
+        query = f"UPDATE wines SET {', '.join(set_clauses)} WHERE id = ?"
+        values = list(updates.values()) + [wine_id]
+
+        cursor.execute(query, values)
+        conn.commit()
+        logger.info(f"Updated wine ID {wine_id} details: {updates.keys()}")
+
+        # Log history if the personal rating was updated
+        if 'personal_rating' in updates and updates['personal_rating'] is not None:
+             log_inventory_change(wine_id, 'REVIEW', 0)
+
+        return True
+    except sqlite3.Error as e:
+        logger.error(f"Database error updating wine ID {wine_id}: {e}")
+        return False
+    finally:
+        if conn: conn.close()
+
+def delete_wine_by_id(wine_id):
+    """'Soft-deletes' a wine by setting its quantity to 0."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Get current quantity for logging
+        cursor.execute("SELECT quantity FROM wines WHERE id = ?", (wine_id,))
+        wine = cursor.fetchone()
+        if not wine:
+            logger.warning(f"Attempted to delete non-existent wine ID {wine_id}.")
+            return False
+
+        quantity_deleted = wine['quantity']
+
+        # Set quantity to 0 and mark as not needing review
+        cursor.execute("UPDATE wines SET quantity = 0, needs_review = FALSE WHERE id = ?", (wine_id,))
+
+        # Log the change
+        if quantity_deleted > 0:
+            log_inventory_change(wine_id, 'DELETE', -quantity_deleted)
+
+        conn.commit()
+        logger.info(f"Soft-deleted/Consumed all bottles of wine ID {wine_id}. Quantity set to 0.")
+        return True
+    except sqlite3.Error as e:
+        logger.error(f"Database error deleting wine ID {wine_id}: {e}")
+        return False
+    finally:
+        if conn: conn.close()
+
+# --- Settings Functions (Restored) ---
+
+def get_settings():
+    """Fetches all key-value pairs from the settings table."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT key, value FROM settings")
+        rows = cursor.fetchall()
+        return {row['key']: row['value'] for row in rows}
+    except sqlite3.Error as e:
+        logger.error(f"Database error getting settings: {e}")
+        return {}
+    finally:
+        if conn:
+            conn.close()
+
+def update_settings(data):
+    """Updates or inserts multiple key-value pairs into the settings table."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        for key, value in data.items():
+            cursor.execute('''
+                INSERT INTO settings (key, value) VALUES (?, ?)
+                ON CONFLICT(key) DO UPDATE SET value = excluded.value
+            ''', (key, value))
+        conn.commit()
+        logger.info(f"Updated settings for keys: {list(data.keys())}")
+        return True
+    except sqlite3.Error as e:
+        logger.error(f"Database error updating settings: {e}")
+        if conn:
+            conn.rollback()
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+# --- Inventory History Functions ---
+
+def log_inventory_change(wine_id, change_type, quantity_change):
+    """Logs an inventory or review action."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO inventory_history (wine_id, change_type, quantity_change)
+            VALUES (?, ?, ?)
+        ''', (wine_id, change_type, quantity_change))
+        conn.commit()
+        logger.debug(f"Logged change: Wine ID {wine_id}, Type: {change_type}, Change: {quantity_change}")
+        return True
+    except sqlite3.Error as e:
+        logger.error(f"Database error logging inventory change: {e}")
+        return False
+    finally:
+        if conn: conn.close()
+
+def get_inventory_history(wine_id=None):
+    """Fetches all history records, optionally filtered by wine_id."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        query = """
+            SELECT
+                h.timestamp,
+                h.change_type,
+                h.quantity_change,
+                w.name,
+                w.vintage,
+                w.wine_type,
+                w.id as wine_id
+            FROM inventory_history h
+            JOIN wines w ON h.wine_id = w.id
+        """
+        params = []
+        if wine_id is not None:
+            query += " WHERE h.wine_id = ?"
+            params.append(wine_id)
+
+        query += " ORDER BY h.timestamp DESC"
+
+        cursor.execute(query, params)
+        history = cursor.fetchall()
+        return [dict(item) for item in history]
+    except sqlite3.Error as e:
+        logger.error(f"Database error getting inventory history: {e}")
+        return []
+    finally:
+        if conn: conn.close()
+
+
+# --- HA Integration Support Functions ---
+
+def get_inventory_counts():
+    """
+    Calculates and returns inventory summary counts needed for HA sensors.
+    Returns: {'total_quantity': X, 'unique_wines': Y, 'Red': Z, 'White': A, ...}
+    """
+    conn = None
+    counts = defaultdict(int)
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Total unique wines (count of rows with quantity > 0)
+        cursor.execute("SELECT COUNT(id) FROM wines WHERE quantity > 0")
+        counts['unique_wines'] = cursor.fetchone()[0]
+
+        # Total bottle count
+        cursor.execute("SELECT SUM(quantity) FROM wines")
+        counts['total_quantity'] = cursor.fetchone()[0] or 0
+
+        # Counts by wine_type
+        cursor.execute("SELECT wine_type, SUM(quantity) FROM wines WHERE quantity > 0 GROUP BY wine_type")
+        for row in cursor.fetchall():
+            wine_type, qty = row
+            if wine_type:
+                counts[wine_type] = qty
+
+        return dict(counts)
+    except sqlite3.Error as e:
+        logger.error(f"Database error getting inventory counts: {e}")
+        return dict(counts)
+    finally:
+        if conn: conn.close()
+
+def get_wines_needing_review_count():
+    """Returns the count of wines (not bottles) that are marked needs_review and are currently in stock."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        # Count wines where the 'needs_review' flag is true AND quantity is greater than 0
+        cursor.execute("SELECT COUNT(id) FROM wines WHERE needs_review = TRUE AND quantity > 0")
+        return cursor.fetchone()[0]
+    except sqlite3.Error as e:
+        logger.error(f"Database error getting review count: {e}")
+        return 0
+    finally:
+        if conn: conn.close()
+
+# --- Backup and Restore Functions ---
+
+def backup_database():
+    """Creates a backup of the current database to a .bak file."""
+    backup_path = f"{DB_PATH}.bak"
+    conn = None
+    backup_conn = None
+    try:
+        # 1. Connect to the source database
+        conn = get_db_connection()
+        # 2. Connect to the backup destination (will create the file)
+        backup_conn = sqlite3.connect(backup_path)
+
+        # 3. Use the SQLite built-in backup API
+        conn.backup(backup_conn)
+
+        logger.info(f"Database backed up successfully to {backup_path}")
+        return True, f"Database backed up successfully to {backup_path}."
+    except sqlite3.Error as e:
+        logger.error(f"Database backup failed: {e}")
+        return False, "Database backup failed."
+    except Exception as e:
+        logger.error(f"Unexpected error during backup: {e}")
+        return False, "An unexpected error occurred during backup."
+    finally:
+        if conn: conn.close()
+        if backup_conn: backup_conn.close()
+
+def restore_database():
+    """Restores the database from the latest .bak file."""
+    backup_path = f"{DB_PATH}.bak"
+    if not os.path.exists(backup_path):
+        return False, "No backup file found to restore."
+
+    conn = None
+    backup_conn = None
+    try:
+        # 1. Connect to the source backup file
+        backup_conn = sqlite3.connect(backup_path)
+        # 2. Connect to the destination file
+        conn = get_db_connection()
+
+        # 3. Use the SQLite built-in backup API to restore
+        backup_conn.backup(conn)
+
+        logger.warning(f"Database restored successfully from {backup_path}")
+        return True, "Database restored successfully."
+    except sqlite3.Error as e:
+        logger.error(f"Database restore failed: {e}")
+        return False, "Database restore failed."
+    except Exception as e:
+        logger.error(f"Unexpected error during restore: {e}")
+        return False, "An unexpected error occurred."
+    finally:
+        if conn: conn.close()
+        if backup_conn: backup_conn.close()
