@@ -281,6 +281,12 @@ Spain:
       subregions:
         Jumilla:
           subsubregions: []
+    Valencia:
+      subregions:
+        Alicante:
+          subsubregions: []
+        Utiel-Requena:
+          subsubregions: [] 
 Portugal:
   code: PT
   regions:
