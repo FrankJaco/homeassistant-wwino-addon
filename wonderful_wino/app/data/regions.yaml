@@ -277,6 +277,10 @@ Spain:
         Penedès:
           subsubregions:
             - Cava
+    Murcia:
+      subregions:
+        Jumilla
+          subsubregions: []
 Portugal:
   code: PT
   regions:
