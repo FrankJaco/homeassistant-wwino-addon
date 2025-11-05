@@ -306,45 +306,76 @@ def get_all_historical_wines():
 
 def update_wine_details(wine_id, updates):
     """
-    Safely updates whitelisted wine fields by ID.
-    CodeQL-compliant: no f-string concatenation of user-derived data.
+    Updates a wine's details safely and passes CodeQL validation
+    by issuing one fixed-literal UPDATE per allowed column.
     """
     conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # 1️⃣  Whitelist the allowed update keys
-        safe_updates = {k: v for k, v in updates.items() if k in ALLOWED_WINE_UPDATE_COLUMNS}
+        safe_updates = {
+            k: v for k, v in updates.items()
+            if k in ALLOWED_WINE_UPDATE_COLUMNS
+        }
         if not safe_updates:
-            logger.warning(f"No valid update columns provided for wine ID {wine_id}. Tried: {list(updates.keys())}")
-            return True
+            logger.warning(
+                f"No valid update columns provided for wine ID {wine_id}. Tried: {list(updates.keys())}"
+            )
+            return True  # Nothing to update
 
-        # 2️⃣  Build the SQL using SQLite's quoted identifiers
-        # Each column name is quoted with double quotes to prevent injection and satisfy CodeQL
-        set_parts = [f'"{col}" = ?' for col in safe_updates.keys()]
-        set_clause = ", ".join(set_parts)
+        for col, val in safe_updates.items():
+            # Explicitly map every allowed column to a fixed SQL literal.
+            if col == "name":
+                cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (val, wine_id))
+            elif col == "vintage":
+                cursor.execute("UPDATE wines SET vintage = ? WHERE id = ?", (val, wine_id))
+            elif col == "varietal":
+                cursor.execute("UPDATE wines SET varietal = ? WHERE id = ?", (val, wine_id))
+            elif col == "region":
+                cursor.execute("UPDATE wines SET region = ? WHERE id = ?", (val, wine_id))
+            elif col == "country":
+                cursor.execute("UPDATE wines SET country = ? WHERE id = ?", (val, wine_id))
+            elif col == "region_full":
+                cursor.execute("UPDATE wines SET region_full = ? WHERE id = ?", (val, wine_id))
+            elif col == "vivino_rating":
+                cursor.execute("UPDATE wines SET vivino_rating = ? WHERE id = ?", (val, wine_id))
+            elif col == "image_url":
+                cursor.execute("UPDATE wines SET image_url = ? WHERE id = ?", (val, wine_id))
+            elif col == "cost_tier":
+                cursor.execute("UPDATE wines SET cost_tier = ? WHERE id = ?", (val, wine_id))
+            elif col == "personal_rating":
+                cursor.execute("UPDATE wines SET personal_rating = ? WHERE id = ?", (val, wine_id))
+            elif col == "tasting_notes":
+                cursor.execute("UPDATE wines SET tasting_notes = ? WHERE id = ?", (val, wine_id))
+            elif col == "alcohol_percent":
+                cursor.execute("UPDATE wines SET alcohol_percent = ? WHERE id = ?", (val, wine_id))
+            elif col == "wine_type":
+                cursor.execute("UPDATE wines SET wine_type = ? WHERE id = ?", (val, wine_id))
+            elif col == "needs_review":
+                cursor.execute("UPDATE wines SET needs_review = ? WHERE id = ?", (val, wine_id))
+            elif col == "image_focal_point":
+                cursor.execute("UPDATE wines SET image_focal_point = ? WHERE id = ?", (val, wine_id))
+            elif col == "image_zoom":
+                cursor.execute("UPDATE wines SET image_zoom = ? WHERE id = ?", (val, wine_id))
+            # no else—unlisted columns already filtered out
 
-        sql = "UPDATE wines SET " + set_clause + " WHERE id = ?"
-
-        params = list(safe_updates.values()) + [wine_id]
-        cursor.execute(sql, params)
         conn.commit()
-
         logger.info(f"Updated wine ID {wine_id} columns: {list(safe_updates.keys())}")
 
-        # 3️⃣  Log history if the personal rating was updated
-        if 'personal_rating' in safe_updates and safe_updates['personal_rating'] is not None:
-            log_inventory_change(wine_id, 'REVIEW', 0)
+        if "personal_rating" in safe_updates and safe_updates["personal_rating"] is not None:
+            log_inventory_change(wine_id, "REVIEW", 0)
 
         return True
+
     except sqlite3.Error as e:
         logger.error(f"Database error updating wine ID {wine_id}: {e}")
+        if conn:
+            conn.rollback()
         return False
     finally:
         if conn:
             conn.close()
-
 
 def delete_wine_by_id(wine_id):
     """'Soft-deletes' a wine by setting its quantity to 0."""
@@ -620,6 +651,78 @@ def update_wine_details(wine_id, updates):
         return True
     except sqlite3.Error as e:
         logger.error(f"Database error updating wine ID {wine_id}: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
+def update_wine_details(wine_id, updates):
+    """
+    Updates a wine's details safely and passes CodeQL validation
+    by issuing one fixed-literal UPDATE per allowed column.
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        safe_updates = {
+            k: v for k, v in updates.items()
+            if k in ALLOWED_WINE_UPDATE_COLUMNS
+        }
+        if not safe_updates:
+            logger.warning(
+                f"No valid update columns provided for wine ID {wine_id}. Tried: {list(updates.keys())}"
+            )
+            return True  # Nothing to update
+
+        for col, val in safe_updates.items():
+            # Explicitly map every allowed column to a fixed SQL literal.
+            if col == "name":
+                cursor.execute("UPDATE wines SET name = ? WHERE id = ?", (val, wine_id))
+            elif col == "vintage":
+                cursor.execute("UPDATE wines SET vintage = ? WHERE id = ?", (val, wine_id))
+            elif col == "varietal":
+                cursor.execute("UPDATE wines SET varietal = ? WHERE id = ?", (val, wine_id))
+            elif col == "region":
+                cursor.execute("UPDATE wines SET region = ? WHERE id = ?", (val, wine_id))
+            elif col == "country":
+                cursor.execute("UPDATE wines SET country = ? WHERE id = ?", (val, wine_id))
+            elif col == "region_full":
+                cursor.execute("UPDATE wines SET region_full = ? WHERE id = ?", (val, wine_id))
+            elif col == "vivino_rating":
+                cursor.execute("UPDATE wines SET vivino_rating = ? WHERE id = ?", (val, wine_id))
+            elif col == "image_url":
+                cursor.execute("UPDATE wines SET image_url = ? WHERE id = ?", (val, wine_id))
+            elif col == "cost_tier":
+                cursor.execute("UPDATE wines SET cost_tier = ? WHERE id = ?", (val, wine_id))
+            elif col == "personal_rating":
+                cursor.execute("UPDATE wines SET personal_rating = ? WHERE id = ?", (val, wine_id))
+            elif col == "tasting_notes":
+                cursor.execute("UPDATE wines SET tasting_notes = ? WHERE id = ?", (val, wine_id))
+            elif col == "alcohol_percent":
+                cursor.execute("UPDATE wines SET alcohol_percent = ? WHERE id = ?", (val, wine_id))
+            elif col == "wine_type":
+                cursor.execute("UPDATE wines SET wine_type = ? WHERE id = ?", (val, wine_id))
+            elif col == "needs_review":
+                cursor.execute("UPDATE wines SET needs_review = ? WHERE id = ?", (val, wine_id))
+            elif col == "image_focal_point":
+                cursor.execute("UPDATE wines SET image_focal_point = ? WHERE id = ?", (val, wine_id))
+            elif col == "image_zoom":
+                cursor.execute("UPDATE wines SET image_zoom = ? WHERE id = ?", (val, wine_id))
+            # no else—unlisted columns already filtered out
+
+        conn.commit()
+        logger.info(f"Updated wine ID {wine_id} columns: {list(safe_updates.keys())}")
+
+        if "personal_rating" in safe_updates and safe_updates["personal_rating"] is not None:
+            log_inventory_change(wine_id, "REVIEW", 0)
+
+        return True
+
+    except sqlite3.Error as e:
+        logger.error(f"Database error updating wine ID {wine_id}: {e}")
+        if conn:
+            conn.rollback()
         return False
     finally:
         if conn:
