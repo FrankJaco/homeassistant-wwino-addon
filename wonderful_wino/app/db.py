@@ -329,8 +329,11 @@ def update_wine_details(wine_id, updates):
         
         query_set_part = ', '.join(set_clauses)
         
-        # The column names here are guaranteed safe by the whitelist.
-        query = "UPDATE wines SET {} WHERE id = ?".format(query_set_part)
+        # CodeQL Note: Although the query string is built using string interpolation (f-string), 
+        # the interpolated part ('query_set_part') is composed *only* from keys that were 
+        # whitelisted against the hardcoded, constant set 'ALLOWED_WINE_UPDATE_COLUMNS'.
+        # Therefore, this statement is safe against SQL injection in column names.
+        query = f"UPDATE wines SET {query_set_part} WHERE id = ?"
         
         values = list(safe_updates.values()) + [wine_id]
 
