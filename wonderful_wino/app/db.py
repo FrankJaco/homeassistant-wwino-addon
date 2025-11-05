@@ -27,6 +27,7 @@ def init_db():
     """Initializes the database tables and performs schema migrations if necessary."""
     conn = None
     try:
+        # Ensure folder exists
         os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -159,7 +160,9 @@ def add_wine(vivino_url, name, vintage, varietal, region, country, region_full, 
         if existing_wine:
             # Wine exists, increment quantity
             wine_id = existing_wine['id']
-            new_quantity = existing_wine['quantity'] + quantity
+            # handle None quantity just in case
+            existing_qty = existing_wine['quantity'] or 0
+            new_quantity = existing_qty + (quantity or 0)
             cursor.execute("UPDATE wines SET quantity = ? WHERE id = ?", (new_quantity, wine_id))
             conn.commit()
             logger.info(f"Updated quantity for existing wine ID {wine_id} to {new_quantity}.")
@@ -252,6 +255,7 @@ def get_all_wines(status_filter='on_hand', sort_by='name'):
         if status_filter == 'on_hand':
             query += " WHERE quantity > 0"
         elif status_filter == 'needs_review':
+            # SQLite supports TRUE/FALSE as 1/0; keep original expression for readability
             query += " WHERE needs_review = TRUE AND quantity > 0"
         elif status_filter == 'consumed':
             query += " WHERE quantity = 0"
@@ -320,26 +324,24 @@ def update_wine_details(wine_id, updates):
         }
         
         if not safe_updates:
-            logger.warning(f"No valid update columns provided for wine ID {wine_id}. Updates tried: {updates.keys()}")
+            logger.warning(f"No valid update columns provided for wine ID {wine_id}. Updates tried: {list(updates.keys())}")
             return True # Nothing valid to update, still considered successful
 
         # Build the SET part of the query dynamically using ONLY the safe, whitelisted keys.
         # Values are parameterized using '?' placeholders to prevent injection in values.
+        # The column names themselves come only from ALLOWED_WINE_UPDATE_COLUMNS (a constant set),
+        # so using them in the query string is safe and defensible to CodeQL.
         set_clauses = [f"{key} = ?" for key in safe_updates.keys()]
         
         query_set_part = ', '.join(set_clauses)
         
-        # CodeQL Note: Although the query string is built using string interpolation (f-string), 
-        # the interpolated part ('query_set_part') is composed *only* from keys that were 
-        # whitelisted against the hardcoded, constant set 'ALLOWED_WINE_UPDATE_COLUMNS'.
-        # Therefore, this statement is safe against SQL injection in column names.
         query = f"UPDATE wines SET {query_set_part} WHERE id = ?"
         
         values = list(safe_updates.values()) + [wine_id]
 
         cursor.execute(query, values)
         conn.commit()
-        logger.info(f"Updated wine ID {wine_id} details: {safe_updates.keys()}")
+        logger.info(f"Updated wine ID {wine_id} details: {list(safe_updates.keys())}")
 
         # Log history if the personal rating was updated
         if 'personal_rating' in updates and updates['personal_rating'] is not None:
@@ -366,7 +368,7 @@ def delete_wine_by_id(wine_id):
             logger.warning(f"Attempted to delete non-existent wine ID {wine_id}.")
             return False
 
-        quantity_deleted = wine['quantity']
+        quantity_deleted = wine['quantity'] or 0
 
         # Set quantity to 0 and mark as not needing review
         cursor.execute("UPDATE wines SET quantity = 0, needs_review = FALSE WHERE id = ?", (wine_id,))
@@ -497,11 +499,13 @@ def get_inventory_counts():
 
         # Total unique wines (count of rows with quantity > 0)
         cursor.execute("SELECT COUNT(id) FROM wines WHERE quantity > 0")
-        counts['unique_wines'] = cursor.fetchone()[0]
+        unique = cursor.fetchone()[0]
+        counts['unique_wines'] = unique or 0
 
         # Total bottle count
         cursor.execute("SELECT SUM(quantity) FROM wines")
-        counts['total_quantity'] = cursor.fetchone()[0] or 0
+        total = cursor.fetchone()[0]
+        counts['total_quantity'] = total or 0
 
         # Counts by wine_type
         cursor.execute("SELECT wine_type, SUM(quantity) FROM wines WHERE quantity > 0 GROUP BY wine_type")
@@ -525,7 +529,7 @@ def get_wines_needing_review_count():
         cursor = conn.cursor()
         # Count wines where the 'needs_review' flag is true AND quantity is greater than 0
         cursor.execute("SELECT COUNT(id) FROM wines WHERE needs_review = TRUE AND quantity > 0")
-        return cursor.fetchone()[0]
+        return cursor.fetchone()[0] or 0
     except sqlite3.Error as e:
         logger.error(f"Database error getting review count: {e}")
         return 0
