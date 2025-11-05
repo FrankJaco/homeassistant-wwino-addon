@@ -280,8 +280,6 @@ Spain:
     Murcia:
       subregions:
         Jumilla:
-          hints:
-            main_varietal: Monastrell
           subsubregions: []
 Portugal:
   code: PT
