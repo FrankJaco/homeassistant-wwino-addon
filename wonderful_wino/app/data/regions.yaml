@@ -279,7 +279,9 @@ Spain:
             - Cava
     Murcia:
       subregions:
-        Jumilla
+        Jumilla:
+          hints:
+            main_varietal: Monastrell
           subsubregions: []
 Portugal:
   code: PT
