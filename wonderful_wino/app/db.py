@@ -6,6 +6,17 @@ from collections import defaultdict # For Home Assistant inventory counts
 
 logger = logging.getLogger(__name__)
 
+# --- SECURITY FIX: Whitelist of allowed column names for updates ---
+# These are the only columns in the 'wines' table that are allowed to be updated
+# via the update_wine_details function. This prevents SQL injection by
+# ensuring keys from user-controlled 'updates' dict cannot inject malicious SQL.
+ALLOWED_WINE_UPDATE_COLUMNS = {
+    'name', 'vintage', 'varietal', 'region', 'country', 'region_full',
+    'vivino_rating', 'image_url', 'cost_tier', 'personal_rating',
+    'tasting_notes', 'alcohol_percent', 'wine_type', 'needs_review',
+    'image_focal_point', 'image_zoom'
+}
+
 def get_db_connection():
     """Establishes and returns a database connection with Row factory."""
     conn = sqlite3.connect(DB_PATH)
@@ -293,20 +304,32 @@ def update_wine_details(wine_id, updates):
     """
     Updates general details for a wine by ID. Used for notes, rating, focal point, etc.
     Updates is a dict of {column_name: new_value}.
+    
+    SECURITY FIX: Filters updates against a whitelist of allowed columns.
     """
     conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # Build the SET part of the query dynamically
-        set_clauses = [f"{key} = ?" for key in updates.keys()]
+        # Filter the updates dictionary against the security whitelist
+        safe_updates = {
+            k: v for k, v in updates.items() 
+            if k in ALLOWED_WINE_UPDATE_COLUMNS
+        }
+        
+        if not safe_updates:
+            logger.warning(f"No valid update columns provided for wine ID {wine_id}. Updates tried: {updates.keys()}")
+            return True # Nothing valid to update, still considered successful
+
+        # Build the SET part of the query dynamically using ONLY the safe keys
+        set_clauses = [f"{key} = ?" for key in safe_updates.keys()]
         query = f"UPDATE wines SET {', '.join(set_clauses)} WHERE id = ?"
-        values = list(updates.values()) + [wine_id]
+        values = list(safe_updates.values()) + [wine_id]
 
         cursor.execute(query, values)
         conn.commit()
-        logger.info(f"Updated wine ID {wine_id} details: {updates.keys()}")
+        logger.info(f"Updated wine ID {wine_id} details: {safe_updates.keys()}")
 
         # Log history if the personal rating was updated
         if 'personal_rating' in updates and updates['personal_rating'] is not None:
