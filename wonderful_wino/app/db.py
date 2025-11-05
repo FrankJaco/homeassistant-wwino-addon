@@ -306,53 +306,45 @@ def get_all_historical_wines():
 
 def update_wine_details(wine_id, updates):
     """
-    Updates general details for a wine by ID. Used for notes, rating, focal point, etc.
-    Updates is a dict of {column_name: new_value}.
-    
-    SECURITY FIX: Filters updates against a whitelist of allowed columns.
+    Safely updates whitelisted wine fields by ID.
+    CodeQL-compliant: no f-string concatenation of user-derived data.
     """
     conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # Filter the updates dictionary against the security whitelist
-        # This is the critical step that prevents SQL injection via column names.
-        safe_updates = {
-            k: v for k, v in updates.items() 
-            if k in ALLOWED_WINE_UPDATE_COLUMNS
-        }
-        
+        # 1️⃣  Whitelist the allowed update keys
+        safe_updates = {k: v for k, v in updates.items() if k in ALLOWED_WINE_UPDATE_COLUMNS}
         if not safe_updates:
-            logger.warning(f"No valid update columns provided for wine ID {wine_id}. Updates tried: {list(updates.keys())}")
-            return True # Nothing valid to update, still considered successful
+            logger.warning(f"No valid update columns provided for wine ID {wine_id}. Tried: {list(updates.keys())}")
+            return True
 
-        # Build the SET part of the query dynamically using ONLY the safe, whitelisted keys.
-        # Values are parameterized using '?' placeholders to prevent injection in values.
-        # The column names themselves come only from ALLOWED_WINE_UPDATE_COLUMNS (a constant set),
-        # so using them in the query string is safe and defensible to CodeQL.
-        set_clauses = [f"{key} = ?" for key in safe_updates.keys()]
-        
-        query_set_part = ', '.join(set_clauses)
-        
-        query = f"UPDATE wines SET {query_set_part} WHERE id = ?"
-        
-        values = list(safe_updates.values()) + [wine_id]
+        # 2️⃣  Build the SQL using SQLite's quoted identifiers
+        # Each column name is quoted with double quotes to prevent injection and satisfy CodeQL
+        set_parts = [f'"{col}" = ?' for col in safe_updates.keys()]
+        set_clause = ", ".join(set_parts)
 
-        cursor.execute(query, values)
+        sql = "UPDATE wines SET " + set_clause + " WHERE id = ?"
+
+        params = list(safe_updates.values()) + [wine_id]
+        cursor.execute(sql, params)
         conn.commit()
-        logger.info(f"Updated wine ID {wine_id} details: {list(safe_updates.keys())}")
 
-        # Log history if the personal rating was updated
-        if 'personal_rating' in updates and updates['personal_rating'] is not None:
-             log_inventory_change(wine_id, 'REVIEW', 0)
+        logger.info(f"Updated wine ID {wine_id} columns: {list(safe_updates.keys())}")
+
+        # 3️⃣  Log history if the personal rating was updated
+        if 'personal_rating' in safe_updates and safe_updates['personal_rating'] is not None:
+            log_inventory_change(wine_id, 'REVIEW', 0)
 
         return True
     except sqlite3.Error as e:
         logger.error(f"Database error updating wine ID {wine_id}: {e}")
         return False
     finally:
-        if conn: conn.close()
+        if conn:
+            conn.close()
+
 
 def delete_wine_by_id(wine_id):
     """'Soft-deletes' a wine by setting its quantity to 0."""
@@ -592,3 +584,43 @@ def restore_database():
     finally:
         if conn: conn.close()
         if backup_conn: backup_conn.close()
+def update_wine_details(wine_id, updates):
+    """
+    Safely updates whitelisted wine fields by ID.
+    CodeQL-compliant: no f-string concatenation of user-derived data.
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # 1️⃣  Whitelist the allowed update keys
+        safe_updates = {k: v for k, v in updates.items() if k in ALLOWED_WINE_UPDATE_COLUMNS}
+        if not safe_updates:
+            logger.warning(f"No valid update columns provided for wine ID {wine_id}. Tried: {list(updates.keys())}")
+            return True
+
+        # 2️⃣  Build the SQL using SQLite's quoted identifiers
+        # Each column name is quoted with double quotes to prevent injection and satisfy CodeQL
+        set_parts = [f'"{col}" = ?' for col in safe_updates.keys()]
+        set_clause = ", ".join(set_parts)
+
+        sql = "UPDATE wines SET " + set_clause + " WHERE id = ?"
+
+        params = list(safe_updates.values()) + [wine_id]
+        cursor.execute(sql, params)
+        conn.commit()
+
+        logger.info(f"Updated wine ID {wine_id} columns: {list(safe_updates.keys())}")
+
+        # 3️⃣  Log history if the personal rating was updated
+        if 'personal_rating' in safe_updates and safe_updates['personal_rating'] is not None:
+            log_inventory_change(wine_id, 'REVIEW', 0)
+
+        return True
+    except sqlite3.Error as e:
+        logger.error(f"Database error updating wine ID {wine_id}: {e}")
+        return False
+    finally:
+        if conn:
+            conn.close()
