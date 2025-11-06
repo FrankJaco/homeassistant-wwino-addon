@@ -102,6 +102,28 @@ def update_focal_point():
     else:
         return jsonify({"status": "error", "message": "Wine not found or DB error."}), 404
 
+# --- NEW ROUTE ---
+@app.route('/api/log/update', methods=['POST'])
+def update_log_entry():
+    """Updates the date of a single consumption log entry."""
+    data = request.get_json()
+    log_id = data.get('log_id')
+    new_date = data.get('new_date')
+
+    if not log_id or not new_date:
+        return jsonify({"status": "error", "message": "Missing log_id or new_date"}), 400
+    
+    try:
+        # Client should send a full ISO 8601 string, which SQLite will store.
+        if db.update_consumption_date(log_id, new_date):
+            return jsonify({"status": "success", "message": "Log entry updated."}), 200
+        else:
+            return jsonify({"status": "error", "message": "Log entry not found or DB error."}), 404
+    except Exception as e:
+        logger.error(f"Error updating log entry: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": "An internal error occurred."}), 500
+
+
 @app.route('/api/wine/history')
 def get_wine_history():
     vivino_url = request.args.get('vivino_url')
@@ -328,7 +350,6 @@ def consume_wine_from_webhook():
         if not wine_record:
             return jsonify({"status": "warning", "message": "No matching wine found."}), 404
         
-        # FIX 2: This block now calls the new atomic function for robustness.
         vivino_url = wine_record['vivino_url']
         status, message, updated_wine = db.atomically_consume_wine(vivino_url, personal_rating)
         
@@ -354,7 +375,6 @@ def consume_wine():
     if not vivino_url:
         return jsonify({'error': 'vivino_url is required'}), 400
         
-    # FIX 2: This block now calls the new atomic function for robustness.
     status, message, updated_wine = db.atomically_consume_wine(vivino_url, personal_rating)
     
     if status == "success":

@@ -75,7 +75,6 @@ def init_db():
         if 'image_zoom' not in wines_columns:
             cursor.execute("ALTER TABLE wines ADD COLUMN image_zoom REAL DEFAULT 1")
             logger.info("Added 'image_zoom' column to wines table.")
-        # FIX: Moved this migration to the correct table block
         if 'region_full' not in wines_columns:
             cursor.execute("ALTER TABLE wines ADD COLUMN region_full TEXT")
             logger.info("Added 'region_full' column to wines table.")
@@ -94,6 +93,29 @@ def init_db():
         logger.info(f"Database initialized at {DB_PATH}")
     except sqlite3.Error as e:
         logger.error(f"Database initialization failed: {e}")
+    finally:
+        if conn:
+            conn.close()
+
+# --- NEW FUNCTION ---
+def update_consumption_date(log_id, new_consumed_at):
+    """Updates the consumed_at timestamp for a specific log entry."""
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE consumption_history SET consumed_at = ? WHERE id = ?",
+            (new_consumed_at, log_id)
+        )
+        conn.commit()
+        logger.info(f"Updated consumed_at for log_id: {log_id}")
+        return cursor.rowcount > 0
+    except sqlite3.Error as e:
+        logger.error(f"Database error updating log date: {e}")
+        if conn:
+            conn.rollback()
+        return False
     finally:
         if conn:
             conn.close()
@@ -141,7 +163,6 @@ def update_image_focal_point(vivino_url: str, focal_point: str):
         if conn:
             conn.close()
 
-# FIX 1: This function now accepts 'cost_tier' to fix the consumption log bug.
 def add_consumption_record(cursor, wine_id, personal_rating, cost_tier):
     """
     Adds a new record to the consumption_history table.
@@ -379,22 +400,10 @@ def delete_wine_by_url(vivino_url):
         if conn:
             conn.close()
 
-# FIX 2: This function is now DELETED. It was replaced by 'atomically_consume_wine'
-# def update_wine_quantity_and_rating(vivino_url, new_quantity, personal_rating):
-#     ...
-
-# FIX 2: This NEW function solves the race condition.
 def atomically_consume_wine(vivino_url, personal_rating):
     """
     Atomically decrements wine quantity and logs consumption in a transaction.
     This prevents race conditions.
-    
-    Returns:
-        (status, message, updated_wine)
-        - ("success", new_quantity, updated_wine_dict)
-        - ("error", "Wine not found", None)
-        - ("error", "Quantity already zero", None)
-        - ("error", "Database error", None)
     """
     conn = None
     try:
@@ -420,8 +429,6 @@ def atomically_consume_wine(vivino_url, personal_rating):
 
         # Step 2: Calculate new state
         new_quantity = current_quantity - 1
-        
-        # Use the provided rating if available, otherwise keep the old one
         rating_to_set = personal_rating if personal_rating is not None else wine_dict.get('personal_rating')
 
         # Step 3: Update the wine record
@@ -430,7 +437,7 @@ def atomically_consume_wine(vivino_url, personal_rating):
             (new_quantity, rating_to_set, vivino_url)
         )
         
-        # Step 4: Add the consumption log record (FIX 1 applied here)
+        # Step 4: Add the consumption log record
         wine_id = wine_dict['id']
         cost_tier = wine_dict.get('cost_tier')
         add_consumption_record(cursor, wine_id, personal_rating, cost_tier)
@@ -438,7 +445,6 @@ def atomically_consume_wine(vivino_url, personal_rating):
         # Step 5: Commit the transaction
         conn.commit()
 
-        # Get the fully updated wine data to return
         updated_wine = get_wine_by_url(vivino_url)
         return ("success", new_quantity, updated_wine)
 

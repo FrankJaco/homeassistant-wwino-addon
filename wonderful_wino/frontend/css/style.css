@@ -528,3 +528,76 @@ input[readonly] {
     transform: translateY(-50%) scale(1.2);
     background-color: rgba(255, 255, 255, 0.5);
 }
+/* --- Additions for Editable Consumption Log --- */
+
+.log-entry {
+    display: flex;
+    flex-wrap: wrap;
+    /* Allow wrapping on small screens */
+    align-items: center;
+    gap: 4px 8px;
+    /* 4px vertical, 8px horizontal gap */
+    padding: 4px 0;
+}
+
+.log-date-input {
+    background-color: var(--input-bg);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 2px 4px;
+    font-family: inherit;
+    font-size: 0.875rem;
+    /* 14px */
+    line-height: 1.25rem;
+    /* 20px */
+}
+
+.dark-theme .log-date-input::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+}
+
+.log-details {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.875rem;
+}
+
+.log-type-consumed {
+    font-weight: 500;
+    color: var(--wine-red-text);
+}
+
+.log-type-acquired {
+    font-weight: 500;
+    color: #15803d;
+    /* Green */
+}
+
+.dark-theme .log-type-acquired {
+    color: #22c55e;
+    /* Lighter Green */
+}
+
+.date-saved-check {
+    font-size: 0.8rem;
+    line-height: 1;
+    animation: fadeOut 1.5s ease-out forwards;
+}
+
+@keyframes fadeOut {
+    0% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    70% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0;
+        transform: scale(0.5);
+    }
+}
