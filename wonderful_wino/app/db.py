@@ -72,17 +72,17 @@ def init_db():
         if 'image_focal_point' not in wines_columns:
             cursor.execute("ALTER TABLE wines ADD COLUMN image_focal_point TEXT DEFAULT '50%'")
             logger.info("Added 'image_focal_point' column to wines table.")
-        # ADD MIGRATION LOGIC FOR ZOOM
         if 'image_zoom' not in wines_columns:
             cursor.execute("ALTER TABLE wines ADD COLUMN image_zoom REAL DEFAULT 1")
             logger.info("Added 'image_zoom' column to wines table.")
+        # FIX: Moved this migration to the correct table block
+        if 'region_full' not in wines_columns:
+            cursor.execute("ALTER TABLE wines ADD COLUMN region_full TEXT")
+            logger.info("Added 'region_full' column to wines table.")
 
         # Check if new columns exist in consumption_history table and add them if they don't
         cursor.execute("PRAGMA table_info(consumption_history)")
         ch_columns = [column['name'] for column in cursor.fetchall()]
-        if 'region_full' not in wines_columns:
-            cursor.execute("ALTER TABLE wines ADD COLUMN region_full TEXT")
-            logger.info("Added 'region_full' column to wines table.")
         if 'log_type' not in ch_columns:
             cursor.execute("ALTER TABLE consumption_history ADD COLUMN log_type TEXT DEFAULT 'consumed' NOT NULL")
             logger.info("Added 'log_type' column to consumption_history table.")
@@ -141,27 +141,19 @@ def update_image_focal_point(vivino_url: str, focal_point: str):
         if conn:
             conn.close()
 
-def add_consumption_record(wine_id, personal_rating):
-    """Adds a new record to the consumption_history table."""
-    conn = None
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO consumption_history (wine_id, personal_rating, log_type) VALUES (?, ?, 'consumed')",
-            (wine_id, personal_rating)
-        )
-        conn.commit()
-        logger.info(f"Added consumption record for wine_id: {wine_id}")
-        return True
-    except sqlite3.Error as e:
-        logger.error(f"Database error adding consumption record: {e}")
-        if conn:
-            conn.rollback()
-        return False
-    finally:
-        if conn:
-            conn.close()
+# FIX 1: This function now accepts 'cost_tier' to fix the consumption log bug.
+def add_consumption_record(cursor, wine_id, personal_rating, cost_tier):
+    """
+    Adds a new record to the consumption_history table.
+    NOTE: This function is designed to be called within an existing transaction
+    by passing an active cursor.
+    """
+    cursor.execute(
+        "INSERT INTO consumption_history (wine_id, personal_rating, log_type, cost_tier) VALUES (?, ?, 'consumed', ?)",
+        (wine_id, personal_rating, cost_tier)
+    )
+    logger.info(f"Added consumption record for wine_id: {wine_id}")
+
 
 def get_consumption_history(wine_id: int):
     """Fetches all consumption records for a given wine_id."""
@@ -387,25 +379,78 @@ def delete_wine_by_url(vivino_url):
         if conn:
             conn.close()
 
-def update_wine_quantity_and_rating(vivino_url, new_quantity, personal_rating):
+# FIX 2: This function is now DELETED. It was replaced by 'atomically_consume_wine'
+# def update_wine_quantity_and_rating(vivino_url, new_quantity, personal_rating):
+#     ...
+
+# FIX 2: This NEW function solves the race condition.
+def atomically_consume_wine(vivino_url, personal_rating):
+    """
+    Atomically decrements wine quantity and logs consumption in a transaction.
+    This prevents race conditions.
+    
+    Returns:
+        (status, message, updated_wine)
+        - ("success", new_quantity, updated_wine_dict)
+        - ("error", "Wine not found", None)
+        - ("error", "Quantity already zero", None)
+        - ("error", "Database error", None)
+    """
     conn = None
     try:
         conn = get_db_connection()
+        conn.isolation_level = 'EXCLUSIVE' # Lock the database for this transaction
         cursor = conn.cursor()
-        if personal_rating is not None:
-            cursor.execute("UPDATE wines SET quantity = ?, personal_rating = ? WHERE vivino_url = ?", (new_quantity, personal_rating, vivino_url))
-        else:
-            cursor.execute("UPDATE wines SET quantity = ? WHERE vivino_url = ?", (new_quantity, vivino_url))
+        cursor.execute("BEGIN EXCLUSIVE TRANSACTION")
+
+        # Step 1: Get the current wine state
+        cursor.execute("SELECT * FROM wines WHERE vivino_url = ?", (vivino_url,))
+        wine = cursor.fetchone()
+        
+        if not wine:
+            conn.rollback()
+            return ("error", "Wine not found", None)
+        
+        wine_dict = dict(wine)
+        current_quantity = wine_dict.get('quantity', 0)
+        
+        if current_quantity <= 0:
+            conn.rollback()
+            return ("error", "Quantity already zero", None)
+
+        # Step 2: Calculate new state
+        new_quantity = current_quantity - 1
+        
+        # Use the provided rating if available, otherwise keep the old one
+        rating_to_set = personal_rating if personal_rating is not None else wine_dict.get('personal_rating')
+
+        # Step 3: Update the wine record
+        cursor.execute(
+            "UPDATE wines SET quantity = ?, personal_rating = ? WHERE vivino_url = ?",
+            (new_quantity, rating_to_set, vivino_url)
+        )
+        
+        # Step 4: Add the consumption log record (FIX 1 applied here)
+        wine_id = wine_dict['id']
+        cost_tier = wine_dict.get('cost_tier')
+        add_consumption_record(cursor, wine_id, personal_rating, cost_tier)
+
+        # Step 5: Commit the transaction
         conn.commit()
-        return get_wine_by_url(vivino_url)
+
+        # Get the fully updated wine data to return
+        updated_wine = get_wine_by_url(vivino_url)
+        return ("success", new_quantity, updated_wine)
+
     except sqlite3.Error as e:
-        logger.error(f"Database error updating quantity and rating: {e}")
+        logger.error(f"Database error during atomic consume: {e}", exc_info=True)
         if conn:
             conn.rollback()
-        return None
+        return ("error", "Database error", None)
     finally:
         if conn:
             conn.close()
+
 
 def get_settings():
     conn = None

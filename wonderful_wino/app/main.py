@@ -328,19 +328,19 @@ def consume_wine_from_webhook():
         if not wine_record:
             return jsonify({"status": "warning", "message": "No matching wine found."}), 404
         
-        if wine_record.get('quantity', 0) > 0:
-            new_quantity = wine_record['quantity'] - 1
-            updated_wine = db.update_wine_quantity_and_rating(wine_record['vivino_url'], new_quantity, personal_rating)
-            
-            if updated_wine:
-                db.add_consumption_record(updated_wine['id'], personal_rating)
-                ha_service.fire_consumption_event(updated_wine)
-                ha_service.sync_wine_to_todo(updated_wine, new_quantity) 
-                return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {new_quantity}."}), 200
-            else:
-                return jsonify({"status": "error", "message": "Failed to update wine in database."}), 500
-        else:
+        # FIX 2: This block now calls the new atomic function for robustness.
+        vivino_url = wine_record['vivino_url']
+        status, message, updated_wine = db.atomically_consume_wine(vivino_url, personal_rating)
+        
+        if status == "success":
+            ha_service.fire_consumption_event(updated_wine)
+            ha_service.sync_wine_to_todo(updated_wine, message) # message is new_quantity
+            return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {message}."}), 200
+        elif message == "Quantity already zero":
             return jsonify({"status": "warning", "message": "Quantity already zero."}), 404
+        else:
+            # Covers "Wine not found" and "Database error"
+            return jsonify({"status": "error", "message": message}), 500
 
     except Exception as e:
         logger.error(f"Error processing webhook: {e}", exc_info=True)
@@ -354,23 +354,20 @@ def consume_wine():
     if not vivino_url:
         return jsonify({'error': 'vivino_url is required'}), 400
         
-    wine_data = db.get_wine_by_url(vivino_url)
-    if not wine_data:
-        return jsonify({'error': 'Wine not found'}), 404
-        
-    if wine_data['quantity'] > 0:
-        new_quantity = wine_data['quantity'] - 1
-        updated_wine = db.update_wine_quantity_and_rating(vivino_url, new_quantity, personal_rating)
-
-        if updated_wine:
-            db.add_consumption_record(updated_wine['id'], personal_rating)
-            ha_service.fire_consumption_event(updated_wine)
-            ha_service.sync_wine_to_todo(updated_wine, new_quantity)
-            return jsonify({'status': 'success', 'new_quantity': new_quantity})
-        else:
-            return jsonify({'error': 'Failed to update wine in database'}), 500
+    # FIX 2: This block now calls the new atomic function for robustness.
+    status, message, updated_wine = db.atomically_consume_wine(vivino_url, personal_rating)
     
-    return jsonify({'status': 'success', 'new_quantity': wine_data['quantity']})
+    if status == "success":
+        ha_service.fire_consumption_event(updated_wine)
+        ha_service.sync_wine_to_todo(updated_wine, message) # message is new_quantity
+        return jsonify({'status': 'success', 'new_quantity': message})
+    elif message == "Wine not found":
+        return jsonify({'error': 'Wine not found'}), 404
+    elif message == "Quantity already zero":
+        return jsonify({'status': 'success', 'new_quantity': 0}) # Still a "success" for the UI
+    else:
+        return jsonify({'error': message}), 500
+
 
 @app.route('/inventory/wine', methods=['DELETE'])
 def delete_wine():
