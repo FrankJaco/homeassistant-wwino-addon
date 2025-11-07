@@ -560,7 +560,7 @@ input[readonly] {
     /* 20px */
     flex-grow: 1;
     /* Allow it to grow */
-    min-width: 200px;
+    min-width: 250px;
     /* Ensure it's wide enough for date and time */
 }
 
