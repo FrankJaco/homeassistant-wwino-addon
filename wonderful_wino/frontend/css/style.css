@@ -358,8 +358,8 @@ body {
     max-width: 500px;
     width: 90%;
     position: relative;
-    max-height: 90vh;
-    overflow-y: auto;
+    /* max-height: 90vh; */
+    /* overflow-y: auto; */
     transition: background-color 0.3s ease, color 0.3s ease;
     padding: 1.5rem;
     border-radius: 0.5rem;
@@ -374,8 +374,14 @@ body {
     background-color: rgba(0, 0, 0, 0.6);
     display: flex;
     justify-content: center;
-    align-items: center;
+    /* align-items: center; */
+    align-items: flex-start;
+    /* Align to top */
     z-index: 1000;
+    overflow-y: auto;
+    /* Make the overlay scrollable */
+    padding: 5vh 0;
+    /* Add vertical padding */
 }
 
 .modal-close-button {
@@ -528,6 +534,7 @@ input[readonly] {
     transform: translateY(-50%) scale(1.2);
     background-color: rgba(255, 255, 255, 0.5);
 }
+
 /* --- Additions for Editable Consumption Log --- */
 
 .log-entry {
