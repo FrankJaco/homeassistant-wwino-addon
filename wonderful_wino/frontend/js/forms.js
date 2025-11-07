@@ -81,50 +81,92 @@ function toLocalInputString(isoDate) {
 }
 
 /**
- * Handles the 'change' event on the consumption log container.
- * When a date input is changed, it calls the API to update the log.
+ * NEW: Shows save/cancel buttons when a date input is changed.
+ * Listens for 'change' on the log container.
  * @param {Event} event - The DOM change event.
  */
-async function handleLogDateChange(event) {
+function showLogEditControls(event) {
     if (!event.target.classList.contains('log-date-input')) return;
 
     const input = event.target;
-    // The log ID is the unique ID from the log table
+    // Controls are the next sibling
+    const controls = input.nextElementSibling; 
+    if (!controls || !controls.classList.contains('log-entry-controls')) return;
+
+    if (input.value !== input.dataset.originalValue) {
+        controls.classList.remove('hidden');
+    } else {
+        // If user changes it back to original, hide controls
+        controls.classList.add('hidden');
+    }
+}
+
+/**
+ * NEW: Handles save/cancel button clicks using event delegation.
+ * Listens for 'click' on the log container.
+ * @param {Event} event - The DOM click event.
+ */
+async function handleLogEditClick(event) {
+    const button = event.target.closest('button');
+    // Exit if not a button or not one of our log buttons
+    if (!button || (!button.classList.contains('log-save-btn') && !button.classList.contains('log-cancel-btn'))) {
+        return;
+    }
+
+    const controls = button.parentElement; // .log-entry-controls
+    const input = controls.previousElementSibling; // .log-date-input
     const logId = input.dataset.logId;
-    const localDateString = input.value;
 
-    if (!logId || !localDateString) return;
+    if (button.classList.contains('log-cancel-btn')) {
+        // Reset value and hide controls
+        input.value = input.dataset.originalValue;
+        controls.classList.add('hidden');
+    }
 
-    // Convert the local datetime-local string back to a full UTC ISO string
-    const newDateUTC = new Date(localDateString).toISOString();
+    if (button.classList.contains('log-save-btn')) {
+        // Save logic
+        const localDateString = input.value;
+        if (!logId || !localDateString) return;
 
-    // Add a simple pending state
-    input.style.opacity = '0.5';
-    input.disabled = true;
+        // Convert the local datetime-local string back to a full UTC ISO string
+        const newDateUTC = new Date(localDateString).toISOString();
 
-    try {
-        await apiCall('/api/log/update', {
-            method: 'POST',
-            body: JSON.stringify({
-                log_id: parseInt(logId, 10),
-                new_date: newDateUTC
-            }),
-            headers: { 'Content-Type': 'application/json' },
-        });
+        // Add a simple pending state
+        input.style.opacity = '0.5';
+        input.disabled = true;
+        button.disabled = true;
+        const cancelBtn = controls.querySelector('.log-cancel-btn');
+        if (cancelBtn) cancelBtn.disabled = true;
 
-        // Success: show a checkmark next to the input
-        const check = document.createElement('span');
-        check.className = 'date-saved-check text-green-500 ml-2';
-        check.textContent = '✅';
-        input.insertAdjacentElement('afterend', check);
-        setTimeout(() => check.remove(), 1500);
+        try {
+            await apiCall('/api/log/update', {
+                method: 'POST',
+                body: JSON.stringify({
+                    log_id: parseInt(logId, 10),
+                    new_date: newDateUTC
+                }),
+                headers: { 'Content-Type': 'application/json' },
+            });
 
-    } catch (error) {
-        console.error('Failed to update log date:', error);
-        // We don't have a message element here, so just log and re-enable
-    } finally {
-        input.style.opacity = '1';
-        input.disabled = false;
+            // Success: Update original value, hide controls
+            input.dataset.originalValue = input.value;
+            controls.classList.add('hidden');
+
+        } catch (error) {
+            console.error('Failed to update log date:', error);
+            // On error, show a message
+            const errorMsg = document.createElement('span');
+            errorMsg.className = 'text-red-500 text-xs ml-1';
+            errorMsg.textContent = 'Error!';
+            controls.appendChild(errorMsg);
+            setTimeout(() => errorMsg.remove(), 2000);
+        } finally {
+            // Re-enable controls regardless of outcome
+            input.style.opacity = '1';
+            input.disabled = false;
+            button.disabled = false;
+            if (cancelBtn) cancelBtn.disabled = false;
+        }
     }
 }
 
@@ -132,7 +174,7 @@ async function handleLogDateChange(event) {
 // --- UPDATED FUNCTION ---
 /**
  * Fetches and renders the consumption history for a wine.
- * Now renders dates as editable <input> fields using the new log ID for tracking.
+ * Now renders dates as editable <input> fields with save/cancel buttons.
  * @param {object} wine - The wine object.
  * @param {string} sortOrder - 'asc' or 'desc'.
  */
@@ -141,8 +183,9 @@ export async function fetchAndDisplayConsumptionHistory(wine, sortOrder = 'desc'
     if (!logContainer) return;
 
     logContainer.innerHTML = '<p class="text-gray-500 dark:text-gray-400">Loading history...</p>';
-    // Clean up old listener to prevent duplicates
-    logContainer.removeEventListener('change', handleLogDateChange);
+    // Clean up old listeners to prevent duplicates
+    logContainer.removeEventListener('change', showLogEditControls);
+    logContainer.removeEventListener('click', handleLogEditClick);
     state.setCurrentWineForLog(wine); // Keep existing state tracking
 
     try {
@@ -189,18 +232,35 @@ export async function fetchAndDisplayConsumptionHistory(wine, sortOrder = 'desc'
                 details = `<span class="${logTypeClass} font-medium">Acquired</span> <span class="text-gray-500 dark:text-gray-400">${cost}</span>`;
             }
 
+            // MODIFIED:
+            // 1. Changed width from w-[160px] to w-[195px] to show AM/PM.
+            // 2. Added data-original-value to track changes.
+            // 3. Added hidden save/cancel buttons.
             entryEl.innerHTML = `
                 <div class="flex items-center space-x-2">
-                    <input type="datetime-local" class="log-date-input bg-transparent border-none p-0 w-[160px] cursor-pointer focus:ring-purple-500 focus:border-purple-500 focus:ring-1"
-                           value="${localDateString}" data-log-id="${entry.id}" title="Click to edit date">
+                    <input type="datetime-local" 
+                           class="log-date-input w-[195px] cursor-pointer focus:ring-purple-500 focus:border-purple-500 focus:ring-1"
+                           value="${localDateString}" 
+                           data-original-value="${localDateString}" 
+                           data-log-id="${entry.id}" 
+                           title="Click to edit date">
+                    <div class="log-entry-controls hidden space-x-1">
+                        <button class="log-save-btn p-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded" title="Save change">
+                            <svg class="w-3 h-3 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        </button>
+                        <button class="log-cancel-btn p-1 text-xs bg-gray-500 hover:bg-gray-600 text-white rounded" title="Cancel change">
+                            <svg class="w-3 h-3 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        </button>
+                    </div>
                 </div>
                 <div class="log-details">${details}</div>
             `;
             logContainer.appendChild(entryEl);
         });
 
-        // Add a single, delegated event listener to the container to handle date changes
-        logContainer.addEventListener('change', handleLogDateChange);
+        // Add new, delegated event listeners to the container
+        logContainer.addEventListener('change', showLogEditControls);
+        logContainer.addEventListener('click', handleLogEditClick);
 
     } catch (error) {
         console.error('Failed to load consumption history:', error);
