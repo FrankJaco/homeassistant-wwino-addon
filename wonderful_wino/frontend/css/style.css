@@ -558,6 +558,10 @@ input[readonly] {
     /* 14px */
     line-height: 1.25rem;
     /* 20px */
+    flex-grow: 1;
+    /* Allow it to grow */
+    min-width: 200px;
+    /* Ensure it's wide enough for date and time */
 }
 
 .dark-theme .log-date-input::-webkit-calendar-picker-indicator {
