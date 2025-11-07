@@ -184,7 +184,7 @@ export async function fetchAndDisplayConsumptionHistory(wine, sortOrder = 'desc'
 
     logContainer.innerHTML = '<p class="text-gray-500 dark:text-gray-400">Loading history...</p>';
     // Clean up old listeners to prevent duplicates
-    logContainer.removeEventListener('change', showLogEditControls);
+    logContainer.removeEventListener('input', showLogEditControls); // <-- MODIFIED from 'change'
     logContainer.removeEventListener('click', handleLogEditClick);
     state.setCurrentWineForLog(wine); // Keep existing state tracking
 
@@ -259,7 +259,7 @@ export async function fetchAndDisplayConsumptionHistory(wine, sortOrder = 'desc'
         });
 
         // Add new, delegated event listeners to the container
-        logContainer.addEventListener('change', showLogEditControls);
+        logContainer.addEventListener('input', showLogEditControls); // <-- MODIFIED from 'change'
         logContainer.addEventListener('click', handleLogEditClick);
 
     } catch (error) {
