@@ -115,3 +115,88 @@ def force_clear_ha_list():
     
     logger.info("Force-clear operation completed.")
 
+
+# --- NEW FUNCTIONS FOR HA SENSORS ---
+
+SENSOR_DEFINITIONS = {
+    'total_bottles': {
+        'name': 'wwino_total_bottles',
+        'friendly_name': 'Wino Total Inventory',
+        'unit': 'bottles',
+        'icon': 'mdi:bottle-wine'
+    },
+    'red_bottles': {
+        'name': 'wwino_red_bottles',
+        'friendly_name': 'Wino Red Bottles',
+        'unit': 'bottles',
+        'icon': 'mdi:bottle-wine-outline'
+    },
+    'white_bottles': {
+        'name': 'wwino_white_bottles',
+        'friendly_name': 'Wino White Bottles',
+        'unit': 'bottles',
+        'icon': 'mdi:bottle-wine-outline'
+    },
+    'sparkling_bottles': {
+        'name': 'wwino_sparkling_bottles',
+        'friendly_name': 'Wino Sparkling/Rosé Bottles',
+        'unit': 'bottles',
+        'icon': 'mdi:bottle-wine-outline'
+    },
+    'unique_wines': {
+        'name': 'wwino_unique_wines',
+        'friendly_name': 'Wino Unique Wines',
+        'unit': 'wines',
+        'icon': 'mdi:glass-wine'
+    },
+    'needs_review': {
+        'name': 'wwino_needs_review',
+        'friendly_name': 'Wino Wines Needing Review',
+        'unit': 'wines',
+        'icon': 'mdi:alert-circle-outline'
+    }
+}
+
+def update_ha_sensors(stats: dict):
+    """
+    Pushes all inventory statistics to Home Assistant as sensor states.
+    """
+    headers = _get_ha_headers()
+    if not headers or not config.HOME_ASSISTANT_URL:
+        logger.error("Cannot update HA sensors: Missing URL or Token configuration.")
+        return
+
+    for key, sensor_info in SENSOR_DEFINITIONS.items():
+        state_value = stats.get(key, 0)
+        entity_id = f"sensor.{sensor_info['name']}"
+        sensor_url = f"{config.HOME_ASSISTANT_URL}/api/states/{entity_id}"
+        
+        payload = {
+            "state": str(state_value),
+            "attributes": {
+                "unit_of_measurement": sensor_info['unit'],
+                "friendly_name": sensor_info['friendly_name'],
+                "icon": sensor_info['icon']
+            }
+        }
+        
+        try:
+            resp = requests.post(sensor_url, json=payload, headers=headers, timeout=3)
+            resp.raise_for_status()
+            logger.debug(f"Successfully updated HA sensor: {entity_id}")
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to update HA sensor {entity_id}: {e}")
+
+def trigger_sensor_update():
+    """
+    A single function to fetch statistics and update HA sensors.
+    This is called by main.py whenever the inventory changes.
+    """
+    try:
+        stats = db.get_inventory_statistics()
+        if stats:
+            update_ha_sensors(stats)
+        else:
+            logger.warning("Could not retrieve stats to update HA sensors.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred during trigger_sensor_update: {e}", exc_info=True)

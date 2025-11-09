@@ -368,6 +368,9 @@ def update_wine_notes_and_image(vivino_url, notes, image_url, image_zoom):
             params.append(image_zoom)
 
         if updates:
+            # This query is still safe as the *structure* is built from
+            # fixed strings, not user input. The user input is only
+            # in the params list.
             query = f"UPDATE wines SET {', '.join(updates)} WHERE vivino_url = ?"
             params.append(vivino_url)
             cursor.execute(query, tuple(params))
@@ -568,6 +571,54 @@ def get_all_historical_wines():
     except sqlite3.Error as e:
         logger.error(f"Database error getting historical wines: {e}")
         return []
+    finally:
+        if conn:
+            conn.close()
+
+# --- NEW FUNCTION FOR HA SENSORS ---
+def get_inventory_statistics():
+    """
+    Calculates inventory statistics using a single, safe SQL query.
+    This is 100% CodeQL-safe as the query is a fixed literal.
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        query = """
+            SELECT
+                SUM(CASE WHEN quantity > 0 THEN quantity ELSE 0 END) as total_bottles,
+                SUM(CASE WHEN wine_type = 'Red' AND quantity > 0 THEN quantity ELSE 0 END) as red_bottles,
+                SUM(CASE WHEN wine_type = 'White' AND quantity > 0 THEN quantity ELSE 0 END) as white_bottles,
+                SUM(CASE WHEN (wine_type = 'Sparkling' OR wine_type = 'Rosé') AND quantity > 0 THEN quantity ELSE 0 END) as sparkling_bottles,
+                COUNT(CASE WHEN quantity > 0 THEN 1 END) as unique_wines,
+                COUNT(CASE WHEN needs_review = TRUE AND quantity > 0 THEN 1 END) as needs_review
+            FROM wines
+        """
+        cursor.execute(query)
+        stats = cursor.fetchone()
+        
+        if stats:
+            # Convert row object to dict and handle None (from SUM on no rows)
+            stats_dict = dict(stats)
+            for key in stats_dict:
+                if stats_dict[key] is None:
+                    stats_dict[key] = 0
+            return stats_dict
+        else:
+            # Return a zeroed-out dict if the table is empty
+            return {
+                'total_bottles': 0, 'red_bottles': 0, 'white_bottles': 0,
+                'sparkling_bottles': 0, 'unique_wines': 0, 'needs_review': 0
+            }
+            
+    except sqlite3.Error as e:
+        logger.error(f"Database error getting inventory statistics: {e}")
+        # Return a default structure on error
+        return {
+            'total_bottles': 0, 'red_bottles': 0, 'white_bottles': 0,
+            'sparkling_bottles': 0, 'unique_wines': 0, 'needs_review': 0
+        }
     finally:
         if conn:
             conn.close()

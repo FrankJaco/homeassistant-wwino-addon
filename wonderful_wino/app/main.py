@@ -213,6 +213,7 @@ def scan_wine():
         if updated_wine_row:
             current_total_quantity = updated_wine_row.get('quantity', 0)
             ha_service.sync_wine_to_todo(updated_wine_row, current_total_quantity)
+            ha_service.trigger_sensor_update() # <--- UPDATE SENSORS
             return jsonify({
                 "status": "success", "message": "Wine data scraped and stored/updated.",
                 "wine_name": updated_wine_row['name'], "vintage": updated_wine_row['vintage'],
@@ -260,6 +261,7 @@ def add_manual_wine():
              return jsonify({"status": "error", "message": "Failed to retrieve manually added wine."}), 500
         current_total_quantity = updated_wine_row.get('quantity', 0)
         ha_service.sync_wine_to_todo(updated_wine_row, current_total_quantity)
+        ha_service.trigger_sensor_update() # <--- UPDATE SENSORS
         return jsonify({
             "status": "success", "message": "Wine manually added/updated successfully.",
             "wine_name": wine_data['name'], "vintage": wine_data['vintage'],
@@ -297,6 +299,7 @@ def edit_wine():
     if updated_wine_row:
         ha_service.sync_wine_to_todo(updated_wine_row, updated_wine_row['quantity'])
     
+    ha_service.trigger_sensor_update() # <--- UPDATE SENSORS
     return jsonify({"status": "success", "message": "Wine updated successfully."}), 200
 
 @app.route('/inventory', methods=['GET'])
@@ -321,6 +324,7 @@ def set_wine_quantity():
         return jsonify({"status": "error", "message": "Wine not found."}), 404
     if db.update_wine_quantity(vivino_url, new_quantity):
         ha_service.sync_wine_to_todo(wine_data, new_quantity)
+        ha_service.trigger_sensor_update() # <--- UPDATE SENSORS
         return jsonify({"status": "success", "message": f"Quantity set to {new_quantity}."}), 200
     else:
         return jsonify({"status": "error", "message": "Failed to update quantity in database."}), 500
@@ -356,6 +360,7 @@ def consume_wine_from_webhook():
         if status == "success":
             ha_service.fire_consumption_event(updated_wine)
             ha_service.sync_wine_to_todo(updated_wine, message) # message is new_quantity
+            ha_service.trigger_sensor_update() # <--- UPDATE SENSORS
             return jsonify({"status": "success", "message": f"Quantity updated. New quantity: {message}."}), 200
         elif message == "Quantity already zero":
             return jsonify({"status": "warning", "message": "Quantity already zero."}), 404
@@ -380,6 +385,7 @@ def consume_wine():
     if status == "success":
         ha_service.fire_consumption_event(updated_wine)
         ha_service.sync_wine_to_todo(updated_wine, message) # message is new_quantity
+        ha_service.trigger_sensor_update() # <--- UPDATE SENSORS
         return jsonify({'status': 'success', 'new_quantity': message})
     elif message == "Wine not found":
         return jsonify({'error': 'Wine not found'}), 404
@@ -400,6 +406,7 @@ def delete_wine():
         return jsonify({"status": "error", "message": "Wine not found."}), 404
     if db.delete_wine_by_url(vivino_url):
         ha_service.sync_wine_to_todo(wine_to_delete, 0)
+        ha_service.trigger_sensor_update() # <--- UPDATE SENSORS
         return jsonify({"status": "success"}), 200
     else:
         return jsonify({"status": "error", "message": "Failed to delete wine from database."}), 500
@@ -421,6 +428,8 @@ def rate_wine():
     updated_wine_row = db.get_wine_by_url(vivino_url)
     if updated_wine_row and updated_wine_row['quantity'] > 0:
         ha_service.sync_wine_to_todo(updated_wine_row, updated_wine_row['quantity'])
+    # Note: Rating a wine doesn't change inventory counts,
+    # so no sensor update is strictly needed here.
     return jsonify({"status": "success"}), 200
 
 @app.route('/api/wine/notes', methods=['POST'])
@@ -445,6 +454,7 @@ def sync_all_wines_to_ha_endpoint():
         wines = db.get_all_wines(status_filter='all')
         ha_service.force_clear_ha_list()
         ha_service.sync_all_wines_to_ha(wines)
+        ha_service.trigger_sensor_update() # <--- UPDATE SENSORS
         return jsonify({"status": "success", "message": "All wines synchronized."}), 200
     except Exception as e:
         logger.error(f"Error during full sync: {e}", exc_info=True)
@@ -455,6 +465,7 @@ def reinitialize_db_endpoint():
     try:
         ha_service.force_clear_ha_list()
         db.reinitialize_database()
+        ha_service.trigger_sensor_update() # <--- UPDATE SENSORS
         return jsonify({"status": "success", "message": "Database reinitialized."}), 200
     except Exception as e:
         logger.error(f"Error reinitializing database: {e}", exc_info=True)
@@ -480,6 +491,7 @@ def restore_db_endpoint():
             wines = db.get_all_wines(status_filter='all')
             ha_service.force_clear_ha_list()
             ha_service.sync_all_wines_to_ha(wines)
+            ha_service.trigger_sensor_update() # <--- UPDATE SENSORS
             return jsonify({"status": "success", "message": message}), 200
         else:
             return jsonify({"status": "error", "message": message}), 500
@@ -502,6 +514,14 @@ def serve_static(path):
 
 if __name__ == '__main__':
     db.init_db()
+    # Trigger sensor update on startup
+    try:
+        logger.info("Performing initial sync of HA sensors on startup...")
+        ha_service.trigger_sensor_update()
+        logger.info("Initial HA sensor sync complete.")
+    except Exception as e:
+        logger.error(f"Failed to perform initial HA sensor sync: {e}", exc_info=True)
+        
     logger.info(f"Starting Wonderful Wino on port 5000 with log level {config.LOG_LEVEL}")
     print("\n---> NOTE: The following 'WARNING' is a standard benign message from the internal web server.\n"
           "---> It is normal and expected for a Home Assistant add-on and can be safely ignored.\n")
