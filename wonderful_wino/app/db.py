@@ -590,7 +590,9 @@ def get_inventory_statistics():
                 SUM(CASE WHEN quantity > 0 THEN quantity ELSE 0 END) as total_bottles,
                 SUM(CASE WHEN wine_type = 'Red' AND quantity > 0 THEN quantity ELSE 0 END) as red_bottles,
                 SUM(CASE WHEN wine_type = 'White' AND quantity > 0 THEN quantity ELSE 0 END) as white_bottles,
-                SUM(CASE WHEN (wine_type = 'Sparkling' OR wine_type = 'Rosé') AND quantity > 0 THEN quantity ELSE 0 END) as sparkling_bottles,
+                SUM(CASE WHEN wine_type = 'Sparkling' AND quantity > 0 THEN quantity ELSE 0 END) as sparkling_bottles,
+                SUM(CASE WHEN wine_type = 'Rosé' AND quantity > 0 THEN quantity ELSE 0 END) as rose_bottles,
+                SUM(CASE WHEN wine_type = 'Dessert' AND quantity > 0 THEN quantity ELSE 0 END) as dessert_bottles,
                 COUNT(CASE WHEN quantity > 0 THEN 1 END) as unique_wines,
                 COUNT(CASE WHEN needs_review = TRUE AND quantity > 0 THEN 1 END) as needs_review
             FROM wines
@@ -609,7 +611,8 @@ def get_inventory_statistics():
             # Return a zeroed-out dict if the table is empty
             return {
                 'total_bottles': 0, 'red_bottles': 0, 'white_bottles': 0,
-                'sparkling_bottles': 0, 'unique_wines': 0, 'needs_review': 0
+                'sparkling_bottles': 0, 'rose_bottles': 0, 'dessert_bottles': 0,
+                'unique_wines': 0, 'needs_review': 0
             }
             
     except sqlite3.Error as e:
@@ -617,7 +620,8 @@ def get_inventory_statistics():
         # Return a default structure on error
         return {
             'total_bottles': 0, 'red_bottles': 0, 'white_bottles': 0,
-            'sparkling_bottles': 0, 'unique_wines': 0, 'needs_review': 0
+            'sparkling_bottles': 0, 'rose_bottles': 0, 'dessert_bottles': 0,
+            'unique_wines': 0, 'needs_review': 0
         }
     finally:
         if conn:

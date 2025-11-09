@@ -139,7 +139,19 @@ SENSOR_DEFINITIONS = {
     },
     'sparkling_bottles': {
         'name': 'wwino_sparkling_bottles',
-        'friendly_name': 'Wino Sparkling/Rosé Bottles',
+        'friendly_name': 'Wino Sparkling Bottles',
+        'unit': 'bottles',
+        'icon': 'mdi:bottle-wine-outline'
+    },
+    'rose_bottles': {
+        'name': 'wwino_rose_bottles',
+        'friendly_name': 'Wino Rosé Bottles',
+        'unit': 'bottles',
+        'icon': 'mdi:bottle-wine-outline'
+    },
+    'dessert_bottles': {
+        'name': 'wwino_dessert_bottles',
+        'friendly_name': 'Wino Dessert Bottles',
         'unit': 'bottles',
         'icon': 'mdi:bottle-wine-outline'
     },
