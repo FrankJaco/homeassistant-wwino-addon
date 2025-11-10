@@ -161,6 +161,36 @@ SENSOR_DEFINITIONS = {
         'unit': 'wines',
         'icon': 'mdi:glass-wine'
     },
+    'unique_red_wines': {
+        'name': 'wwino_unique_red_wines',
+        'friendly_name': 'Wino Unique Red Wines',
+        'unit': 'wines',
+        'icon': 'mdi:glass-wine'
+    },
+    'unique_white_wines': {
+        'name': 'wwino_unique_white_wines',
+        'friendly_name': 'Wino Unique White Wines',
+        'unit': 'wines',
+        'icon': 'mdi:glass-wine'
+    },
+    'unique_sparkling_wines': {
+        'name': 'wwino_unique_sparkling_wines',
+        'friendly_name': 'Wino Unique Sparkling Wines',
+        'unit': 'wines',
+        'icon': 'mdi:glass-wine'
+    },
+    'unique_rose_wines': {
+        'name': 'wwino_unique_rose_wines',
+        'friendly_name': 'Wino Unique Rosé Wines',
+        'unit': 'wines',
+        'icon': 'mdi:glass-wine'
+    },
+    'unique_dessert_wines': {
+        'name': 'wwino_unique_dessert_wines',
+        'friendly_name': 'Wino Unique Dessert Wines',
+        'unit': 'wines',
+        'icon': 'mdi:glass-wine'
+    },
     'needs_review': {
         'name': 'wwino_needs_review',
         'friendly_name': 'Wino Wines Needing Review',
