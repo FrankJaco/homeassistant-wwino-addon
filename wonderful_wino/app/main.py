@@ -1,5 +1,6 @@
 import os
 import logging
+import atexit # <-- NEW IMPORT
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from . import config, db, ha_service, scraper, formatting
@@ -10,8 +11,10 @@ import yaml
 # Quieten down the very verbose output from underlying libraries
 logging.getLogger('selenium').setLevel(logging.WARNING)
 logging.getLogger('urllib3').setLevel(logging.WARNING)
+logging.getLogger('paho.mqtt.client').setLevel(logging.INFO) # Quieten MQTT debug logs
 
 # Configure the root logger for the application
+# (config.py already does this, but good to have a fallback)
 logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"),
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
@@ -85,7 +88,7 @@ class ReverseProxied:
         return self.app(environ, start_response)
 app.wsgi_app = ReverseProxied(app.wsgi_app)
 
-# --- Flask Routes ---
+# --- Flask Routes (NO CHANGES TO ROUTES) ---
 
 @app.route('/api/wine/focal-point', methods=['POST'])
 def update_focal_point():
@@ -512,15 +515,32 @@ def serve_frontend():
 def serve_static(path):
     return send_from_directory("../frontend", path)
 
+# --- MODIFIED STARTUP BLOCK ---
 if __name__ == '__main__':
     db.init_db()
-    # Trigger sensor update on startup
-    try:
-        logger.info("Performing initial sync of HA sensors on startup...")
-        ha_service.trigger_sensor_update()
-        logger.info("Initial HA sensor sync complete.")
-    except Exception as e:
-        logger.error(f"Failed to perform initial HA sensor sync: {e}", exc_info=True)
+    
+    # --- NEW: Register MQTT shutdown hook ---
+    atexit.register(ha_service.stop_mqtt)
+
+    # --- NEW: Initialize MQTT client if enabled ---
+    if config.USE_MQTT_DISCOVERY:
+        try:
+            logger.info("MQTT Discovery is enabled. Initializing MQTT client...")
+            ha_service.initialize_mqtt()
+        except Exception as e:
+            logger.error(f"Failed to initialize MQTT client: {e}", exc_info=True)
+    else:
+        logger.info("MQTT Discovery is disabled. Using REST API for sensors.")
+        # Trigger sensor update on startup for REST-only mode
+        try:
+            logger.info("Performing initial sync of HA sensors (REST) on startup...")
+            ha_service.trigger_sensor_update()
+            logger.info("Initial HA sensor (REST) sync complete.")
+        except Exception as e:
+            logger.error(f"Failed to perform initial HA sensor (REST) sync: {e}", exc_info=True)
+    
+    # Note: If MQTT is enabled, the initial sensor update will happen
+    # automatically inside the `on_connect` callback.
         
     logger.info(f"Starting Wonderful Wino on port 5000 with log level {config.LOG_LEVEL}")
     print("\n---> NOTE: The following 'WARNING' is a standard benign message from the internal web server.\n"

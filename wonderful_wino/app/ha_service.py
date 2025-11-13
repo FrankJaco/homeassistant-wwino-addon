@@ -1,11 +1,156 @@
 import requests
 import logging
+import json
+import paho.mqtt.client as mqtt
 from . import config
 from . import formatting
 from . import db
 
 # Set up a logger specific to this module
 logger = logging.getLogger(__name__)
+
+# --- NEW MQTT Globals ---
+mqtt_client = None
+is_mqtt_connected = False
+MQTT_AVAILABILITY_TOPIC = "wonderful_wino/status"
+MQTT_DEVICE_CONFIG = {
+    "identifiers": ["wonderful_wino_addon"],
+    "name": "Wonderful Wino",
+    "manufacturer": "Wonderful Wino Add-on",
+    "model": f"v{os.environ.get('VERSION', '1.0.0')}" # Assumes VERSION is in env
+}
+
+# --- MQTT Callbacks ---
+def on_connect(client, userdata, flags, rc, properties=None):
+    """Callback for when the client connects to the MQTT broker."""
+    global is_mqtt_connected
+    if rc == 0:
+        logger.info(f"Successfully connected to MQTT broker at {config.MQTT_HOST}")
+        is_mqtt_connected = True
+        # Publish device availability
+        client.publish(MQTT_AVAILABILITY_TOPIC, "online", retain=True)
+        # Publish discovery config for all sensors
+        _publish_mqtt_discovery_config()
+        # Trigger an immediate sensor update to populate states
+        trigger_sensor_update()
+    else:
+        logger.error(f"Failed to connect to MQTT broker, return code {rc}")
+        is_mqtt_connected = False
+
+def on_disconnect(client, userdata, rc, properties=None):
+    """Callback for when the client disconnects."""
+    global is_mqtt_connected
+    is_mqtt_connected = False
+    logger.warning(f"Disconnected from MQTT broker. Return code: {rc}")
+
+def on_publish(client, userdata, mid, properties=None):
+    """Callback for when a message is published (for debugging)."""
+    logger.debug(f"Published MQTT message with MID: {mid}")
+
+
+# --- NEW MQTT Functions ---
+def initialize_mqtt():
+    """Initializes and connects the MQTT client."""
+    if not config.USE_MQTT_DISCOVERY:
+        logger.info("MQTT Discovery is disabled in config. Skipping initialization.")
+        return
+
+    if not config.MQTT_HOST:
+        logger.error("MQTT is enabled but MQTT_HOST is not set. Cannot initialize.")
+        return
+        
+    global mqtt_client
+    try:
+        # Use MQTTv5
+        mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="wonderful_wino_addon")
+        mqtt_client.on_connect = on_connect
+        mqtt_client.on_disconnect = on_disconnect
+        mqtt_client.on_publish = on_publish
+
+        # Set username and password if provided
+        if config.MQTT_USER:
+            mqtt_client.username_pw_set(config.MQTT_USER, config.MQTT_PASSWORD)
+            
+        # Set Last Will and Testament (LWT)
+        mqtt_client.will_set(MQTT_AVAILABILITY_TOPIC, payload="offline", retain=True)
+
+        logger.info(f"Connecting to MQTT broker at {config.MQTT_HOST}:{config.MQTT_PORT}...")
+        mqtt_client.connect(config.MQTT_HOST, config.MQTT_PORT, 60)
+        mqtt_client.loop_start() # Start background thread for network loop
+        
+    except Exception as e:
+        logger.error(f"Error initializing MQTT client: {e}", exc_info=True)
+
+def stop_mqtt():
+    """Stops the MQTT client loop and disconnects."""
+    global mqtt_client
+    if mqtt_client:
+        logger.info("Shutting down MQTT client...")
+        try:
+            # Publish offline message before disconnecting
+            mqtt_client.publish(MQTT_AVAILABILITY_TOPIC, "offline", retain=True)
+            mqtt_client.loop_stop()
+            mqtt_client.disconnect()
+            logger.info("MQTT client disconnected.")
+        except Exception as e:
+            logger.error(f"Error during MQTT shutdown: {e}", exc_info=True)
+
+def _publish_mqtt_discovery_config():
+    """Publishes the MQTT discovery configuration for all sensors."""
+    if not is_mqtt_connected or not mqtt_client:
+        logger.warning("Cannot publish MQTT discovery config: not connected.")
+        return
+        
+    logger.info("Publishing MQTT discovery configuration for all sensors...")
+    try:
+        for sensor_key, sensor_info in SENSOR_DEFINITIONS.items():
+            entity_name = sensor_info['name']
+            discovery_topic = f"homeassistant/sensor/wonderful_wino/{entity_name}/config"
+            state_topic = f"wonderful_wino/sensor/{entity_name}/state"
+            
+            config_payload = {
+                "name": sensor_info['friendly_name'],
+                "unique_id": f"wwino_{entity_name}",
+                "state_topic": state_topic,
+                "unit_of_measurement": sensor_info['unit'],
+                "icon": sensor_info['icon'],
+                "device": MQTT_DEVICE_CONFIG,
+                "availability_topic": MQTT_AVAILABILITY_TOPIC,
+                "payload_available": "online",
+                "payload_not_available": "offline"
+            }
+            
+            mqtt_client.publish(discovery_topic, json.dumps(config_payload), retain=True)
+            logger.debug(f"Published discovery config for: {entity_name}")
+            
+        logger.info("Finished publishing MQTT discovery configuration.")
+    except Exception as e:
+        logger.error(f"Error publishing MQTT discovery config: {e}", exc_info=True)
+
+def publish_stats_to_mqtt(stats: dict):
+    """Publishes all inventory statistics to their respective MQTT topics."""
+    if not is_mqtt_connected or not mqtt_client:
+        logger.warning("Cannot publish stats to MQTT: not connected.")
+        return
+
+    logger.debug("Publishing stats to MQTT topics...")
+    try:
+        for key, sensor_info in SENSOR_DEFINITIONS.items():
+            state_value = stats.get(key, 0)
+            entity_name = sensor_info['name']
+            state_topic = f"wonderful_wino/sensor/{entity_name}/state"
+            
+            mqtt_client.publish(state_topic, str(state_value), retain=True)
+            
+        # Also refresh availability
+        mqtt_client.publish(MQTT_AVAILABILITY_TOPIC, "online", retain=True)
+        logger.debug("Stats and availability published to MQTT.")
+        
+    except Exception as e:
+        logger.error(f"Error publishing stats to MQTT: {e}", exc_info=True)
+
+
+# --- HA REST API Functions (Original) ---
 
 def _get_ha_headers():
     """Returns the authorization headers for HA API calls."""
@@ -116,7 +261,7 @@ def force_clear_ha_list():
     logger.info("Force-clear operation completed.")
 
 
-# --- NEW FUNCTIONS FOR HA SENSORS ---
+# --- HA SENSORS (Original definitions) ---
 
 SENSOR_DEFINITIONS = {
     'total_bottles': {
@@ -202,12 +347,14 @@ SENSOR_DEFINITIONS = {
 def update_ha_sensors(stats: dict):
     """
     Pushes all inventory statistics to Home Assistant as sensor states.
+    (This is the original "ghost" entity method via REST API)
     """
     headers = _get_ha_headers()
     if not headers or not config.HOME_ASSISTANT_URL:
-        logger.error("Cannot update HA sensors: Missing URL or Token configuration.")
+        logger.error("Cannot update HA sensors (REST): Missing URL or Token configuration.")
         return
 
+    logger.debug("Publishing stats to HA via REST API...")
     for key, sensor_info in SENSOR_DEFINITIONS.items():
         state_value = stats.get(key, 0)
         entity_id = f"sensor.{sensor_info['name']}"
@@ -225,20 +372,33 @@ def update_ha_sensors(stats: dict):
         try:
             resp = requests.post(sensor_url, json=payload, headers=headers, timeout=3)
             resp.raise_for_status()
-            logger.debug(f"Successfully updated HA sensor: {entity_id}")
+            logger.debug(f"Successfully updated HA sensor (REST): {entity_id}")
         except requests.exceptions.RequestException as e:
-            logger.error(f"Failed to update HA sensor {entity_id}: {e}")
+            logger.error(f"Failed to update HA sensor {entity_id} (REST): {e}")
+
+# --- MODIFIED ROUTER FUNCTION ---
 
 def trigger_sensor_update():
     """
     A single function to fetch statistics and update HA sensors.
-    This is called by main.py whenever the inventory changes.
+    This now acts as a router, deciding *how* to publish based on config.
     """
     try:
         stats = db.get_inventory_statistics()
-        if stats:
-            update_ha_sensors(stats)
-        else:
+        if not stats:
             logger.warning("Could not retrieve stats to update HA sensors.")
+            return
+            
+        # --- This is the new router logic ---
+        if config.USE_MQTT_DISCOVERY:
+            if is_mqtt_connected:
+                publish_stats_to_mqtt(stats)
+            else:
+                # Don't log an error, just a warning. The client might be reconnecting.
+                logger.warning("MQTT is enabled but not connected. Skipping sensor update.")
+        else:
+            # The "old" way
+            update_ha_sensors(stats)
+            
     except Exception as e:
         logger.error(f"An unexpected error occurred during trigger_sensor_update: {e}", exc_info=True)
