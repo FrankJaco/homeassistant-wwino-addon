@@ -1,7 +1,7 @@
 import requests
 import logging
-import atexit
 import json
+import os 
 import paho.mqtt.client as mqtt
 from . import config
 from . import formatting
