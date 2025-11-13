@@ -1,5 +1,6 @@
 import requests
 import logging
+import atexit
 import json
 import paho.mqtt.client as mqtt
 from . import config
