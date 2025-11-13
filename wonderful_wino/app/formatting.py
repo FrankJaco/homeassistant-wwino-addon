@@ -4,7 +4,7 @@ from decimal import Decimal, ROUND_HALF_UP
 # Set up a logger specific to this module
 logger = logging.getLogger(__name__)
 
-# NEW: Mapping of wine types to a single emoji character (from original file structure)
+# NEW: Mapping of wine types to a single emoji character
 WINE_TYPE_EMOJIS = {
     "Red": "🍷",
     "White": "🥂",
@@ -14,7 +14,7 @@ WINE_TYPE_EMOJIS = {
     "Fortified": "🍰",  # Grouping with Dessert as they share characteristics
 }
 
-# --- NEW: Region data placeholder ---
+# --- NEW: Region data placeholder (REQUIRED FOR MIGRATION) ---
 REGION_DATA = {}
 
 def initialize_regions(data: dict):
@@ -70,13 +70,12 @@ def format_wine_for_todo(wine: dict):
     Creates the short, scannable title for the HA To-Do list item.
     e.g., "My Awesome Wine (US) - 2020"
     
-    UPDATED: Uses the centralized region data for country codes.
+    Uses the centralized region data for country codes (MANDATORY CHANGE).
     """
     name = wine.get('name', 'Unknown Wine')
     vintage = wine.get('vintage') or 'NV' # Handle None or empty string
     country = wine.get('country', 'Unknown')
     
-    # --- UPDATED LOGIC ---
     # Get the country code from our initialized REGION_DATA
     country_code = _get_country_code(country)
     
@@ -86,18 +85,17 @@ def build_markdown_description(wine: dict, current_quantity: int):
     """
     Builds a rich markdown description for the HA To-Do item.
 
-    This comprehensive version is designed to display all relevant wine data
-    in an easy-to-read format within the Home Assistant To-Do list description.
+    FIXED: Uses the most specific 'region' field followed by 'country' for conciseness.
+    The 'region_full' field is ignored for this specific output.
     """
     lines = []
     
-    # --- Line 1: Region and Varietal (MODIFIED for conciseness) ---
-    # We prioritize the most specific region name + Country for a concise description.
+    # --- Line 1: Region and Varietal (FIXED for conciseness as requested) ---
     region = wine.get('region')
     country = wine.get('country')
     varietal = wine.get('varietal')
 
-    # 1. Use Region, Country if both are specific and valid
+    # 1. Use Region, Country if both are specific and valid (e.g., "Napa Valley, United States")
     if region and region != 'Unknown Region' and country and country != 'Unknown Country':
         lines.append(f"**Region:** {region}, {country}")
     # 2. Fallback to Country only
