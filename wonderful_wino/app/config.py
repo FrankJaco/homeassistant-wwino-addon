@@ -31,30 +31,3 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
-
-# --- Constants ---
-COUNTRY_ABBREVIATIONS = {
-    "United States": "US",
-    "Australia": "AU",
-    "France": "FR",
-    "New Zealand": "NZ",
-    "Italy": "IT",
-    "Spain": "ES",
-    "Argentina": "AR",
-    "Chile": "CL",
-    "Germany": "DE",
-    "Portugal": "PT",
-    "South Africa": "ZA",
-    "Canada": "CA",
-    "United Kingdom": "UK",
-    "Austria": "AT",
-    "Greece": "GR",
-    "Hungary": "HU",
-    "Lebanon": "LB",
-    "Mexico": "MX",
-    "Moldova": "MD",
-    "Romania": "RO",
-    "Switzerland": "CH",
-    "Turkey": "TR",
-    "Uruguay": "UY",
-}

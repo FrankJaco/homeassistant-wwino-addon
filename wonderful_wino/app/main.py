@@ -68,10 +68,12 @@ def _load_regions():
 REGION_DATA = _load_regions()
 logger.info(f"Loaded {len(REGION_DATA)} countries with region data for reference.")
 
-# Optionally initialize the scraper with region data (future extension)
+# initialize the scraper with region data
 if hasattr(scraper, "initialize_regions"):
     scraper.initialize_regions(REGION_DATA)
-
+# pass to formatter too
+if hasattr(formatting, "initialize_regions"):
+    formatting.initialize_regions(REGION_DATA)
 class ReverseProxied:
     def __init__(self, app):
         self.app = app
