@@ -91,17 +91,17 @@ def build_markdown_description(wine: dict, current_quantity: int):
     """
     lines = []
     
-    # --- Line 1: Region and Varietal ---
-    region_full = wine.get('region_full')
+    # --- Line 1: Region and Varietal (MODIFIED for conciseness) ---
+    # We prioritize the most specific region name + Country for a concise description.
     region = wine.get('region')
     country = wine.get('country')
     varietal = wine.get('varietal')
 
-    if region_full:
-        lines.append(f"**Region:** {region_full}")
-    elif region and country and region != 'Unknown Region':
+    # 1. Use Region, Country if both are specific and valid
+    if region and region != 'Unknown Region' and country and country != 'Unknown Country':
         lines.append(f"**Region:** {region}, {country}")
-    elif country:
+    # 2. Fallback to Country only
+    elif country and country != 'Unknown Country':
         lines.append(f"**Country:** {country}")
 
     if varietal and varietal != 'Unknown Varietal':
