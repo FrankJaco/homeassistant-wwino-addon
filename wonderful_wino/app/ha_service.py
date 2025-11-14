@@ -163,6 +163,9 @@ def _get_ha_headers():
         "Content-Type": "application/json",
     }
 
+# NOTE: The To-Do List and Event firing MUST use the HA REST API as there is no MQTT equivalent.
+# Seeing REST calls here does NOT mean sensor updates are defaulting to REST.
+
 def _remove_ha_todo_item(item_text, headers):
     """Fires a 'remove_item' call to HA and logs the outcome without halting."""
     remove_url = f"{config.HOME_ASSISTANT_URL}/api/services/todo/remove_item"
@@ -393,12 +396,15 @@ def trigger_sensor_update():
         # --- This is the new router logic ---
         if config.USE_MQTT_DISCOVERY:
             if is_mqtt_connected:
+                logger.info("MQTT discovery enabled and connected. Publishing sensor states via MQTT.")
                 publish_stats_to_mqtt(stats)
             else:
                 # Don't log an error, just a warning. The client might be reconnecting.
                 logger.warning("MQTT is enabled but not connected. Skipping sensor update.")
         else:
             # The "old" way
+            # Added explicit log to confirm why REST is being used.
+            logger.info("MQTT discovery disabled in config. Updating sensors via HA REST API.") 
             update_ha_sensors(stats)
             
     except Exception as e:
