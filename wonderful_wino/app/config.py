@@ -2,10 +2,12 @@ import os
 import logging
 
 def str_to_bool(val):
-    """Converts a string to a boolean, handling 'true'/'false'."""
+    """Converts an environment variable to a proper boolean."""
     if isinstance(val, bool):
         return val
-    return val.lower() in ('true', '1', 't', 'y', 'yes')
+    if val is None:
+        return False
+    return str(val).strip().lower() in ("true", "1", "yes", "y", "on")
 
 # --- Configuration (read from environment variables) ---
 HOME_ASSISTANT_URL = os.environ.get("HOME_ASSISTANT_URL")
