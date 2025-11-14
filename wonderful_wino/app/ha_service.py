@@ -121,7 +121,18 @@ def _publish_mqtt_discovery_config():
             
             config_payload = {
                 "name": sensor_info['friendly_name'],
-                "unique_id": f"wwino_{entity_name}",
+                
+                # --- NEW FIX ---
+                # Explicitly set the object_id to match the 'name' from SENSOR_DEFINITIONS.
+                # This ensures the entity_id becomes "sensor.wwino_red_bottles"
+                # and prevents HA from auto-generating one from the friendly name.
+                "object_id": entity_name,
+
+                # --- NEW FIX 2 ---
+                # Set the unique_id to be the same. This is the simplest
+                # and cleanest unique ID.
+                "unique_id": entity_name,
+                
                 "state_topic": state_topic,
                 "unit_of_measurement": sensor_info['unit'],
                 "icon": sensor_info['icon'],
