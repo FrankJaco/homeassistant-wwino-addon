@@ -3,6 +3,7 @@ import logging
 import json
 import os 
 import paho.mqtt.client as mqtt
+import time # <--- NEW IMPORT
 from . import config
 from . import formatting
 from . import db
@@ -44,11 +45,15 @@ def on_disconnect(client, userdata, rc, properties=None):
     is_mqtt_connected = False
     logger.warning(f"Disconnected from MQTT broker. Return code: {rc}")
 
+# --- THIS IS THE FIX ---
+# The function signature now correctly includes the 'rc' (reason code) argument,
+# matching the 5 arguments passed by the paho-mqtt v2 library.
 def on_publish(client, userdata, mid, rc, properties=None):
     """Callback for when a message is published (for debugging)."""
     # We can log the reason code (rc) for more detailed debugging if needed
     logger.debug(f"Published MQTT message with MID: {mid}, RC: {rc}")
-    
+
+
 # --- NEW MQTT Functions ---
 def initialize_mqtt():
     """Initializes and connects the MQTT client."""
@@ -393,6 +398,11 @@ def trigger_sensor_update():
     This now acts as a router, deciding *how* to publish based on config.
     """
     try:
+        # Add a very short delay to prevent a race condition.
+        # This ensures any database commit (e.g., from consume_wine)
+        # has finalized before we read the new stats.
+        time.sleep(0.5) # Wait 500ms
+
         stats = db.get_inventory_statistics()
         if not stats:
             logger.warning("Could not retrieve stats to update HA sensors.")
