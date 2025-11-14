@@ -44,11 +44,11 @@ def on_disconnect(client, userdata, rc, properties=None):
     is_mqtt_connected = False
     logger.warning(f"Disconnected from MQTT broker. Return code: {rc}")
 
-def on_publish(client, userdata, mid, properties=None):
+def on_publish(client, userdata, mid, rc, properties=None):
     """Callback for when a message is published (for debugging)."""
-    logger.debug(f"Published MQTT message with MID: {mid}")
-
-
+    # We can log the reason code (rc) for more detailed debugging if needed
+    logger.debug(f"Published MQTT message with MID: {mid}, RC: {rc}")
+    
 # --- NEW MQTT Functions ---
 def initialize_mqtt():
     """Initializes and connects the MQTT client."""
