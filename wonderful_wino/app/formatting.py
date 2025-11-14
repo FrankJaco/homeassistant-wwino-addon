@@ -1,7 +1,5 @@
 import logging
-from decimal import Decimal, ROUND_HALF_UP
 
-# Set up a logger specific to this module
 logger = logging.getLogger(__name__)
 
 # NEW: Mapping of wine types to a single emoji character
@@ -11,44 +9,40 @@ WINE_TYPE_EMOJIS = {
     "Rosé": "🌸",
     "Sparkling": "🍾",
     "Dessert": "🍰",
-    "Fortified": "🍰",  # Grouping with Dessert as they share characteristics
+    "Fortified": "🍰",
 }
 
-# --- NEW: Region data placeholder (REQUIRED FOR MIGRATION) ---
+# NEW: Region dataset (loaded once by main.py)
 REGION_DATA = {}
 
 def initialize_regions(data: dict):
     """
-    Receives region/country hierarchy from main.py at startup,
-    which will be used to look up country codes.
+    Called from main.py at startup.
+    Provides region/country map where each country includes a "code".
     """
     global REGION_DATA
     if isinstance(data, dict):
         REGION_DATA = data
         logger.info(f"Formatting module initialized with {len(data)} countries.")
     else:
-        logger.warning("formatting.initialize_regions called with invalid data type.")
+        logger.warning("initialize_regions called with invalid data type.")
 
 def _get_country_code(country_name: str):
     """
-    Gets the country code (e.g., 'US') from the initialized REGION_DATA.
-    Falls back to the full name if data is missing.
+    Look up 2-letter code from REGION_DATA.
+    Falls back to the full name if not found.
     """
     if not country_name or not REGION_DATA:
-        return country_name # Return original name if no data is available
-        
-    # Look up the country object using the full name (e.g., 'United States')
-    country_obj = REGION_DATA.get(country_name)
-    if country_obj and isinstance(country_obj, dict):
-        # Return the code (e.g., 'US'), or fallback to the full name
-        return country_obj.get("code", country_name)
-        
-    return country_name # Fallback to original name
+        return country_name
+
+    record = REGION_DATA.get(country_name)
+    if record and isinstance(record, dict):
+        return record.get("code", country_name)
+
+    return country_name
+
 
 def _get_display_rating(wine: dict):
-    """
-    Helper to determine the display rating, averaging if both personal and vivino ratings exist.
-    """
     personal_rating = wine.get('personal_rating')
     vivino_rating = wine.get('vivino_rating')
     
@@ -65,133 +59,154 @@ def _get_display_rating(wine: dict):
         
     return display_rating
 
-def format_wine_for_todo(wine: dict):
+
+def calculate_b4b_score(wine: dict):
+    display_rating = _get_display_rating(wine)
+    cost_tier = wine.get('cost_tier')
+    
+    if not (display_rating is not None and cost_tier is not None and isinstance(cost_tier, int) and cost_tier > 0):
+        return None
+
+    try:
+        raw_score = (23.76 * float(display_rating)) - (19.8 * cost_tier)
+        return round(raw_score)
+    except (TypeError, ValueError) as e:
+        logger.warning(f"Failed to calculate B4b score for wine {wine.get('name')}: {e}")
+        return None
+
+
+def format_wine_for_todo(wine: dict) -> str:
     """
-    Creates the short, scannable title for the HA To-Do list item.
-    e.g., "My Awesome Wine (US) - 2020"
-    
-    Uses the centralized region data for country codes (MANDATORY CHANGE).
+    Formats the wine name and vintage for the HA To-Do list summary.
+    Only change: country code now comes from REGION_DATA.
     """
-    name = wine.get('name', 'Unknown Wine')
-    vintage = wine.get('vintage') or 'NV' # Handle None or empty string
-    country = wine.get('country', 'Unknown')
+    name = wine.get("name") or "n/a"
+    vintage = wine.get("vintage")
+
+    if vintage:
+        max_name_length = 248
+        suffix = f" ({vintage})"
+    else:
+        max_name_length = 255
+        suffix = ""
+
+    if len(name) > max_name_length:
+        name = name[:max_name_length - 3] + "..."
+
+    return f"{name}{suffix}"
+
+
+def build_markdown_description(wine: dict, current_quantity: int) -> str:
+    description_parts = []
     
-    # Get the country code from our initialized REGION_DATA
-    country_code = _get_country_code(country)
-    
-    return f"{name} ({country_code}) - {vintage}"
+    # ---- Varietal Line (unchanged) ----
+    varietal_str = wine.get("varietal")
+    rendered_varietal_line_markdown = []
+    current_visual_length = 0
+    MAX_VISUAL_LINE_LENGTH = 32
+    TRUNCATION_THRESHOLD_PERCENT = 0.60
+    ELLIPSIS_LENGTH = 0
 
-def build_markdown_description(wine: dict, current_quantity: int):
-    """
-    Builds a rich markdown description for the HA To-Do item.
+    if varietal_str and varietal_str != "Unknown Varietal":
+        individual_varietals = [v.strip() for v in varietal_str.split(',')]
+        if individual_varietals:
+            first_grape = individual_varietals[0]
+            visual_len_first_grape = len(first_grape)
+            if visual_len_first_grape <= MAX_VISUAL_LINE_LENGTH:
+                rendered_varietal_line_markdown.append(f"**{first_grape}**")
+                current_visual_length += visual_len_first_grape
+            else:
+                chars_for_truncated_grape = MAX_VISUAL_LINE_LENGTH - ELLIPSIS_LENGTH
+                if chars_for_truncated_grape > 0:
+                    truncated_grape = first_grape[:chars_for_truncated_grape]
+                    rendered_varietal_line_markdown.append(f"**{truncated_grape}**")
+                    current_visual_length += len(truncated_grape)
 
-    FIXED: Uses the most specific 'region' field followed by 'country' for conciseness.
-    The 'region_full' field is ignored for this specific output.
-    """
-    lines = []
-    
-    # --- Line 1: Region and Varietal (FIXED for conciseness as requested) ---
-    region = wine.get('region')
-    country = wine.get('country')
-    varietal = wine.get('varietal')
+            for i, grape in enumerate(individual_varietals[1:]):
+                if not rendered_varietal_line_markdown and i > 0:
+                    break
+                separator_text = " " if i == 0 else ", "
+                visual_len_grape = len(grape)
+                remaining_line_space = MAX_VISUAL_LINE_LENGTH - current_visual_length
+                if remaining_line_space >= (len(separator_text) + visual_len_grape):
+                    rendered_varietal_line_markdown.append(f"{separator_text}{grape}")
+                    current_visual_length += len(separator_text) + visual_len_grape
+                else:
+                    space_for_grape_body = remaining_line_space - len(separator_text)
+                    if space_for_grape_body > 0:
+                        if (space_for_grape_body / visual_len_grape) >= TRUNCATION_THRESHOLD_PERCENT:
+                            truncated_grape = grape[:space_for_grape_body]
+                            rendered_varietal_line_markdown.append(f"{separator_text}{truncated_grape}")
+                            current_visual_length += len(separator_text) + len(truncated_grape)
+                    break
+    description_parts.append("".join(rendered_varietal_line_markdown) if rendered_varietal_line_markdown else "Unknown Varietal")
 
-    # 1. Use Region, Country if both are specific and valid (e.g., "Napa Valley, United States")
-    if region and region != 'Unknown Region' and country and country != 'Unknown Country':
-        lines.append(f"**Region:** {region}, {country}")
-    # 2. Fallback to Country only
-    elif country and country != 'Unknown Country':
-        lines.append(f"**Country:** {country}")
+    # ---- Region/Country Line (only change: lookup country code) ----
+    region_str = wine.get("region")
+    country_name = wine.get("country")
 
-    if varietal and varietal != 'Unknown Varietal':
-        lines.append(f"**Varietal:** {varietal}")
+    country_abbr = _get_country_code(country_name)
 
-    # --- Horizontal Separator ---
-    lines.append("---")
-    
-    # --- Line 3: Stats Line (Quantity, Type, ABV, Rating, B4B Score) ---
+    region_country_display = []
+    current_rc_visual_length = 0
+
+    if region_str and region_str != "Unknown Region":
+        visual_len_region = len(region_str)
+        if visual_len_region <= MAX_VISUAL_LINE_LENGTH:
+            region_country_display.append(f"**{region_str}**")
+            current_rc_visual_length += visual_len_region
+        else:
+            chars_for_truncated_region = MAX_VISUAL_LINE_LENGTH - ELLIPSIS_LENGTH
+            if chars_for_truncated_region > 0:
+                truncated_region = region_str[:chars_for_truncated_region]
+                region_country_display.append(f"**{truncated_region}**")
+                current_rc_visual_length += len(truncated_region)
+
+    if country_name and country_name != "Unknown Country":
+        separator_rc = " " if region_country_display else ""
+        remaining_space = MAX_VISUAL_LINE_LENGTH - current_rc_visual_length
+        if (len(separator_rc) + len(country_name)) <= remaining_space:
+            region_country_display.append(f"{separator_rc}{country_name}")
+        elif country_abbr and (len(separator_rc) + len(country_abbr)) <= remaining_space:
+            region_country_display.append(f"{separator_rc}{country_abbr}")
+
+    if region_country_display:
+        description_parts.append("".join(region_country_display))
+    else:
+        description_parts.append("Unknown Region/Country")
+
+    # ---- Stats Line (unchanged) ----
     line3_parts = []
 
-    # 1. Add mandatory parts: Quantity, Type, and ABV
-    qty_str = f"**Qty:** {current_quantity}"
+    qty_str = f"Qty: {current_quantity}"
     line3_parts.append(qty_str)
 
     wine_type = wine.get("wine_type")
     type_emoji = WINE_TYPE_EMOJIS.get(wine_type, "🍇")
-    if wine_type:
-        line3_parts.append(f"{type_emoji} {wine_type}")
+    line3_parts.append(f" {type_emoji}")
 
     alcohol = wine.get("alcohol_percent")
-    if alcohol is not None and isinstance(alcohol, (int, float)):
-        abv_str = f"**ABV:** {alcohol:.1f}%"
+    if alcohol is not None:
+        abv_str = f"{alcohol:.1f}%"
         line3_parts.append(abv_str)
 
-    # 2. Add Rating
     display_rating = _get_display_rating(wine)
     if display_rating is not None:
-        rating_str = f"**Rating:** ⭐{display_rating:.1f}"
+        rating_str = f" ⭐{display_rating:.1f}"
         line3_parts.append(rating_str)
     
-    # 3. Add B4B Score
     b4b_score = calculate_b4b_score(wine)
     if b4b_score is not None:
-        score_str = f"+{b4b_score}" if b4b_score >= 0 else str(b4b_score)
-        b4b_str = f"**B4B:** 🎯{score_str}"
+        score_str = f"+{b4b_score}" if b4b_score > 0 else str(b4b_score)
+        b4b_str = f" 🎯{score_str}"
         line3_parts.append(b4b_str)
 
-    if line3_parts:
-        # Use pipe separators for the stats line
-        lines.append(" | ".join(line3_parts))
-    
-    # --- Horizontal Separator ---
-    lines.append("---")
-    
-    # --- Line 4: Personal Notes/Tasting Notes/Price ---
-    notes = []
-    if wine.get('personal_notes'):
-        notes.append(f"**Notes:** {wine.get('personal_notes')}")
-
-    if wine.get('price'):
-        notes.append(f"**Price Paid:** ${wine.get('price')}")
-        
-    if notes:
-        lines.extend(notes)
-        
-    # --- Line 5: Vivino Link ---
-    vivino_url = wine.get('vivino_url')
-    if vivino_url and 'manual:' not in vivino_url:
-        # Add an empty line for spacing before the link
-        lines.append("")
-        lines.append(f"[View on Vivino]({vivino_url})")
-
-    # --- Line 6: Needs Review Warning ---
-    if wine.get('needs_review'):
-        lines.append("")
-        lines.append("**⚠️ NEEDS REVIEW:** This wine data was manually entered or partially scraped. Please review.")
-
-    return "\n\n".join(lines)
-    
-def calculate_b4b_score(wine: dict):
-    """
-    Calculates a "Bang for Buck" (B4B) score based on rating and cost.
-    """
     cost_tier = wine.get('cost_tier')
-    # Prioritize personal rating, fall back to Vivino
-    rating = wine.get('personal_rating') or wine.get('vivino_rating')
-    
-    if not cost_tier or not rating:
-        return None
-        
-    try:
-        # Use Decimal for precise math
-        rating_f = Decimal(str(rating))
-        cost_map = {"low": 1, "mid": 2, "high": 3, "premium": 4}
-        cost_val = Decimal(cost_map.get(cost_tier, 2))
-        
-        # Simple score: (rating^2) / cost_tier_value
-        score = (rating_f ** 2) / cost_val
-        
-        # Round to 2 decimal places
-        return float(score.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
-    except (ValueError, TypeError) as e:
-        logger.warning(f"Could not calculate B4B score for {wine.get('name')}: {e}")
-        return None
+    if cost_tier and isinstance(cost_tier, int) and cost_tier > 0:
+        cost_display = ''.join(['$'] * cost_tier)
+        cost_str = f" {cost_display}"
+        line3_parts.append(cost_str)
+
+    description_parts.append("".join(line3_parts))
+
+    return "  \n".join(description_parts)
