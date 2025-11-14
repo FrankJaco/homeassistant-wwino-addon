@@ -52,7 +52,12 @@ def on_publish(client, userdata, mid, properties=None):
 # --- NEW MQTT Functions ---
 def initialize_mqtt():
     """Initializes and connects the MQTT client."""
-    if not config.USE_MQTT_DISCOVERY:
+    
+    # FIX: Defensively check against the string "true" in case configuration loading
+    # failed to convert the environment variable string to a proper Python boolean.
+    is_mqtt_enabled = config.USE_MQTT_DISCOVERY is True or str(config.USE_MQTT_DISCOVERY).lower() == 'true'
+    
+    if not is_mqtt_enabled:
         logger.info("MQTT Discovery is disabled in config. Skipping initialization.")
         return
 
@@ -394,7 +399,10 @@ def trigger_sensor_update():
             return
             
         # --- This is the new router logic ---
-        if config.USE_MQTT_DISCOVERY:
+        # Also check against the string "true" to catch improperly parsed config.
+        is_mqtt_enabled = config.USE_MQTT_DISCOVERY is True or str(config.USE_MQTT_DISCOVERY).lower() == 'true'
+        
+        if is_mqtt_enabled:
             if is_mqtt_connected:
                 logger.info("MQTT discovery enabled and connected. Publishing sensor states via MQTT.")
                 publish_stats_to_mqtt(stats)
