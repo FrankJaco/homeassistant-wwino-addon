@@ -225,41 +225,115 @@ function setupEventListeners() {
         }
     });
 
-    // --- Focal Point Drag Logic ---
-    let isDragging = false; let startY = 0; let startFocalPercent = 50;
-    const getPointerY = (e) => e.touches ? e.touches[0].clientY : e.clientY;
+    // --- MODIFIED: Focal Point Drag Logic (Now supports X and Y) ---
+    let isDragging = false; 
+    let startX = 0, startY = 0; 
+    let startFocalXPercent = 50, startFocalYPercent = 50;
+    
+    const getPointer = (e) => e.touches ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : { x: e.clientX, y: e.clientY };
+    
     const startDrag = (e) => {
         const editor = document.getElementById('focalPointEditor');
         if (e.target.id !== 'draggableImage' || !editor?.classList.contains('is-unlocked')) return;
         e.preventDefault();
-        isDragging = true; editor.classList.add('is-dragging'); startY = getPointerY(e);
+        
+        isDragging = true; 
+        editor.classList.add('is-dragging'); 
+        const pointer = getPointer(e);
+        startX = pointer.x;
+        startY = pointer.y;
+        
         const currentPos = e.target.style.objectPosition || '50% 50%';
-        startFocalPercent = parseFloat(currentPos.split(' ')[1]);
+        const parts = currentPos.split(' ');
+        startFocalXPercent = parseFloat(parts[0]);
+        startFocalYPercent = parseFloat(parts[1]);
     };
+
     const onDrag = (e) => {
-        if (!isDragging) return; e.preventDefault();
+        if (!isDragging) return; 
+        e.preventDefault();
+        
         const editor = document.getElementById('focalPointEditor');
         const img = document.getElementById('draggableImage');
-        if (!editor || !img) return;
-        const parentHeight = editor.clientHeight;
-        const renderedImageHeight = (img.naturalHeight / img.naturalWidth) * editor.clientWidth;
-        if (renderedImageHeight <= parentHeight || !img.naturalHeight) return;
-        const deltaY = getPointerY(e) - startY;
-        const travelRange = renderedImageHeight - parentHeight;
-        const newFocalPercent = startFocalPercent - ((deltaY / travelRange) * 100);
-        img.style.objectPosition = `50% ${Math.max(0, Math.min(100, newFocalPercent)).toFixed(2)}%`;
+        if (!editor || !img || !img.naturalWidth || !img.naturalHeight) return;
+
+        const pointer = getPointer(e);
+        const containerWidth = editor.clientWidth;
+        const containerHeight = editor.clientHeight; // containerWidth === containerHeight due to aspect-ratio: 1/1
+
+        // 1. Get image's natural aspect ratio
+        const imgRatio = img.naturalWidth / img.naturalHeight;
+
+        // 2. Determine base rendered dimensions based on object-fit: cover in a 1:1 container
+        let baseRenderedWidth, baseRenderedHeight;
+        if (imgRatio >= 1) { // Image is wide or square, scales to fit container height
+            baseRenderedHeight = containerHeight;
+            baseRenderedWidth = baseRenderedHeight * imgRatio;
+        } else { // Image is tall, scales to fit container width
+            baseRenderedWidth = containerWidth;
+            baseRenderedHeight = baseRenderedWidth / imgRatio;
+        }
+
+        // 3. Apply zoom
+        const zoom = parseFloat(img.style.transform.replace('scale(', '').replace(')', '')) || 1;
+        const renderedImageWidth = baseRenderedWidth * zoom;
+        const renderedImageHeight = baseRenderedHeight * zoom;
+
+        // 4. Calculate overflow/travel range
+        const travelRangeX = Math.max(0, renderedImageWidth - containerWidth);
+        const travelRangeY = Math.max(0, renderedImageHeight - containerHeight);
+        
+        // 5. Calculate deltas from start position
+        const deltaX = pointer.x - startX;
+        const deltaY = pointer.y - startY;
+
+        // 6. Calculate new focal points
+        let newFocalXPercent = startFocalXPercent;
+        if (travelRangeX > 0) {
+            // Convert pixel delta to percentage delta based on travel range
+            const pxToPercentX = 100 / travelRangeX;
+            newFocalXPercent = startFocalXPercent - (deltaX * pxToPercentX);
+        }
+
+        let newFocalYPercent = startFocalYPercent;
+        if (travelRangeY > 0) {
+            const pxToPercentY = 100 / travelRangeY;
+            newFocalYPercent = startFocalYPercent - (deltaY * pxToPercentY);
+        }
+
+        // 7. Clamp values between 0% and 100%
+        newFocalXPercent = Math.max(0, Math.min(100, newFocalXPercent));
+        newFocalYPercent = Math.max(0, Math.min(100, newFocalYPercent));
+
+        const newPos = `${newFocalXPercent.toFixed(2)}% ${newFocalYPercent.toFixed(2)}%`;
+        img.style.objectPosition = newPos;
+        
+        // Also update transform-origin so zoom stays centered on the focal point
+        img.style.transformOrigin = newPos;
     };
+    
     const endDrag = () => {
-        if (!isDragging) return; isDragging = false;
+        if (!isDragging) return; 
+        isDragging = false;
         const editor = document.getElementById('focalPointEditor');
         if (editor) editor.classList.remove('is-dragging');
+        
         const vivinoUrl = document.getElementById('notesVivinoUrl')?.value;
         const focalPoint = document.getElementById('draggableImage')?.style.objectPosition;
-        if (vivinoUrl && focalPoint) saveFocalPoint(vivinoUrl, focalPoint.split(' ')[1]);
+        
+        // Save the full "X% Y%" string
+        if (vivinoUrl && focalPoint) {
+            saveFocalPoint(vivinoUrl, focalPoint);
+        }
     };
-    document.body.addEventListener('mousedown', startDrag); document.body.addEventListener('touchstart', startDrag, { passive: false });
-    window.addEventListener('mousemove', onDrag, { passive: false }); window.addEventListener('touchmove', onDrag, { passive: false });
-    window.addEventListener('mouseup', endDrag); window.addEventListener('touchend', endDrag);
+    // --- END MODIFIED DRAG LOGIC ---
+
+    document.body.addEventListener('mousedown', startDrag); 
+    document.body.addEventListener('touchstart', startDrag, { passive: false });
+    window.addEventListener('mousemove', onDrag, { passive: false }); 
+    window.addEventListener('touchmove', onDrag, { passive: false });
+    window.addEventListener('mouseup', endDrag); 
+    window.addEventListener('touchend', endDrag);
 }
 
 document.addEventListener('keydown', (e) => {
@@ -315,4 +389,3 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (document.visibilityState === 'visible') fetchInventory();
     });
 });
-

@@ -12,8 +12,10 @@ export function getNotesFormData() {
     const tastingNotes = document.getElementById('tastingNotesInput').value;
     const imageZoom = parseFloat(document.getElementById('zoomSlider').value);
 
+    // --- MODIFIED: Get the full "X% Y%" string ---
     const imageStyle = document.getElementById('draggableImage').style.objectPosition;
-    const imageFocalPoint = imageStyle ? imageStyle.split(' ')[1] : '50%';
+    const imageFocalPoint = imageStyle || '50% 50%'; // Default if empty
+    // --- END MODIFICATION ---
 
     return {
         vivino_url: vivinoUrl,

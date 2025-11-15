@@ -159,11 +159,18 @@ function prepareNotesModal(wine) {
     imageUrlInput.value = imageUrl;
     draggableImage.src = imageUrl;
 
-    const focalPoint = wine.image_focal_point || '50%';
+    // --- MODIFIED: Handle new "X% Y%" format and old "Y%" format ---
+    let focalPoint = wine.image_focal_point || '50% 50%';
+    // Handle backward compatibility for old format (which was just Y-percentage string)
+    if (focalPoint && !focalPoint.includes(' ')) {
+        focalPoint = `50% ${focalPoint}`;
+    }
+    // --- END MODIFICATION ---
+
     const zoomLevel = wine.image_zoom || 1;
 
-    draggableImage.style.objectPosition = `50% ${focalPoint}`;
-    draggableImage.style.transformOrigin = `50% ${focalPoint}`;
+    draggableImage.style.objectPosition = focalPoint;
+    draggableImage.style.transformOrigin = focalPoint;
 
     zoomSlider.value = zoomLevel;
     draggableImage.style.transform = `scale(${zoomLevel})`;
@@ -376,4 +383,3 @@ function openHelpFromSettings() {
     window.fromSettings = true;
     openModal('helpModal');
 }
-
