@@ -104,10 +104,14 @@ function displayInventory(inventory) {
         imageContainer.onclick = () => openModal('notesModal', { wine: item });
         imageContainer.title = item.tasting_notes ? item.tasting_notes : 'Click to add tasting notes';
 
-        const focalPoint = item.image_focal_point || '50%';
+        let focalPoint = item.image_focal_point || '50% 50%';
+        // Handle backward compatibility for old format (which was just Y-percentage string)
+        if (focalPoint && !focalPoint.includes(' ')) {
+            focalPoint = `50% ${focalPoint}`;
+        }
         const zoomLevel = item.image_zoom || 1;
         // Combine all styles into a single string
-        const imageStyle = `object-position: 50% ${focalPoint}; transform: scale(${zoomLevel}); transform-origin: 50% ${focalPoint};`;
+        const imageStyle = `object-position: ${focalPoint}; transform: scale(${zoomLevel}); transform-origin: ${focalPoint};`;
 
         imageContainer.innerHTML = item.image_url
             ? `<img src="${item.image_url}" class="h-24 w-24 object-cover" alt="${escapeAttr(item.name)}" style="${imageStyle}">`
