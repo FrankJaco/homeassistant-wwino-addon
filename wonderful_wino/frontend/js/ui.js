@@ -137,6 +137,31 @@ export async function saveFocalPoint(vivinoUrl, focalPoint) {
         console.error("Failed to save focal point:", error);
     }
 }
+// --- function to set the visual state of the image editor ---
+export function applyFocalPointAndZoom(focalPoint, zoom, imageUrl) {
+    const draggableImage = document.getElementById('draggableImage');
+    const zoomSlider = document.getElementById('zoomSlider');
+
+    if (!draggableImage) return;
+
+    // 1. Set the image source (if provided)
+    if (imageUrl) {
+        draggableImage.src = imageUrl;
+    }
+
+    // 2. Apply focal point (object-position)
+    // This is what the drag handler modifies, and we set it here on load.
+    draggableImage.style.objectPosition = focalPoint || '50% 50%';
+
+    // 3. Apply zoom (scale transform)
+    const newZoom = parseFloat(zoom) || 1.0;
+    draggableImage.style.transform = `scale(${newZoom})`;
+    
+    // 4. Set the slider value
+    if (zoomSlider) {
+        zoomSlider.value = newZoom;
+    }
+}
 
 export function updateCollapseIcon() {
     const addWineSection = document.getElementById('addWineSection');
