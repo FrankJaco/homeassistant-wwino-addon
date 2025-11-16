@@ -1,75 +1,60 @@
 <div id="notesModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="notesModalTitle">
     <div class="modal-content">
         <button class="modal-close-button" onclick="closeModal()">&times;</button>
-        <h3 id="notesModalTitle" class="text-xl font-semibold mb-2 text-gray-800 dark:text-white">Tasting Notes & Image
-        </h3>
-        <p id="notesModalWineName" class="mb-4 text-gray-700 dark:text-gray-300"></p>
+        <h3 id="notesModalTitle" class="text-xl font-semibold mb-2">Tasting Notes & Image</h3>
+        <p id="notesModalWineName" class="mb-4 text-gray-700"></p>
         <form id="notesForm">
             <input type="hidden" id="notesVivinoUrl">
 
-            <!-- 1ST SECTION: Tasting Notes (Moved to top and put in a box) -->
-            <div class="mb-6 p-4 border border-purple-200 rounded-xl bg-purple-50/50 shadow-sm">
-                <label for="tastingNotesInput"
-                    class="block text-sm font-medium mb-1 text-gray-800 dark:text-gray-100">Tasting Notes</label>
+            <div class="mb-4">
+                <div class="flex justify-between items-center">
+                    <label for="imageUrlInput" class="block text-sm font-medium mb-1">Image URL</label>
+                    <button type="button" id="toggleImageUrlLock"
+                        class="text-gray-500 hover:text-gray-700 focus:outline-none">🔒</button>
+                </div>
+                <input type="text" id="imageUrlInput" placeholder="Paste new image URL here"
+                    class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500" readonly>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-1">Image Preview & Focal Point</label>
+                <!-- This div is now controlled by the updated style.css file -->
+                <div id="focalPointEditor" class="overflow-hidden border rounded-md">
+                    <img id="draggableImage" src="" alt="Wine bottle image" draggable="false"
+                        class="w-full transition-transform duration-100 ease-linear">
+                </div>
+            </div>
+
+            <!-- Wrapped slider in a container to manage disabled state styling -->
+            <div id="zoomSliderContainer" class="mb-4 transition-opacity duration-300">
+                <label for="zoomSlider" class="block text-sm font-medium mb-1">Zoom</label>
+                <!-- Added the disabled attribute -->
+                <input type="range" id="zoomSlider" min="1" max="3" step="0.1" value="1"
+                    class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700" disabled>
+            </div>
+
+            <div class="mb-4">
+                <label for="tastingNotesInput" class="block text-sm font-medium mb-1">Tasting Notes</label>
                 <textarea id="tastingNotesInput" rows="5" placeholder="Enter your notes here..."
-                    class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"></textarea>
+                    class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"></textarea>
             </div>
-            <!-- END 1ST SECTION -->
-
-            <!-- Separator (dashed line) -->
-            <div class="my-6 border-t border-dashed border-gray-300"></div>
-
-            <!-- 2ND SECTION: Image Management (Grouped in a box) -->
-            <div class="mb-4 p-4 border border-gray-200 rounded-xl shadow-md">
-                <h4 class="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-100">Image Management</h4>
-
-                <!-- Image URL Input -->
-                <div class="mb-4">
-                    <div class="flex justify-between items-center">
-                        <label for="imageUrlInput" class="block text-sm font-medium mb-1">Image URL</label>
-                        <button type="button" id="toggleImageUrlLock"
-                            class="text-gray-500 hover:text-gray-700 focus:outline-none">🔒</button>
-                    </div>
-                    <input type="text" id="imageUrlInput" placeholder="Paste new image URL here"
-                        class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
-                        readonly>
-                </div>
-
-                <!-- Image Preview & Focal Point -->
-                <div>
-                    <label class="block text-sm font-medium mb-1">Image Preview & Focal Point (Click & Drag)</label>
-                    <div id="focalPointContainer" class="focal-point-container">
-                        <img id="draggableImage" class="focal-point-image" src="" alt="Wine Image Preview"
-                            onerror="this.onerror=null;this.src='https://placehold.co/400x300/e0e0e0/333?text=No+Image'"
-                            draggable="false">
-                    </div>
-                    <div class="mt-2">
-                        <label for="zoomSlider" class="block text-xs font-medium mb-1 text-gray-500">Zoom Level (<span
-                                id="zoomValue">100</span>%)</label>
-                        <input type="range" id="zoomSlider" min="1.0" max="3.0" step="0.05" value="1.0"
-                            class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer range-lg dark:bg-gray-600">
-                    </div>
-                </div>
-            </div>
-            <!-- END 2ND SECTION -->
 
             <div id="notesMessage" class="mt-4 text-center hidden"></div>
             <div class="mt-6 flex justify-end gap-4">
                 <button type="button" onclick="closeModal()"
-                    class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-100 dark:hover:bg-gray-500">Cancel</button>
+                    class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Cancel</button>
                 <button type="submit" id="notesSubmitBtn"
-                    class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700 dark:bg-purple-700 dark:hover:bg-purple-600">Save
-                    Changes</button>
+                    class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Save Changes</button>
             </div>
         </form>
-        <hr class="my-6 border-gray-300 dark:border-gray-600">
+        <hr class="my-6 border-gray-300">
         <div>
             <div class="flex justify-between items-center mb-3">
-                <h4 class="text-lg font-medium text-gray-800 dark:text-gray-100">Consumption Log</h4>
+                <h4 class="text-lg font-medium text-gray-800">Consumption Log</h4>
                 <button id="logSortToggleBtn" title="Reverse Sort Order" class="icon-button text-xl">↕️</button>
             </div>
-            <div id="consumptionLogContainer" class="space-y-2 max-h-48 overflow-y-auto">
-                <!-- Consumption log entries will be inserted here -->
+            <div id="consumptionLogContainer"
+                class="text-sm text-gray-700 space-y-2 max-h-48 overflow-y-auto p-3 border rounded-md bg-gray-50 dark:bg-gray-700">
             </div>
         </div>
     </div>
