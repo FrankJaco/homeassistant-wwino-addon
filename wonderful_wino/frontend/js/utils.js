@@ -20,15 +20,10 @@ export async function apiCall(endpoint, options = {}, messageElementId, button) 
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.message || 'An unknown error occurred');
-        
-        // Show success message only if an elementId was provided
         if (messageElementId) showMessage(messageElementId, result.message || 'Success!', 'info', true);
-        
         return result;
     } catch (error) {
-        // Show error message only if an elementId was provided
         if (messageElementId) showMessage(messageElementId, `Error: ${error.message}`, 'error', true);
-        
         throw error;
     } finally {
         if (button) {
@@ -47,10 +42,9 @@ export function showMessage(elementId, text, type = 'info', isModal = false) {
     if (type === 'error') messageEl.classList.add('text-red-600');
     else messageEl.classList.add('text-green-600');
 
-    // --- REMOVED ---
-    // The broken setTimeout logic was here. It's now gone.
-    // The `showScanMessage` in ui.js handles its own timer.
-    // Modal messages are hidden when the modal closes.
+    if (!isModal) {
+        setTimeout(() => messageEl.classList.add('hidden'), 3000);
+    }
 }
 
 export function escapeAttr(str) {
