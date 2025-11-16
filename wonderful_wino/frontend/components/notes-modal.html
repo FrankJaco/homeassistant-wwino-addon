@@ -1,26 +1,26 @@
 <div id="notesModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="notesModalTitle">
     <div class="modal-content">
         <button class="modal-close-button" onclick="closeModal()">&times;</button>
-        <h3 id="notesModalTitle" class="text-xl font-semibold mb-2 dark:text-white">Tasting Notes & Image</h3>
+        <h3 id="notesModalTitle" class="text-xl font-semibold mb-2 text-gray-800 dark:text-white">Tasting Notes & Image
+        </h3>
         <p id="notesModalWineName" class="mb-4 text-gray-700 dark:text-gray-300"></p>
         <form id="notesForm">
             <input type="hidden" id="notesVivinoUrl">
 
-            <!-- NEW 1ST SECTION: Tasting Notes (Moved to top and put in a box) -->
-            <div
-                class="mb-6 p-4 border border-purple-200 rounded-xl bg-purple-50/50 dark:bg-gray-700 dark:border-gray-600 shadow-sm">
+            <!-- 1ST SECTION: Tasting Notes (Moved to top and put in a box) -->
+            <div class="mb-6 p-4 border border-purple-200 rounded-xl bg-purple-50/50 shadow-sm">
                 <label for="tastingNotesInput"
                     class="block text-sm font-medium mb-1 text-gray-800 dark:text-gray-100">Tasting Notes</label>
                 <textarea id="tastingNotesInput" rows="5" placeholder="Enter your notes here..."
                     class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"></textarea>
             </div>
-            <!-- END NEW 1ST SECTION -->
+            <!-- END 1ST SECTION -->
 
             <!-- Separator (dashed line) -->
-            <div class="my-6 border-t border-dashed border-gray-300 dark:border-gray-600"></div>
+            <div class="my-6 border-t border-dashed border-gray-300"></div>
 
-            <!-- NEW 2ND SECTION: Image Management (Now grouped in a box below the notes) -->
-            <div class="mb-4 p-4 border rounded-xl shadow-md">
+            <!-- 2ND SECTION: Image Management (Grouped in a box) -->
+            <div class="mb-4 p-4 border border-gray-200 rounded-xl shadow-md">
                 <h4 class="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-100">Image Management</h4>
 
                 <!-- Image URL Input -->
@@ -38,7 +38,6 @@
                 <!-- Image Preview & Focal Point -->
                 <div>
                     <label class="block text-sm font-medium mb-1">Image Preview & Focal Point (Click & Drag)</label>
-                    <!-- This div is now controlled by the updated style.css file -->
                     <div id="focalPointContainer" class="focal-point-container">
                         <img id="draggableImage" class="focal-point-image" src="" alt="Wine Image Preview"
                             onerror="this.onerror=null;this.src='https://placehold.co/400x300/e0e0e0/333?text=No+Image'"
@@ -52,7 +51,7 @@
                     </div>
                 </div>
             </div>
-            <!-- END NEW 2ND SECTION -->
+            <!-- END 2ND SECTION -->
 
             <div id="notesMessage" class="mt-4 text-center hidden"></div>
             <div class="mt-6 flex justify-end gap-4">
