@@ -2,7 +2,7 @@
 // Handles all modal interactions: opening, closing, preparing content.
 
 import * as state from './state.js';
-import { updateStarVisuals, updateFeedbackText, updateCostTierSelector, resetTasteStars } from './ui.js';
+import { updateStarVisuals, updateFeedbackText, updateCostTierSelector, resetTasteStars, applyFocalPointAndZoom } from './ui.js';
 import { fetchAndDisplayConsumptionHistory, getEntryFormData, checkFormChanges, getNotesFormData } from './forms.js';
 import { fetchInventory } from './inventory.js';
 import { apiCall } from './utils.js';
