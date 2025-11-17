@@ -1,14 +1,16 @@
 <div id="notesModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="notesModalTitle">
     <div class="modal-content">
         <button class="modal-close-button" onclick="closeModal()">&times;</button>
-        <h3 id="notesModalTitle" class="text-xl font-semibold mb-2">Tasting Notes & Image</h3>
+        <!-- EDITED 1: Main heading changed to Notes, Log & Thumbnail -->
+        <h3 id="notesModalTitle" class="text-xl font-semibold mb-2">Notes, Log & Thumbnail</h3>
         <p id="notesModalWineName" class="mb-4 text-gray-700"></p>
         <form id="notesForm">
             <input type="hidden" id="notesVivinoUrl">
 
             <!-- TASTING NOTES (MOVED TO TOP) -->
             <div class="mb-4">
-                <label for="tastingNotesInput" class="block text-sm font-medium mb-1">Tasting Notes</label>
+                <!-- EDITED 2: Heading structure updated to match Consumption Log size (text-lg) -->
+                <h4 class="text-lg font-medium text-gray-800 mb-2">Tasting Notes</h4>
                 <textarea id="tastingNotesInput" rows="5" placeholder="Enter your notes here..."
                     class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"></textarea>
             </div>
@@ -17,7 +19,6 @@
             <div class="mt-6 flex justify-end gap-4">
                 <button type="button" onclick="closeModal()"
                     class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Cancel</button>
-                <!-- EDITED: Label changed from "Save Changes" to "Save" -->
                 <button type="submit" id="notesSubmitBtn"
                     class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Save</button>
             </div>
@@ -29,6 +30,7 @@
             <hr class="my-6 border-gray-300">
             <div>
                 <div class="flex justify-between items-center mb-3">
+                    <!-- EDITED 3: Consumption Log heading size is confirmed as text-lg (matches new Tasting Notes size) -->
                     <h4 class="text-lg font-medium text-gray-800">Consumption Log</h4>
                     <button id="logSortToggleBtn" title="Reverse Sort Order" class="icon-button text-xl">↕️</button>
                 </div>
@@ -41,6 +43,9 @@
             <!-- ORIGINAL POSITION: NEW WRAPPER FOR IMAGE CONTROLS (MOVED DOWN) -->
             <!-- Added a top margin (mt-6) to separate it from the buttons -->
             <div class="mt-6 p-4 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700/20">
+
+                <!-- ADDED 4: Thumbnail Editing Heading -->
+                <h4 class="text-lg font-medium text-gray-800 mb-4">Thumbnail Editing</h4>
 
                 <!-- IMAGE URL SECTION -->
                 <div class="mb-4">
