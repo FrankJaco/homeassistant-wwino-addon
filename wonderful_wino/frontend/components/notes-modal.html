@@ -17,8 +17,9 @@
             <div class="mt-6 flex justify-end gap-4">
                 <button type="button" onclick="closeModal()"
                     class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Cancel</button>
+                <!-- EDITED: Label changed from "Save Changes" to "Save" -->
                 <button type="submit" id="notesSubmitBtn"
-                    class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Save Changes</button>
+                    class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Save</button>
             </div>
 
             <!-- STATUS INDICATOR (MOVED BELOW BUTTONS) -->
@@ -61,9 +62,13 @@
 
                 <!-- UPDATED: SECONDARY SAVE BUTTON (Under Zoom Slider, right-aligned) -->
                 <!-- Changed to flex justify-end and used specific px/py classes instead of w-full -->
-                <div class="mt-4 flex justify-end">
+                <div class="mt-4 flex justify-end gap-4">
+                    <!-- ADDED: Cancel button for the lower group -->
+                    <button type="button" onclick="closeModal()"
+                        class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Cancel</button>
+                    <!-- EDITED: Label changed from "Save Changes" to "Save" -->
                     <button type="submit" id="notesSubmitBtnBottom"
-                        class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Save Changes</button>
+                        class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Save</button>
                 </div>
                 <!-- END UPDATED SAVE BUTTON -->
 
