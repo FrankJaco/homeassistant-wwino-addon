@@ -209,7 +209,15 @@ def add_or_update_wine(wine_data: dict, quantity: int, cost_tier: int):
         if existing_wine:
             wine_id, current_quantity = existing_wine
             new_quantity = current_quantity + quantity
-
+            try:
+                cursor.execute('''
+                    INSERT INTO consumption_history (wine_id, log_type, cost_tier)
+                    VALUES (?, 'acquired', ?)
+                ''', (wine_id, cost_tier))
+                logger.info(f"Logged 'acquired' event for existing wine_id: {wine_id}")
+            except sqlite3.Error as e:
+                # Log the error but don't stop the whole transaction
+                logger.error(f"Failed to insert 'acquired' log for existing wine: {e}")
             if needs_review_flag:
                 cursor.execute('UPDATE wines SET quantity = ? WHERE id = ?', (new_quantity, wine_id))
                 logger.info(f"Updated quantity only for '{wine_data['name']}' to {new_quantity} as it needs review.")
