@@ -32,7 +32,9 @@
                 <div class="flex justify-between items-center mb-3">
                     <!-- EDITED 3: Consumption Log heading size is confirmed as text-lg (matches new Tasting Notes size) -->
                     <h4 class="text-lg font-medium text-gray-800">Consumption Log</h4>
-                    <button id="logSortToggleBtn" title="Reverse Sort Order" class="icon-button text-xl">↕️</button>
+                    <!-- FIX: Added type="button" to prevent form submission -->
+                    <button type="button" id="logSortToggleBtn" title="Reverse Sort Order"
+                        class="icon-button text-xl">↕️</button>
                 </div>
                 <div id="consumptionLogContainer"
                     class="text-sm text-gray-700 space-y-2 max-h-48 overflow-y-auto p-3 border rounded-md bg-gray-50 dark:bg-gray-700">
