@@ -3,13 +3,8 @@
         <button class="modal-close-button" onclick="closeModal()">&times;</button>
         <h3 id="notesModalTitle" class="text-xl font-semibold mb-2">Tasting Notes & Image</h3>
         <p id="notesModalWineName" class="mb-4 text-gray-700"></p>
-
-        <!-- The form wraps everything that needs to be saved -->
         <form id="notesForm">
             <input type="hidden" id="notesVivinoUrl">
-            <!-- New: Hidden fields to store current image transformation state -->
-            <input type="hidden" id="focalPointX" name="focal_point_x" value="50">
-            <input type="hidden" id="focalPointY" name="focal_point_y" value="50">
 
             <!-- TASTING NOTES (MOVED TO TOP) -->
             <div class="mb-4">
@@ -19,21 +14,34 @@
             </div>
 
             <!-- MESSAGE AND BUTTONS (MOVED UP) -->
-            <!-- These are still inside the form, so the "Save" button will submit it -->
             <div id="notesMessage" class="mt-4 text-center hidden"></div>
             <div class="mt-6 flex justify-end gap-4">
-                <button type="button" onclick="closeModal()" class="button secondary">Cancel</button>
-                <button type="submit" id="saveNotesBtn" class="button primary">Save</button>
+                <button type="button" onclick="closeModal()"
+                    class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Cancel</button>
+                <button type="submit" id="notesSubmitBtn"
+                    class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Save Changes</button>
             </div>
 
-            <!-- IMAGE CONTROLS -->
-            <div id="imageControls" class="mt-6">
-                <h4 class="text-lg font-medium text-gray-800 mb-2">Image Focus</h4>
-                <p class="text-sm text-gray-600 mb-4">Drag the image to set the focal point. Use the zoom slider to
-                    adjust.</p>
+            <!-- NEW WRAPPER FOR IMAGE CONTROLS (NOW AFTER BUTTONS) -->
+            <!-- Added a top margin (mt-6) to separate it from the buttons -->
+            <div class="mt-6 p-4 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700/20">
 
-                <!-- IMAGE DISPLAY AREA (FOCAL POINT EDITOR) -->
+                <!-- IMAGE URL SECTION -->
                 <div class="mb-4">
+                    <div class="flex justify-between items-center">
+                        <label for="imageUrlInput" class="block text-sm font-medium mb-1">Image URL</label>
+                        <button type="button" id="toggleImageUrlLock"
+                            class="text-gray-500 hover:text-gray-700 focus:outline-none">🔒</button>
+                    </div>
+                    <input type="text" id="imageUrlInput" placeholder="Paste new image URL here"
+                        class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        readonly>
+                </div>
+
+                <!-- IMAGE PREVIEW SECTION -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Image Preview & Focal Point</label>
+                    <!-- This div is now controlled by the updated style.css file -->
                     <div id="focalPointEditor" class="overflow-hidden border rounded-md">
                         <img id="draggableImage" src="" alt="Wine bottle image" draggable="false"
                             class="w-full transition-transform duration-100 ease-linear">
@@ -41,6 +49,7 @@
                 </div>
 
                 <!-- ZOOM SLIDER SECTION -->
+                <!-- Removed mb-4 from this container, as the parent wrapper has margin -->
                 <div id="zoomSliderContainer" class="transition-opacity duration-300">
                     <label for="zoomSlider" class="block text-sm font-medium mb-1">Zoom</label>
                     <input type="range" id="zoomSlider" min="1" max="3" step="0.1" value="1"
@@ -49,11 +58,9 @@
                 </div>
 
             </div>
-            <!-- END IMAGE CONTROLS -->
+            <!-- END NEW WRAPPER -->
 
         </form>
-        <!-- FORM ENDS HERE -->
-
         <hr class="my-6 border-gray-300">
         <div>
             <div class="flex justify-between items-center mb-3">
@@ -61,8 +68,7 @@
                 <button id="logSortToggleBtn" title="Reverse Sort Order" class="icon-button text-xl">↕️</button>
             </div>
             <div id="consumptionLogContainer"
-                class="text-sm text-gray-700 space-y-2 max-h-48 overflow-y-auto p-2 border rounded-md bg-gray-50">
-                <p class="text-center text-gray-500">Loading history...</p>
+                class="text-sm text-gray-700 space-y-2 max-h-48 overflow-y-auto p-3 border rounded-md bg-gray-50 dark:bg-gray-700">
             </div>
         </div>
     </div>

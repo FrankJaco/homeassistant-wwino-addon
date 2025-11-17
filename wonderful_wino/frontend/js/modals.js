@@ -2,12 +2,10 @@
 // Handles all modal interactions: opening, closing, preparing content.
 
 import * as state from './state.js';
-// ensure updateCostTierTooltips is imported for use in saveCostTiers
-import { updateStarVisuals, updateFeedbackText, updateCostTierSelector, resetTasteStars, applyFocalPointAndZoom, updateCostTierTooltips } from './ui.js';
+import { updateStarVisuals, updateFeedbackText, updateCostTierSelector, resetTasteStars, applyFocalPointAndZoom } from './ui.js';
 import { fetchAndDisplayConsumptionHistory, getEntryFormData, checkFormChanges, getNotesFormData } from './forms.js';
 import { fetchInventory } from './inventory.js';
-// Add showMessage to imports for use in validation/settings functions
-import { apiCall, showMessage } from './utils.js';
+import { apiCall } from './utils.js';
 import { DEFAULT_COST_TIERS } from './config.js';
 import { BASE_URL } from './config.js';
 
@@ -137,100 +135,57 @@ function prepareTasteModal(wine) {
     resetTasteStars();
 }
 
-/**
- * Applies the new zoom level immediately upon slider release by reading the
- * current focal point from the hidden form fields.
- */
-function handleZoomChange() {
-    const zoomSlider = document.getElementById('zoomSlider');
-    const focalPointXInput = document.getElementById('focalPointX');
-    const focalPointYInput = document.getElementById('focalPointY');
-    
-    if (!zoomSlider || !focalPointXInput || !focalPointYInput) return;
-
-    const newZoom = parseFloat(zoomSlider.value);
-    const currentFocalX = parseFloat(focalPointXInput.value);
-    const currentFocalY = parseFloat(focalPointYInput.value);
-
-    // Apply the new zoom using the existing utility, which also updates the hidden inputs
-    applyFocalPointAndZoom(currentFocalX, currentFocalY, newZoom);
-}
-
-/**
- * Sets up the image, zoom slider, and listeners for the Notes Modal.
- * @param {object} wine The current wine object containing image details.
- */
-function setupNotesImageControls(wine) {
-    const zoomSlider = document.getElementById('zoomSlider');
-    const focalPointXInput = document.getElementById('focalPointX');
-    const focalPointYInput = document.getElementById('focalPointY');
+const handleZoomChange = (event) => {
     const draggableImage = document.getElementById('draggableImage');
-    const zoomSliderContainer = document.getElementById('zoomSliderContainer');
-
-    if (!zoomSlider || !focalPointXInput || !focalPointYInput || !draggableImage || !zoomSliderContainer) return;
-
-    const hasImage = !!wine?.image_url;
-
-    // Set initial values from wine data (now using properties compatible with ui.js)
-    const initialZoom = wine?.image_zoom || 1.0;
-    const initialFocalX = wine?.focal_point_x || 50;
-    const initialFocalY = wine?.focal_point_y || 50;
-    
-    // Set slider value
-    zoomSlider.value = initialZoom;
-    
-    zoomSlider.disabled = !hasImage;
-    zoomSliderContainer.classList.toggle('opacity-50', !hasImage);
-
-    // Set image source and apply initial transform state via utility function
-    draggableImage.src = hasImage ? wine.image_url : 'https://placehold.co/300x400/CCCCCC/000000?text=No+Image';
-    applyFocalPointAndZoom(initialFocalX, initialFocalY, initialZoom);
-    
-    // Attach the handler to the 'change' event (on mouse release) for immediate zoom application
-    zoomSlider.removeEventListener('change', handleZoomChange); 
-    zoomSlider.addEventListener('change', handleZoomChange);
-
-    // Ensure any previous 'input' listener is removed (assuming 'input' was previously used)
-    zoomSlider.removeEventListener('input', handleZoomChange); 
-}
+    if (draggableImage) {
+        draggableImage.style.transform = `scale(${event.target.value})`;
+    }
+};
 
 function prepareNotesModal(wine) {
-    state.setCurrentWine(wine);
-    
-    const form = document.getElementById('notesForm');
-    const notesInput = document.getElementById('tastingNotesInput');
-    const nameEl = document.getElementById('notesModalWineName');
-    const vivinoUrlInput = document.getElementById('notesVivinoUrl');
+    const imageUrlInput = document.getElementById('imageUrlInput');
+    const toggleBtn = document.getElementById('toggleImageUrlLock');
+    const focalPointEditor = document.getElementById('focalPointEditor');
+    const draggableImage = document.getElementById('draggableImage');
+    const zoomSlider = document.getElementById('zoomSlider');
+    const zoomSliderContainer = document.getElementById('zoomSliderContainer');
+
+    document.getElementById('notesVivinoUrl').value = wine.vivino_url;
+    document.getElementById('notesModalWineName').textContent = `${wine.name} (${wine.vintage || 'NV'})`;
+    document.getElementById('tastingNotesInput').value = wine.tasting_notes || '';
     document.getElementById('notesMessage').classList.add('hidden');
 
-    // Populate notes and name
-    notesInput.value = wine?.tasting_notes || '';
-    nameEl.textContent = `${wine.name} (${wine.vintage || 'NV'})`;
-    vivinoUrlInput.value = wine?.vivino_url || '';
+    const imageUrl = wine.image_url || '';
+    imageUrlInput.value = imageUrl;
+    draggableImage.src = imageUrl;
 
-    // Setup image controls (including zoom listener and initial state)
-    setupNotesImageControls(wine);
-    
-    // Clean up deprecated states related to old image URL editing
-    const focalPointEditor = document.getElementById('focalPointEditor');
-    if (focalPointEditor) {
-        focalPointEditor.classList.remove('is-unlocked');
+    // --- MODIFIED: Handle new "X% Y%" format and old "Y%" format ---
+    let focalPoint = wine.image_focal_point || '50% 50%';
+    // Handle backward compatibility for old format (which was just Y-percentage string)
+    if (focalPoint && !focalPoint.includes(' ')) {
+        focalPoint = `50% ${focalPoint}`;
     }
+    // --- END MODIFICATION ---
 
-    fetchAndDisplayConsumptionHistory(wine?.id, state.consumptionLogSortOrder);
+    const zoomLevel = wine.image_zoom || 1;
+
+    draggableImage.style.objectPosition = focalPoint;
+    draggableImage.style.transformOrigin = focalPoint;
+
+    zoomSlider.value = zoomLevel;
+    draggableImage.style.transform = `scale(${zoomLevel})`;
+
+    // Reset lock and disabled states on modal open
+    imageUrlInput.setAttribute('readonly', true);
+    toggleBtn.textContent = '🔒';
+    focalPointEditor.classList.remove('is-unlocked');
+    zoomSlider.disabled = true;
+    zoomSliderContainer.classList.add('opacity-50');
     
-    // Add event listener for form submission (Save button)
-    if (form) {
-        form.onsubmit = (e) => {
-            e.preventDefault();
-            // Assuming handleNotesSave is defined elsewhere and is handling the submission.
-            if (typeof handleNotesSave === 'function') {
-                handleNotesSave(wine);
-            } else {
-                console.warn("handleNotesSave function not defined. Form submission is halted.");
-            }
-        };
-    }
+    zoomSlider.removeEventListener('input', handleZoomChange);
+    zoomSlider.addEventListener('input', handleZoomChange);
+
+    fetchAndDisplayConsumptionHistory(wine, state.consumptionLogSortOrder);
 }
 
 function prepareSettingsModal() {
@@ -323,31 +278,23 @@ window.updateTiers = updateTiers;
 
 
 async function handleSyncAllWines(messageElementId) {
-    // Note: window.confirm should be replaced with a custom modal for better UX
-    const result = window.confirm('Sync all wines to your Home Assistant To-Do list?');
-    if (!result) return;
+    if (!confirm('Sync all wines to your Home Assistant To-Do list?')) return;
     await apiCall('sync-all-wines', { method: 'POST' }, messageElementId, document.getElementById('syncAllBtn'));
 }
 
 async function handleReinitializeDb(messageElementId) {
-    // Note: window.confirm should be replaced with a custom modal for better UX
-    const result = window.confirm('ARE YOU SURE? This will permanently delete ALL wine data!');
-    if (!result) return;
+    if (!confirm('ARE YOU SURE? This will permanently delete ALL wine data!')) return;
     await apiCall('reinitialize-database-action', { method: 'POST' }, messageElementId, document.getElementById('resetDbBtn'));
     fetchInventory();
 }
 
 async function handleBackupDb(messageElementId) {
-    // Note: window.confirm should be replaced with a custom modal for better UX
-    const result = window.confirm('Create a backup of your database? This will overwrite any existing backup file.');
-    if (!result) return;
+    if (!confirm('Create a backup of your database? This will overwrite any existing backup file.')) return;
     await apiCall('backup-database', { method: 'POST' }, messageElementId, document.getElementById('backupDbBtn'));
 }
 
 async function handleRestoreDb(messageElementId) {
-    // Note: window.confirm should be replaced with a custom modal for better UX
-    const result = window.confirm('ARE YOU SURE? This will overwrite your current database with the backup file. Any changes since the last backup will be lost.');
-    if (!result) return;
+    if (!confirm('ARE YOU SURE? This will overwrite your current database with the backup file. Any changes since the last backup will be lost.')) return;
     await apiCall('restore-database', { method: 'POST' }, messageElementId, document.getElementById('restoreDbBtn'));
     setTimeout(fetchInventory, 1500);
 }
@@ -401,17 +348,10 @@ function handleCostTierReset() {
 }
 
 async function saveCostTiers() {
-    const t1 = parseFloat(document.getElementById('tier1').value);
-    const t2r = parseFloat(document.getElementById('tier2Right').value);
-    const t3r = parseFloat(document.getElementById('tier3Right').value);
-    const t4r = parseFloat(document.getElementById('tier4Right').value);
-    
-    // Validation check before saving
-    if (t1 <= 0 || t2r <= t1 || t3r <= t2r || t4r <= t3r) {
-        showMessage('settingsMessage', 'All tiers must be positive and strictly increasing.', 'error', true);
-        return;
-    }
-
+    const t1 = document.getElementById('tier1').value;
+    const t2r = document.getElementById('tier2Right').value;
+    const t3r = document.getElementById('tier3Right').value;
+    const t4r = document.getElementById('tier4Right').value;
     const payload = {
         cost_tier_1_label: `Under $${t1}`,
         cost_tier_2_label: `$${t1} - $${t2r}`,
@@ -422,10 +362,7 @@ async function saveCostTiers() {
     try {
         await apiCall('api/settings', { method: 'POST', body: JSON.stringify(payload) }, 'settingsMessage', document.getElementById('saveCostTiersBtn'));
         state.setAppSettings({ ...state.appSettings, ...payload });
-        // Assuming updateCostTierTooltips is imported from ui.js
-        if (typeof updateCostTierTooltips === 'function') {
-            updateCostTierTooltips();
-        }
+        updateCostTierTooltips();
     } catch (error) { /* Error already shown */ }
 }
 
