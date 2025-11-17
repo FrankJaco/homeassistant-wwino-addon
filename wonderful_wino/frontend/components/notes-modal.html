@@ -13,14 +13,16 @@
                     class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"></textarea>
             </div>
 
-            <!-- MESSAGE AND BUTTONS (MOVED UP) -->
-            <div id="notesMessage" class="mt-4 text-center hidden"></div>
+            <!-- BUTTONS -->
             <div class="mt-6 flex justify-end gap-4">
                 <button type="button" onclick="closeModal()"
                     class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Cancel</button>
                 <button type="submit" id="notesSubmitBtn"
                     class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Save Changes</button>
             </div>
+
+            <!-- STATUS INDICATOR (MOVED BELOW BUTTONS) -->
+            <div id="notesMessage" class="mt-4 text-center hidden"></div>
 
             <!-- NEW WRAPPER FOR IMAGE CONTROLS (NOW AFTER BUTTONS) -->
             <!-- Added a top margin (mt-6) to separate it from the buttons -->
