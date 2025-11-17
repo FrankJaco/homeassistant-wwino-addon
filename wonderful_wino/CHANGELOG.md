@@ -1,4 +1,5 @@
 ### 1.0.3
+- General Modal GUI improvements
 - 2-axis focal point adjustment for thumbnails
 - MQTT Support for Entities
 - Added 13 Home Assistant Entities (via REST)
