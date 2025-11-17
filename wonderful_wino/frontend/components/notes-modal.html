@@ -3,7 +3,11 @@
         <button class="modal-close-button" onclick="closeModal()">&times;</button>
         <!-- EDITED 1: Main heading changed to Notes, Log & Thumbnail -->
         <h3 id="notesModalTitle" class="text-xl font-semibold mb-2">Notes, Log & Thumbnail</h3>
-        <p id="notesModalWineName" class="mb-4 text-gray-700"></p>
+        <!-- COSMETIC CHANGE: Increased font size, weight, and contrast for the wine name -->
+        <!-- SUBTLE BACKGROUND CHANGE ADDED: bg-purple-100/dark:bg-purple-900, padding, and rounded corners -->
+        <p id="notesModalWineName"
+            class="mb-4 text-xl font-bold text-gray-900 dark:text-white bg-purple-100 dark:bg-purple-900/50 p-2 rounded-md inline-block">
+        </p>
         <form id="notesForm">
             <input type="hidden" id="notesVivinoUrl">
 
