@@ -237,7 +237,8 @@ export async function fetchAndDisplayConsumptionHistory(wine, sortOrder = 'desc'
         history.forEach(entry => {
             const entryEl = document.createElement('div');
             // Added Tailwind classes for styling the log entries
-            entryEl.className = 'log-entry flex justify-between items-center py-1 border-b border-gray-200 dark:border-gray-600';
+            // MODIFIED FOR ISSUE 4: Changed to flex-col for consistent 2-line layout
+            entryEl.className = 'log-entry flex flex-col items-start py-2 space-y-1 border-b border-gray-200 dark:border-gray-600 w-full';
 
             // Convert DB UTC ISO string to local datetime-local format for the input field
             const localDateString = toLocalInputString(entry.consumed_at);
@@ -247,8 +248,9 @@ export async function fetchAndDisplayConsumptionHistory(wine, sortOrder = 'desc'
 
             if (entry.log_type === 'consumed') {
                 const rating = entry.personal_rating ? `(Rated: ${entry.personal_rating.toFixed(1)} ★)` : '(Not rated)';
-                const cost = entry.cost_tier ? `(Cost: ${'$'.repeat(entry.cost_tier)})` : '';
-                details = `<span class="${logTypeClass} font-medium">Consumed</span> <span class="text-gray-500 dark:text-gray-400">${rating} ${cost}</span>`;
+                // MODIFIED FOR ISSUE 3: Removed cost from 'Consumed' log
+                // const cost = entry.cost_tier ? `(Cost: ${'$'.repeat(entry.cost_tier)})` : '';
+                details = `<span class="${logTypeClass} font-medium">Consumed</span> <span class="text-gray-500 dark:text-gray-400">${rating}</span>`;
             } else {
                 const cost = entry.cost_tier ? `(Cost: ${'$'.repeat(entry.cost_tier)})` : '';
                 details = `<span class="${logTypeClass} font-medium">Acquired</span> <span class="text-gray-500 dark:text-gray-400">${cost}</span>`;
@@ -275,7 +277,8 @@ export async function fetchAndDisplayConsumptionHistory(wine, sortOrder = 'desc'
                         </button>
                     </div>
                 </div>
-                <div class="log-details">${details}</div>
+                <!-- MODIFIED FOR ISSUE 4: Added padding-left for alignment -->
+                <div class="log-details pl-1">${details}</div>
             `;
             logContainer.appendChild(entryEl);
         });
