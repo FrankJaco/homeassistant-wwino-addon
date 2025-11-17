@@ -68,8 +68,27 @@ export function checkFormChanges() {
  */
 function toLocalInputString(isoDate) {
     if (!isoDate) return '';
-    // Create a Date object. It will be in the local timezone.
-    const date = new Date(isoDate);
+
+    // --- START FIX 1: Ensure date string is parsed as UTC ---
+    // We assume DB timestamps are UTC. If the string lacks timezone
+    // info (like 'Z' or +/- offset), append 'Z' to force UTC parsing.
+    let utcDateStr = isoDate;
+    
+    // Handle 'YYYY-MM-DD HH:MM:SS' format from some DBs by replacing space with 'T'
+    // This is common if a 'DATETIME' field is used.
+    if (utcDateStr.length >= 19 && utcDateStr.charAt(10) === ' ') {
+        utcDateStr = utcDateStr.replace(' ', 'T');
+    }
+
+    // Check if string looks like it's missing timezone info
+    // A simple check: doesn't end in 'Z' and doesn't contain '+' or '-' in the timezone position
+    if (!utcDateStr.endsWith('Z') && utcDateStr.indexOf('+', 10) === -1 && utcDateStr.indexOf('-', 10) === -1) {
+        utcDateStr += 'Z';
+    }
+    
+    // Create a Date object from the (now guaranteed) UTC string
+    const date = new Date(utcDateStr);
+    // --- END FIX 1 ---
 
     // Get local date components
     const year = date.getFullYear();
@@ -81,6 +100,7 @@ function toLocalInputString(isoDate) {
     // Assemble the string
     return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
+
 
 /**
  * NEW: Shows save/cancel buttons when a date input is changed.
