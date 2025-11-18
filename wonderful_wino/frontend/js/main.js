@@ -10,7 +10,9 @@ import { getEntryFormData, checkFormChanges, fetchAndDisplayConsumptionHistory, 
 import { 
     updateSortIcons, setupVintageControls, setupCostTierSelector, setupStarRating, 
     updateCostTierTooltips, updateCollapseIcon, collapseAddWinePanel, 
-    startPanelCollapseTimer, resetVivinoPanel, saveFocalPoint 
+    startPanelCollapseTimer, resetVivinoPanel, saveFocalPoint, 
+    // --- EDITED: ADDED showScanMessage for Vivino submission feedback ---
+    showScanMessage 
 } from './ui.js';
 
 async function fetchSettings() {
@@ -39,7 +41,8 @@ function setupEventListeners() {
     document.body.addEventListener('click', (e) => {
         const addWineHeader = e.target.closest('#addWineHeader');
         if (addWineHeader) {
-            if (e.target.id === 'addViaVivinoBtn') { /* ... (handling logic below) ... */ }
+            // NOTE: The actual submission logic for 'addViaVivinoBtn' is handled by the form submit listener below.
+            if (e.target.id === 'addViaVivinoBtn') { /* ... */ }
             if (e.target.id === 'openEntryModalBtn') { /* ... */ }
             if (e.target.id === 'otherToolsBtn') { /* ... */ }
             if (e.target.id === 'manualHelpIcon') { openModal('helpModal', { topic: 'manual' }); return; }
@@ -163,11 +166,17 @@ function setupEventListeners() {
                 e.target.reset();
                 break;
             case 'scanWineForm':
+                // --- CHANGE 2: Show loading message immediately ---
+                showScanMessage("Data acquisition in progress...", 'info', 15000); 
+
                 let vivinoUrl = document.getElementById('vivinoUrlInput').value;
                 if (!/https:\/\/www\.vivino\.com\/.*\/w\/\d+/.test(vivinoUrl)) {
-                    showMessage('scanMessage', "Invalid URL. Please use a specific Vivino wine page.", 'error');
+                    // Use showScanMessage for the dedicated message element
+                    showScanMessage("Invalid URL. Please use a specific Vivino wine page.", 'error'); 
                     return;
                 }
+                
+                // Vintage Prompting Logic
                 if (!/year=\d{4}/.test(vivinoUrl)) {
                     try {
                         const result = await promptForVintage();
@@ -175,23 +184,41 @@ function setupEventListeners() {
                             const url = new URL(vivinoUrl);
                             url.searchParams.set('year', result.vintage);
                             vivinoUrl = url.toString();
+                        } else {
+                            // If the user cancels the vintage prompt
+                            showScanMessage('Action cancelled.', 'info');
+                            return;
                         }
                     } catch (error) {
-                        if(error !== 'cancelled') showMessage('scanMessage', 'Action cancelled.', 'info');
+                        // Catch error during prompt, which might be 'cancelled' rejection
+                        if(error !== 'cancelled') console.error("Vintage prompt error:", error);
+                        showScanMessage('Action cancelled.', 'info');
                         return;
                     }
                 }
+
                 const payload = {
                     vivino_url: vivinoUrl,
                     quantity: parseInt(document.getElementById('quantityInput').value, 10) || 1,
                     cost_tier: parseInt(document.getElementById('mainCostTierInput').value, 10) || null
                 };
+                
                 try {
-                    await apiCall('scan-wine', { method: 'POST', body: JSON.stringify(payload) }, 'scanMessage', e.target.querySelector('button[type="submit"]'));
+                    // Pass null for the message container ID, as we handle success/error messages manually via showScanMessage
+                    await apiCall('scan-wine', { method: 'POST', body: JSON.stringify(payload) }, null, e.target.querySelector('button[type="submit"]'));
+                    
+                    // --- CHANGE 1: Update user-friendly success message ---
+                    showScanMessage("Wine facts obtained and stored/updated", 'success');
+                    
                     resetVivinoPanel();
                     fetchInventory();
                     startPanelCollapseTimer();
-                } catch (error) {}
+
+                } catch (error) {
+                    console.error('Vivino URL submission error:', error);
+                    // Show a robust error message to the user
+                    showScanMessage(`Error acquiring wine facts. Please check the URL and try again.`, 'error');
+                }
                 break;
             case 'entryForm':
                 const isEditMode = !!document.getElementById('entryVivinoUrl').value;
@@ -388,4 +415,4 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') fetchInventory();
     });
-}); 
+});
