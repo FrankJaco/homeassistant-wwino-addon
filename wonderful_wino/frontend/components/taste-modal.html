@@ -5,13 +5,26 @@
         <p id="tasteModalWineName" class="mb-4 text-gray-700"></p>
         <form id="tasteForm">
             <input type="hidden" id="tasteVivinoUrl">
-            <label class="block text-sm font-medium mb-2">How did it taste? (Optional)</label>
-            <div id="tasteRatingSelector" class="flex text-4xl taste-rating-selector">
-                <span data-value="1">☆</span><span data-value="2">☆</span><span data-value="3">☆</span><span
-                    data-value="4">☆</span><span data-value="5">☆</span>
+            <label class="block text-sm font-medium mb-2" for="tasteRatingSpinner">How did it taste? (0.0 - 5.0
+                Stars)</label>
+
+            <div class="flex items-center justify-between mb-4 space-x-4">
+                <!-- Star Rating Display (Now Read-Only Visual, but functional for 0.5 step input) -->
+                <div id="tasteRatingSelector" class="flex text-4xl taste-rating-selector flex-grow justify-start">
+                    <span data-value="1">☆</span><span data-value="2">☆</span><span data-value="3">☆</span><span
+                        data-value="4">☆</span><span data-value="5">☆</span>
+                </div>
+
+                <!-- Fine-Grain Spinner Input (0.1 increment) -->
+                <input type="number" id="tasteRatingSpinner" name="tasteRatingSpinner" min="0" max="5" step="0.1"
+                    value="" placeholder="0.0"
+                    class="w-24 text-center p-2 border border-gray-300 rounded-md shadow-sm focus:border-purple-500 focus:ring-purple-500">
             </div>
-            <p id="tasteRatingFeedback" class="text-sm text-center h-6 mb-4"></p>
+
+            <!-- This input holds the final, precise value for form submission -->
             <input type="hidden" id="tasteRatingInput">
+            <p id="tasteRatingFeedback" class="text-sm text-center h-6 mb-4 -mt-2 text-gray-500"></p>
+
             <div class="mt-6 flex justify-end gap-4">
                 <button type="button" onclick="closeModal()"
                     class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Cancel</button>
