@@ -24,6 +24,7 @@ export function setupStarRating(selectorId, inputId, feedbackId) {
     const feedbackEl = document.getElementById(feedbackId);
     if (!selectorEl || !inputEl) return;
     
+    // 1. Handle Mouse Interaction on Stars (Existing logic)
     selectorEl.addEventListener('mousemove', e => {
         if (!e.target.matches('span')) return;
         const star = e.target;
@@ -33,22 +34,58 @@ export function setupStarRating(selectorId, inputId, feedbackId) {
         updateFeedbackText(feedbackEl, rating);
         updateStarVisuals(selectorEl, rating, 'hover');
     });
+
     selectorEl.addEventListener('mouseleave', () => {
         const currentRating = parseFloat(inputEl.value) || 0;
         updateStarVisuals(selectorEl, currentRating, 'rated');
         updateFeedbackText(feedbackEl, currentRating);
     });
+
     selectorEl.addEventListener('click', e => {
         if (!e.target.matches('span')) return;
         const star = e.target;
         const starRect = star.getBoundingClientRect();
         const isHalf = (e.clientX - starRect.left) < (starRect.width / 2);
         const rating = parseInt(star.dataset.value, 10) - (isHalf ? 0.5 : 0);
+        
+        // Toggle logic: if clicking the exact same value, clear it? 
+        // Or just set it. Let's keep original behavior, but ensure it updates the number input.
         const currentValue = parseFloat(inputEl.value) || 0;
-        inputEl.value = (currentValue === rating) ? '' : rating;
-        const newRating = parseFloat(inputEl.value) || 0;
-        updateStarVisuals(selectorEl, newRating, 'rated');
-        updateFeedbackText(feedbackEl, newRating);
+        const newValue = (currentValue === rating) ? '' : rating;
+        
+        inputEl.value = newValue;
+        
+        const finalRating = parseFloat(inputEl.value) || 0;
+        updateStarVisuals(selectorEl, finalRating, 'rated');
+        updateFeedbackText(feedbackEl, finalRating);
+    });
+
+    // 2. Handle Input Changes (New Spinner/Manual Entry logic)
+    inputEl.addEventListener('input', () => {
+        let val = parseFloat(inputEl.value);
+        
+        // Validate bounds (0-5)
+        if (val < 0) val = 0;
+        if (val > 5) val = 5;
+
+        // Note: We don't force inputEl.value = val here immediately to avoid 
+        // interrupting typing (e.g. typing "4." would be reset to "4"), 
+        // but we rely on the browser's min/max for submission and update visuals.
+        
+        if (!isNaN(val)) {
+            updateStarVisuals(selectorEl, val, 'rated');
+            updateFeedbackText(feedbackEl, val);
+        } else {
+            updateStarVisuals(selectorEl, 0, 'rated');
+            updateFeedbackText(feedbackEl, 0);
+        }
+    });
+    
+    // Ensure bounds on blur (when user leaves the field)
+    inputEl.addEventListener('blur', () => {
+         let val = parseFloat(inputEl.value);
+         if (val > 5) inputEl.value = 5;
+         if (val < 0) inputEl.value = 0;
     });
 }
 
@@ -57,8 +94,15 @@ export function updateStarVisuals(selectorEl, rating, stateClass) {
     selectorEl.querySelectorAll('span').forEach((star, index) => {
         const starValue = index + 1;
         star.className = '';
-        if (rating >= starValue) star.classList.add(`${stateClass}`);
-        else if (rating > index && rating < starValue) star.classList.add(`${stateClass}-half`);
+        
+        // Full Star
+        if (rating >= starValue) {
+            star.classList.add(`${stateClass}`);
+        } 
+        // Partial/Half Star logic
+        else if (rating > index && rating < starValue) {
+            star.classList.add(`${stateClass}-half`);
+        }
     });
 }
 
