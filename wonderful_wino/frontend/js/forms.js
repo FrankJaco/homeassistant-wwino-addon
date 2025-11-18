@@ -5,9 +5,6 @@ import * as state from './state.js';
 import { BASE_URL } from './config.js';
 // Now explicitly importing apiCall from utils.js
 import { apiCall } from './utils.js';
-// IMPORT REQUIRED: fetchInventory and closeModal needed for consumption logic
-import { fetchInventory } from './inventory.js';
-import { closeModal } from './modals.js';
 
 export function getNotesFormData() {
     const vivinoUrl = document.getElementById('notesVivinoUrl').value;
@@ -59,58 +56,6 @@ export function checkFormChanges() {
     const hasChanged = JSON.stringify(currentFormData) !== JSON.stringify(state.initialEntryFormData);
     saveAsNewWineBtn.disabled = !hasChanged;
     saveAsNewWineBtn.title = hasChanged ? 'Save the current details as a new wine entry' : 'Change a field to enable saving as a new wine';
-}
-
-// --- NEW FUNCTION: CONSUMPTION HANDLER ---
-/**
- * Handles the final consumption action after a user confirms via a modal/form.
- * This is the function that gets fired when the 'Consume' button is clicked.
- * * @param {string} wineId The unique ID of the wine being consumed (Vivino URL).
- * @param {string} messageElementId The ID of the element to display messages in (e.g., 'tasteMessage').
- * @param {HTMLElement} buttonElement The button element clicked to disable/enable during the call.
- * @param {object} tasteData Optional: Rating and notes data to include in the consumption log.
- */
-export async function handleConsumeAction(wineId, messageElementId, buttonElement, tasteData = {}) {
-    if (buttonElement) {
-        buttonElement.disabled = true;
-        buttonElement.textContent = 'Consuming...';
-    }
-
-    try {
-        // Prepare payload with wine ID (vivino_url) and optional taste data
-        const payload = { 
-            vivino_url: wineId,
-            ...tasteData
-        };
-        
-        // 1. API CALL TO RECORD CONSUMPTION (and decrement inventory quantity)
-        await apiCall(
-            'consume-wine', 
-            { method: 'POST', body: JSON.stringify(payload) }, 
-            messageElementId, 
-            buttonElement // Passes the button for built-in handling of loading/messages
-        );
-
-        // 2. Successful Consumption: Close the modal
-        closeModal();
-
-        // 3. MANDATORY STEP: Refresh the main inventory list
-        // This is the call you wanted to add to update the UI immediately
-        // after the consumption is successfully recorded in the database.
-        console.log('Consumption successful. Refreshing inventory...');
-        fetchInventory();
-
-    } catch (error) {
-        // apiCall usually handles the message display on error.
-        console.error('Failed to record consumption:', error);
-    } finally {
-        // 4. Reset the button state if the modal wasn't closed or on error
-        if (buttonElement && buttonElement.disabled) {
-            buttonElement.disabled = false;
-            // The actual text may be dynamically set in the UI, use a default fallback
-            buttonElement.textContent = 'Consume';
-        }
-    }
 }
 
 // --- NEW HELPER FUNCTIONS FOR EDITABLE DATES ---

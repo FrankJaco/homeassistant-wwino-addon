@@ -18,18 +18,12 @@ export function setupVintageControls() {
     });
 }
 
-// NOTE: setupStarRating is used for 'edit' mode in the entry modal
 export function setupStarRating(selectorId, inputId, feedbackId) {
     const selectorEl = document.getElementById(selectorId);
     const inputEl = document.getElementById(inputId);
     const feedbackEl = document.getElementById(feedbackId);
     if (!selectorEl || !inputEl) return;
     
-    // If setting up the Taste Modal stars, exit here as dedicated controls handle it
-    if (selectorId === 'tasteRatingSelector') {
-        return;
-    }
-
     selectorEl.addEventListener('mousemove', e => {
         if (!e.target.matches('span')) return;
         const star = e.target;
@@ -58,90 +52,6 @@ export function setupStarRating(selectorId, inputId, feedbackId) {
     });
 }
 
-/**
- * Sets up the fine-grain rating spinner and coarse star selector for the taste modal,
- * keeping both synchronized.
- */
-export function setupTasteRatingControls() {
-    const spinnerEl = document.getElementById('tasteRatingSpinner');
-    const hiddenInputEl = document.getElementById('tasteRatingInput');
-    const selectorEl = document.getElementById('tasteRatingSelector');
-    const feedbackEl = document.getElementById('tasteRatingFeedback');
-
-    if (!spinnerEl || !hiddenInputEl || !selectorEl || !feedbackEl) return;
-
-    // --- Core Sync Function (Reads Spinner, Updates Hidden Input, Visuals, and Text) ---
-    const syncRating = () => {
-        let rating = parseFloat(spinnerEl.value);
-        
-        // Clamp the value and ensure it's a number
-        if (isNaN(rating) || rating < 0) {
-            rating = 0;
-        } else if (rating > 5) {
-            rating = 5;
-        }
-        
-        // Format to one decimal place for display consistency in the spinner
-        spinnerEl.value = rating.toFixed(1);
-
-        // Update the hidden input for form submission
-        hiddenInputEl.value = rating.toFixed(1);
-
-        // Update visual elements
-        updateStarVisuals(selectorEl, rating, 'rated');
-        updateFeedbackText(feedbackEl, rating);
-    };
-    
-    // --- 1. Star Click Handler (Coarse 0.5 increment) ---
-    // User can now click stars to set the rating in 0.5 increments.
-    selectorEl.addEventListener('click', e => {
-        if (!e.target.matches('span')) return;
-        const star = e.target;
-        const starRect = star.getBoundingClientRect();
-        
-        // Calculate rating in 0.5 increments
-        const isHalf = (e.clientX - starRect.left) < (starRect.width / 2);
-        const clickRating = parseInt(star.dataset.value, 10) - (isHalf ? 0.5 : 0);
-        
-        // If they click the same rating, treat it as a reset (to 0)
-        const currentRating = parseFloat(spinnerEl.value) || 0;
-        const newRating = (currentRating.toFixed(1) === clickRating.toFixed(1)) ? 0 : clickRating;
-
-        // Update the spinner value (which is the source of truth) and trigger synchronization
-        spinnerEl.value = newRating.toFixed(1);
-        syncRating();
-    });
-
-    // --- 2. Star Hover Handler ---
-    selectorEl.addEventListener('mousemove', e => {
-        if (!e.target.matches('span')) return;
-        const star = e.target;
-        const starRect = star.getBoundingClientRect();
-        const isHalf = (e.clientX - starRect.left) < (starRect.width / 2);
-        const hoverRating = parseInt(star.dataset.value, 10) - (isHalf ? 0.5 : 0);
-        updateFeedbackText(feedbackEl, hoverRating);
-        updateStarVisuals(selectorEl, hoverRating, 'hover');
-    });
-    
-    selectorEl.addEventListener('mouseleave', () => {
-        // Revert visuals to the actual rated value on mouseleave
-        const currentRating = parseFloat(hiddenInputEl.value) || 0;
-        syncRating(); 
-        updateFeedbackText(feedbackEl, currentRating);
-    });
-
-
-    // --- 3. Spinner Input Handler (Fine 0.1 increment) ---
-    spinnerEl.addEventListener('input', syncRating);
-    spinnerEl.addEventListener('change', syncRating); // Also handle 'change' for validation/clamping on blur
-
-    // Initial setup
-    // Since we are now resetting the inputs in closeModal, we only need to call syncRating
-    // if we want to ensure the visual state is correct on modal open.
-    syncRating();
-}
-
-
 export function updateStarVisuals(selectorEl, rating, stateClass) {
     if (!selectorEl) return;
     selectorEl.querySelectorAll('span').forEach((star, index) => {
@@ -153,25 +63,14 @@ export function updateStarVisuals(selectorEl, rating, stateClass) {
 }
 
 export function updateFeedbackText(feedbackEl, rating) {
-    // Ensure rating is displayed with 1 decimal place for the new precision
-    if (feedbackEl) feedbackEl.textContent = rating > 0 ? `${parseFloat(rating).toFixed(1)} star${rating !== 1 ? 's' : ''}` : '';
+    if (feedbackEl) feedbackEl.textContent = rating > 0 ? `${rating} star${rating !== 1 ? 's' : ''}` : '';
 }
 
-/**
- * Resets the visuals and hidden input for the taste rating.
- * The spinner is now explicitly reset here on modal open/prepare.
- */
 export function resetTasteStars() {
-    const spinnerEl = document.getElementById('tasteRatingSpinner');
-    const hiddenInputEl = document.getElementById('tasteRatingInput');
+    const inputEl = document.getElementById('tasteRatingInput');
     const selectorEl = document.getElementById('tasteRatingSelector');
     const feedbackEl = document.getElementById('tasteRatingFeedback');
-    
-    // Reset all inputs to '0.0'
-    if (spinnerEl) spinnerEl.value = '0.0'; // ADDED: Ensure spinner is visually reset on modal open
-    if (hiddenInputEl) hiddenInputEl.value = '0.0';
-    
-    // Update visuals to reflect 0.0
+    if(inputEl) inputEl.value = '';
     updateStarVisuals(selectorEl, 0, 'rated');
     updateFeedbackText(feedbackEl, 0);
 }
