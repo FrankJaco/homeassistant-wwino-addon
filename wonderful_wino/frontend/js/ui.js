@@ -136,6 +136,8 @@ export function setupTasteRatingControls() {
     spinnerEl.addEventListener('change', syncRating); // Also handle 'change' for validation/clamping on blur
 
     // Initial setup
+    // Since we are now resetting the inputs in closeModal, we only need to call syncRating
+    // if we want to ensure the visual state is correct on modal open.
     syncRating();
 }
 
@@ -155,16 +157,17 @@ export function updateFeedbackText(feedbackEl, rating) {
     if (feedbackEl) feedbackEl.textContent = rating > 0 ? `${parseFloat(rating).toFixed(1)} star${rating !== 1 ? 's' : ''}` : '';
 }
 
+/**
+ * Resets the visuals and hidden input for the taste rating.
+ * The spinner itself is reset in closeModal for persistent state management.
+ */
 export function resetTasteStars() {
-    // Now resets both the hidden input and the visible spinner input
     const hiddenInputEl = document.getElementById('tasteRatingInput');
-    const spinnerEl = document.getElementById('tasteRatingSpinner');
     const selectorEl = document.getElementById('tasteRatingSelector');
     const feedbackEl = document.getElementById('tasteRatingFeedback');
     
-    // Reset all values to '0.0'
+    // Reset hidden input value to '0.0'
     if (hiddenInputEl) hiddenInputEl.value = '0.0';
-    if (spinnerEl) spinnerEl.value = '0.0';
     
     // Update visuals to reflect 0.0
     updateStarVisuals(selectorEl, 0, 'rated');

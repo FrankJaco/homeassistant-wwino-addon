@@ -50,6 +50,16 @@ export function closeModal() {
     if (vintageInput) {
         vintageInput.value = '';
     }
+
+    // --- NEW: Reset Taste Modal inputs on close to prevent state 'sticking' ---
+    if (modalToClose.id === 'tasteModal') {
+        const spinnerEl = document.getElementById('tasteRatingSpinner');
+        const hiddenInputEl = document.getElementById('tasteRatingInput');
+        if (spinnerEl) spinnerEl.value = '0.0';
+        if (hiddenInputEl) hiddenInputEl.value = '0.0';
+    }
+    // --- END NEW ---
+
     modalToClose.classList.add('hidden');
 
     if (modalToClose.id === 'helpModal' && window.fromSettings) {
@@ -133,8 +143,9 @@ function prepareTasteModal(wine) {
     if (vivinoUrl) vivinoUrl.value = wine.vivino_url;
     if (wineName) wineName.textContent = `${wine.name} (${wine.vintage || 'NV'})`;
     
-    // Initialize the spinner and stars
+    // Initialize the stars/hidden input
     resetTasteStars(); 
+    
     // The new control function handles attaching event listeners to both the spinner and the stars.
     setupTasteRatingControls(); 
 }
@@ -192,40 +203,6 @@ function prepareNotesModal(wine) {
     fetchAndDisplayConsumptionHistory(wine, state.consumptionLogSortOrder);
 }
 
-function prepareSettingsModal() {
-    populateCostTierFieldsFromSettings();
-    initialCostTierValues = {
-        t1: document.getElementById('tier1').value,
-        t2r: document.getElementById('tier2Right').value,
-        t3r: document.getElementById('tier3Right').value,
-        t4r: document.getElementById('tier4Right').value,
-    };
-    document.getElementById('costTierResetBtn').textContent = 'Default';
-    document.getElementById('settingsMessage').classList.add('hidden');
-}
-
-function prepareHelpModal(options = {}) {
-    const titleEl = document.getElementById('helpModalTitle');
-    const maintenanceContent = document.getElementById('maintenance-help-content');
-    const manualContent = document.getElementById('manual-help-content');
-    const vivinoContent = document.getElementById('vivino-help-content');
-
-    maintenanceContent.classList.add('hidden');
-    manualContent.classList.add('hidden');
-    vivinoContent.classList.add('hidden');
-
-    if (options.topic === 'manual') {
-        titleEl.textContent = 'Manual Entry Help';
-        manualContent.classList.remove('hidden');
-    } else if (options.topic === 'vivino') {
-        titleEl.textContent = 'Vivino URL Help';
-        vivinoContent.classList.remove('hidden');
-    } else {
-        titleEl.textContent = 'Maintenance Help';
-        maintenanceContent.classList.remove('hidden');
-    }
-}
-
 export function promptForVintage() {
     return new Promise((resolve, reject) => {
         window.nvPromptResolver = { resolve, reject };
@@ -267,6 +244,40 @@ export function promptForVintage() {
         applyVintageForm.addEventListener('submit', handleApplyVintage);
         cancelBtn.addEventListener('click', handleCancel);
     });
+}
+
+function prepareSettingsModal() {
+    populateCostTierFieldsFromSettings();
+    initialCostTierValues = {
+        t1: document.getElementById('tier1').value,
+        t2r: document.getElementById('tier2Right').value,
+        t3r: document.getElementById('tier3Right').value,
+        t4r: document.getElementById('tier4Right').value,
+    };
+    document.getElementById('costTierResetBtn').textContent = 'Default';
+    document.getElementById('settingsMessage').classList.add('hidden');
+}
+
+function prepareHelpModal(options = {}) {
+    const titleEl = document.getElementById('helpModalTitle');
+    const maintenanceContent = document.getElementById('maintenance-help-content');
+    const manualContent = document.getElementById('manual-help-content');
+    const vivinoContent = document.getElementById('vivino-help-content');
+
+    maintenanceContent.classList.add('hidden');
+    manualContent.classList.add('hidden');
+    vivinoContent.classList.add('hidden');
+
+    if (options.topic === 'manual') {
+        titleEl.textContent = 'Manual Entry Help';
+        manualContent.classList.remove('hidden');
+    } else if (options.topic === 'vivino') {
+        titleEl.textContent = 'Vivino URL Help';
+        vivinoContent.classList.remove('hidden');
+    } else {
+        titleEl.textContent = 'Maintenance Help';
+        maintenanceContent.classList.remove('hidden');
+    }
 }
 
 // --- Settings and Maintenance Functions ---
