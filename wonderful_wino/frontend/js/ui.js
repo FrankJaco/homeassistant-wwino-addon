@@ -24,7 +24,7 @@ export function setupStarRating(selectorId, inputId, feedbackId) {
     const feedbackEl = document.getElementById(feedbackId);
     if (!selectorEl || !inputEl) return;
     
-    // 1. Handle Mouse Interaction on Stars (Existing logic)
+    // 1. Handle Mouse Interaction on Stars (Hover effects)
     selectorEl.addEventListener('mousemove', e => {
         if (!e.target.matches('span')) return;
         const star = e.target;
@@ -36,11 +36,13 @@ export function setupStarRating(selectorId, inputId, feedbackId) {
     });
 
     selectorEl.addEventListener('mouseleave', () => {
+        // On mouse leave, revert visuals to the actual value in the input
         const currentRating = parseFloat(inputEl.value) || 0;
         updateStarVisuals(selectorEl, currentRating, 'rated');
         updateFeedbackText(feedbackEl, currentRating);
     });
 
+    // 2. Handle Clicks on Stars
     selectorEl.addEventListener('click', e => {
         if (!e.target.matches('span')) return;
         const star = e.target;
@@ -48,44 +50,42 @@ export function setupStarRating(selectorId, inputId, feedbackId) {
         const isHalf = (e.clientX - starRect.left) < (starRect.width / 2);
         const rating = parseInt(star.dataset.value, 10) - (isHalf ? 0.5 : 0);
         
-        // Toggle logic: if clicking the exact same value, clear it? 
-        // Or just set it. Let's keep original behavior, but ensure it updates the number input.
-        const currentValue = parseFloat(inputEl.value) || 0;
-        const newValue = (currentValue === rating) ? '' : rating;
+        // FORCE SET the value. We removed the toggle/clear logic to ensure stability.
+        inputEl.value = rating;
         
-        inputEl.value = newValue;
-        
-        const finalRating = parseFloat(inputEl.value) || 0;
-        updateStarVisuals(selectorEl, finalRating, 'rated');
-        updateFeedbackText(feedbackEl, finalRating);
+        // CRITICAL: Manually trigger the 'input' event so the listener below runs.
+        // This ensures visuals and state stay perfectly in sync.
+        inputEl.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
-    // 2. Handle Input Changes (New Spinner/Manual Entry logic)
+    // 3. Handle Input Changes (Spinner or Manual Typing)
     inputEl.addEventListener('input', () => {
         let val = parseFloat(inputEl.value);
         
-        // Validate bounds (0-5)
-        if (val < 0) val = 0;
-        if (val > 5) val = 5;
+        // Visual clamping (doesn't force input value change immediately to allow typing)
+        let displayVal = val;
+        if (val < 0) displayVal = 0;
+        if (val > 5) displayVal = 5;
 
-        // Note: We don't force inputEl.value = val here immediately to avoid 
-        // interrupting typing (e.g. typing "4." would be reset to "4"), 
-        // but we rely on the browser's min/max for submission and update visuals.
-        
-        if (!isNaN(val)) {
-            updateStarVisuals(selectorEl, val, 'rated');
-            updateFeedbackText(feedbackEl, val);
+        if (!isNaN(displayVal)) {
+            updateStarVisuals(selectorEl, displayVal, 'rated');
+            updateFeedbackText(feedbackEl, displayVal);
         } else {
+            // If empty or invalid, show 0 stars
             updateStarVisuals(selectorEl, 0, 'rated');
             updateFeedbackText(feedbackEl, 0);
         }
     });
     
-    // Ensure bounds on blur (when user leaves the field)
+    // 4. Enforce Strict Bounds on Blur
     inputEl.addEventListener('blur', () => {
          let val = parseFloat(inputEl.value);
          if (val > 5) inputEl.value = 5;
          if (val < 0) inputEl.value = 0;
+         // Re-trigger visual update to be safe
+         const finalVal = parseFloat(inputEl.value) || 0;
+         updateStarVisuals(selectorEl, finalVal, 'rated');
+         updateFeedbackText(feedbackEl, finalVal);
     });
 }
 
@@ -114,7 +114,8 @@ export function resetTasteStars() {
     const inputEl = document.getElementById('tasteRatingInput');
     const selectorEl = document.getElementById('tasteRatingSelector');
     const feedbackEl = document.getElementById('tasteRatingFeedback');
-    if(inputEl) inputEl.value = '';
+    
+    if(inputEl) inputEl.value = ''; // Reset to empty
     updateStarVisuals(selectorEl, 0, 'rated');
     updateFeedbackText(feedbackEl, 0);
 }
@@ -181,6 +182,7 @@ export async function saveFocalPoint(vivinoUrl, focalPoint) {
         console.error("Failed to save focal point:", error);
     }
 }
+
 // --- function to set the visual state of the image editor ---
 export function applyFocalPointAndZoom(focalPoint, zoom, imageUrl) {
     const draggableImage = document.getElementById('draggableImage');
@@ -194,7 +196,6 @@ export function applyFocalPointAndZoom(focalPoint, zoom, imageUrl) {
     }
 
     // 2. Apply focal point (object-position)
-    // This is what the drag handler modifies, and we set it here on load.
     draggableImage.style.objectPosition = focalPoint || '50% 50%';
 
     // 3. Apply zoom (scale transform)
@@ -225,7 +226,8 @@ export function collapseAddWinePanel() {
     }
     clearTimeout(state.panelCollapseTimer);
     state.setPanelCollapseTimer(null);
-        // Also hide any status message when collapsing
+        
+    // Also hide any status message when collapsing
     const msgEl = document.getElementById('scanMessage');
     if (msgEl) {
         msgEl.classList.add('hidden');
@@ -246,6 +248,7 @@ export function resetVivinoPanel() {
     document.getElementById('quantityInput').value = '1';
     updateMainCostTierSelector(null);
 }
+
 export function showScanMessage(message, type = 'info', duration = 7000) {
     const msgEl = document.getElementById('scanMessage');
     if (!msgEl) return;
