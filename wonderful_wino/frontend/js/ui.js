@@ -18,19 +18,12 @@ export function setupVintageControls() {
     });
 }
 
-// NOTE: setupStarRating is used for 'edit' mode in the entry modal
-// We will modify it to handle only full/half star precision for that purpose
 export function setupStarRating(selectorId, inputId, feedbackId) {
     const selectorEl = document.getElementById(selectorId);
     const inputEl = document.getElementById(inputId);
     const feedbackEl = document.getElementById(feedbackId);
     if (!selectorEl || !inputEl) return;
     
-    // Skip star selection for the taste modal, which now uses the spinner
-    if (selectorId === 'tasteRatingSelector') {
-        return;
-    }
-
     selectorEl.addEventListener('mousemove', e => {
         if (!e.target.matches('span')) return;
         const star = e.target;
@@ -59,52 +52,6 @@ export function setupStarRating(selectorId, inputId, feedbackId) {
     });
 }
 
-/**
- * Sets up the fine-grain rating spinner for the taste modal.
- */
-export function setupTasteRatingSpinner() {
-    const spinnerEl = document.getElementById('tasteRatingSpinner');
-    const hiddenInputEl = document.getElementById('tasteRatingInput');
-    const selectorEl = document.getElementById('tasteRatingSelector');
-    const feedbackEl = document.getElementById('tasteRatingFeedback');
-
-    if (!spinnerEl || !hiddenInputEl || !selectorEl || !feedbackEl) return;
-
-    // Function to synchronize the spinner value to the hidden input and update visuals
-    const updateRating = () => {
-        let rating = parseFloat(spinnerEl.value);
-        
-        // Clamp the value and ensure it's a number
-        if (isNaN(rating)) {
-            rating = 0;
-        } else if (rating < 0) {
-            rating = 0;
-            spinnerEl.value = '0.0'; // Correct the display
-        } else if (rating > 5) {
-            rating = 5;
-            spinnerEl.value = '5.0'; // Correct the display
-        }
-        
-        // Format to one decimal place for display consistency
-        spinnerEl.value = rating.toFixed(1);
-
-        // Update the hidden input for form submission
-        hiddenInputEl.value = rating.toFixed(1);
-
-        // Update visual elements
-        updateStarVisuals(selectorEl, rating, 'rated');
-        updateFeedbackText(feedbackEl, rating);
-    };
-    
-    // Initial setup
-    updateRating();
-
-    // Event listeners
-    spinnerEl.addEventListener('input', updateRating);
-    spinnerEl.addEventListener('change', updateRating);
-}
-
-
 export function updateStarVisuals(selectorEl, rating, stateClass) {
     if (!selectorEl) return;
     selectorEl.querySelectorAll('span').forEach((star, index) => {
@@ -116,20 +63,14 @@ export function updateStarVisuals(selectorEl, rating, stateClass) {
 }
 
 export function updateFeedbackText(feedbackEl, rating) {
-    // Ensure rating is displayed with 1 decimal place for the new precision
-    if (feedbackEl) feedbackEl.textContent = rating > 0 ? `${parseFloat(rating).toFixed(1)} star${rating !== 1 ? 's' : ''}` : '';
+    if (feedbackEl) feedbackEl.textContent = rating > 0 ? `${rating} star${rating !== 1 ? 's' : ''}` : '';
 }
 
 export function resetTasteStars() {
-    // Now resets both the hidden input and the visible spinner input
-    const hiddenInputEl = document.getElementById('tasteRatingInput');
-    const spinnerEl = document.getElementById('tasteRatingSpinner');
+    const inputEl = document.getElementById('tasteRatingInput');
     const selectorEl = document.getElementById('tasteRatingSelector');
     const feedbackEl = document.getElementById('tasteRatingFeedback');
-    
-    if (hiddenInputEl) hiddenInputEl.value = '';
-    if (spinnerEl) spinnerEl.value = ''; // Reset spinner display to empty/placeholder
-    
+    if(inputEl) inputEl.value = '';
     updateStarVisuals(selectorEl, 0, 'rated');
     updateFeedbackText(feedbackEl, 0);
 }

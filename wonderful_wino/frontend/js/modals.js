@@ -2,7 +2,7 @@
 // Handles all modal interactions: opening, closing, preparing content.
 
 import * as state from './state.js';
-import { updateStarVisuals, updateFeedbackText, updateCostTierSelector, resetTasteStars, applyFocalPointAndZoom, setupTasteRatingSpinner } from './ui.js';
+import { updateStarVisuals, updateFeedbackText, updateCostTierSelector, resetTasteStars, applyFocalPointAndZoom } from './ui.js';
 import { fetchAndDisplayConsumptionHistory, getEntryFormData, checkFormChanges, getNotesFormData } from './forms.js';
 import { fetchInventory } from './inventory.js';
 import { apiCall } from './utils.js';
@@ -132,11 +132,7 @@ function prepareTasteModal(wine) {
     const wineName = document.getElementById('tasteModalWineName');
     if (vivinoUrl) vivinoUrl.value = wine.vivino_url;
     if (wineName) wineName.textContent = `${wine.name} (${wine.vintage || 'NV'})`;
-    
-    // Initialize the spinner and stars
-    resetTasteStars(); 
-    // The spinner needs to be initialized to handle input events if it wasn't already.
-    setupTasteRatingSpinner(); 
+    resetTasteStars();
 }
 
 const handleZoomChange = (event) => {
