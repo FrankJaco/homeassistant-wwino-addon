@@ -105,7 +105,7 @@ export function setupTasteRatingControls() {
         
         // If they click the same rating, treat it as a reset (to 0)
         const currentRating = parseFloat(spinnerEl.value) || 0;
-        const newRating = (currentRating === clickRating) ? 0 : clickRating;
+        const newRating = (currentRating.toFixed(1) === clickRating.toFixed(1)) ? 0 : clickRating;
 
         // Update the spinner value (which is the source of truth) and trigger synchronization
         spinnerEl.value = newRating.toFixed(1);
@@ -159,14 +159,16 @@ export function updateFeedbackText(feedbackEl, rating) {
 
 /**
  * Resets the visuals and hidden input for the taste rating.
- * The spinner itself is reset in closeModal for persistent state management.
+ * The spinner is now explicitly reset here on modal open/prepare.
  */
 export function resetTasteStars() {
+    const spinnerEl = document.getElementById('tasteRatingSpinner');
     const hiddenInputEl = document.getElementById('tasteRatingInput');
     const selectorEl = document.getElementById('tasteRatingSelector');
     const feedbackEl = document.getElementById('tasteRatingFeedback');
     
-    // Reset hidden input value to '0.0'
+    // Reset all inputs to '0.0'
+    if (spinnerEl) spinnerEl.value = '0.0'; // ADDED: Ensure spinner is visually reset on modal open
     if (hiddenInputEl) hiddenInputEl.value = '0.0';
     
     // Update visuals to reflect 0.0
