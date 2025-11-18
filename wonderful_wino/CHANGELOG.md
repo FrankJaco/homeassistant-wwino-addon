@@ -1,4 +1,5 @@
 ### 1.0.3
+- Optional 0.1 increment wine rating
 - General Modal GUI improvements
 - 2-axis focal point adjustment for thumbnails
 - MQTT Support for Entities
