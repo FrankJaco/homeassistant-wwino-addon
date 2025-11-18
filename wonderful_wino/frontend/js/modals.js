@@ -2,7 +2,7 @@
 // Handles all modal interactions: opening, closing, preparing content.
 
 import * as state from './state.js';
-import { updateStarVisuals, updateFeedbackText, updateCostTierSelector, resetTasteStars, applyFocalPointAndZoom, setupTasteRatingControls, showMessage } from './ui.js';
+import { updateStarVisuals, updateFeedbackText, updateCostTierSelector, resetTasteStars, applyFocalPointAndZoom, setupTasteRatingSpinner } from './ui.js';
 import { fetchAndDisplayConsumptionHistory, getEntryFormData, checkFormChanges, getNotesFormData } from './forms.js';
 import { fetchInventory } from './inventory.js';
 import { apiCall } from './utils.js';
@@ -42,7 +42,6 @@ export function openModal(modalId, options = {}) {
 }
 // Expose to global scope for onclick attributes in HTML
 window.closeModal = closeModal;
-
 export function closeModal() {
     if (!state.openModalElement) return;
     const modalToClose = state.openModalElement;
@@ -51,33 +50,6 @@ export function closeModal() {
     if (vintageInput) {
         vintageInput.value = '';
     }
-
-    // --- Handle save-on-close for Notes Modal ---
-    if (modalToClose.id === 'notesModal') {
-        // Collect data right before closing
-        const vivinoUrl = document.getElementById('notesVivinoUrl').value;
-        const tastingNotes = document.getElementById('tastingNotesInput').value.trim();
-        const draggableImage = document.getElementById('draggableImage');
-        const zoomSlider = document.getElementById('zoomSlider');
-
-        const focalPoint = draggableImage ? draggableImage.style.objectPosition : '50% 50%';
-        const zoomLevel = zoomSlider ? parseFloat(zoomSlider.value) : 1;
-
-        // The API call is placed here, triggered when the notes modal closes.
-        // It is called without 'await' so it doesn't block the UI.
-        handleNotesModalCloseAndSave(vivinoUrl, tastingNotes, focalPoint, zoomLevel);
-    }
-    // --- END NEW ---
-    
-    // Reset Taste Modal inputs on close to prevent state 'sticking'
-    if (modalToClose.id === 'tasteModal') {
-        const spinnerEl = document.getElementById('tasteRatingSpinner');
-        const hiddenInputEl = document.getElementById('tasteRatingInput');
-        if (spinnerEl) spinnerEl.value = '0.0';
-        if (hiddenInputEl) hiddenInputEl.value = '0.0';
-    }
-    
-
     modalToClose.classList.add('hidden');
 
     if (modalToClose.id === 'helpModal' && window.fromSettings) {
@@ -161,11 +133,10 @@ function prepareTasteModal(wine) {
     if (vivinoUrl) vivinoUrl.value = wine.vivino_url;
     if (wineName) wineName.textContent = `${wine.name} (${wine.vintage || 'NV'})`;
     
-    // Initialize the stars/hidden input
+    // Initialize the spinner and stars
     resetTasteStars(); 
-    
-    // The new control function handles attaching event listeners to both the spinner and the stars.
-    setupTasteRatingControls(); 
+    // The spinner needs to be initialized to handle input events if it wasn't already.
+    setupTasteRatingSpinner(); 
 }
 
 const handleZoomChange = (event) => {
@@ -221,31 +192,39 @@ function prepareNotesModal(wine) {
     fetchAndDisplayConsumptionHistory(wine, state.consumptionLogSortOrder);
 }
 
-// --- Notes Modal Submission Logic (Save on Close) ---
-// THIS IS WHERE THE API CALL IS LOCATED FOR NOTES
-async function handleNotesModalCloseAndSave(vivinoUrl, tastingNotes, focalPoint, zoomLevel) {
-    if (!vivinoUrl) return;
-
-    const payload = {
-        vivino_url: vivinoUrl,
-        tasting_notes: tastingNotes,
-        image_focal_point: focalPoint,
-        image_zoom: zoomLevel,
+function prepareSettingsModal() {
+    populateCostTierFieldsFromSettings();
+    initialCostTierValues = {
+        t1: document.getElementById('tier1').value,
+        t2r: document.getElementById('tier2Right').value,
+        t3r: document.getElementById('tier3Right').value,
+        t4r: document.getElementById('tier4Right').value,
     };
-
-    try {
-        // --- API CALL FOR NOTES/IMAGE METADATA ---
-        await apiCall('api/tasting-notes', { method: 'POST', body: JSON.stringify(payload) });
-        console.log(`Notes and image metadata saved for ${vivinoUrl}`);
-        // Refresh inventory to ensure list view (tasting notes icon) is updated
-        fetchInventory();
-    } catch (error) {
-        console.error('Failed to save notes on modal close:', error);
-        // Show a transient message to the user that save failed
-        showMessage('Failed to save notes/image settings.', 'error', 'mainMessage');
-    }
+    document.getElementById('costTierResetBtn').textContent = 'Default';
+    document.getElementById('settingsMessage').classList.add('hidden');
 }
 
+function prepareHelpModal(options = {}) {
+    const titleEl = document.getElementById('helpModalTitle');
+    const maintenanceContent = document.getElementById('maintenance-help-content');
+    const manualContent = document.getElementById('manual-help-content');
+    const vivinoContent = document.getElementById('vivino-help-content');
+
+    maintenanceContent.classList.add('hidden');
+    manualContent.classList.add('hidden');
+    vivinoContent.classList.add('hidden');
+
+    if (options.topic === 'manual') {
+        titleEl.textContent = 'Manual Entry Help';
+        manualContent.classList.remove('hidden');
+    } else if (options.topic === 'vivino') {
+        titleEl.textContent = 'Vivino URL Help';
+        vivinoContent.classList.remove('hidden');
+    } else {
+        titleEl.textContent = 'Maintenance Help';
+        maintenanceContent.classList.remove('hidden');
+    }
+}
 
 export function promptForVintage() {
     return new Promise((resolve, reject) => {
@@ -288,40 +267,6 @@ export function promptForVintage() {
         applyVintageForm.addEventListener('submit', handleApplyVintage);
         cancelBtn.addEventListener('click', handleCancel);
     });
-}
-
-function prepareSettingsModal() {
-    populateCostTierFieldsFromSettings();
-    initialCostTierValues = {
-        t1: document.getElementById('tier1').value,
-        t2r: document.getElementById('tier2Right').value,
-        t3r: document.getElementById('tier3Right').value,
-        t4r: document.getElementById('tier4Right').value,
-    };
-    document.getElementById('costTierResetBtn').textContent = 'Default';
-    document.getElementById('settingsMessage').classList.add('hidden');
-}
-
-function prepareHelpModal(options = {}) {
-    const titleEl = document.getElementById('helpModalTitle');
-    const maintenanceContent = document.getElementById('maintenance-help-content');
-    const manualContent = document.getElementById('manual-help-content');
-    const vivinoContent = document.getElementById('vivino-help-content');
-
-    maintenanceContent.classList.add('hidden');
-    manualContent.classList.add('hidden');
-    vivinoContent.classList.add('hidden');
-
-    if (options.topic === 'manual') {
-        titleEl.textContent = 'Manual Entry Help';
-        manualContent.classList.remove('hidden');
-    } else if (options.topic === 'vivino') {
-        titleEl.textContent = 'Vivino URL Help';
-        vivinoContent.classList.remove('hidden');
-    } else {
-        titleEl.textContent = 'Maintenance Help';
-        maintenanceContent.classList.remove('hidden');
-    }
 }
 
 // --- Settings and Maintenance Functions ---
