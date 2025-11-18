@@ -2,7 +2,7 @@
 // Handles all modal interactions: opening, closing, preparing content.
 
 import * as state from './state.js';
-import { updateStarVisuals, updateFeedbackText, updateCostTierSelector, resetTasteStars, applyFocalPointAndZoom, setupTasteRatingControls } from './ui.js';
+import { updateStarVisuals, updateFeedbackText, updateCostTierSelector, resetTasteStars, applyFocalPointAndZoom, setupTasteRatingControls, showMessage } from './ui.js';
 import { fetchAndDisplayConsumptionHistory, getEntryFormData, checkFormChanges, getNotesFormData } from './forms.js';
 import { fetchInventory } from './inventory.js';
 import { apiCall } from './utils.js';
@@ -42,6 +42,7 @@ export function openModal(modalId, options = {}) {
 }
 // Expose to global scope for onclick attributes in HTML
 window.closeModal = closeModal;
+
 export function closeModal() {
     if (!state.openModalElement) return;
     const modalToClose = state.openModalElement;
@@ -51,14 +52,31 @@ export function closeModal() {
         vintageInput.value = '';
     }
 
-    // --- NEW: Reset Taste Modal inputs on close to prevent state 'sticking' ---
+    // --- Handle save-on-close for Notes Modal ---
+    if (modalToClose.id === 'notesModal') {
+        // Collect data right before closing
+        const vivinoUrl = document.getElementById('notesVivinoUrl').value;
+        const tastingNotes = document.getElementById('tastingNotesInput').value.trim();
+        const draggableImage = document.getElementById('draggableImage');
+        const zoomSlider = document.getElementById('zoomSlider');
+
+        const focalPoint = draggableImage ? draggableImage.style.objectPosition : '50% 50%';
+        const zoomLevel = zoomSlider ? parseFloat(zoomSlider.value) : 1;
+
+        // The API call is placed here, triggered when the notes modal closes.
+        // It is called without 'await' so it doesn't block the UI.
+        handleNotesModalCloseAndSave(vivinoUrl, tastingNotes, focalPoint, zoomLevel);
+    }
+    // --- END NEW ---
+    
+    // Reset Taste Modal inputs on close to prevent state 'sticking'
     if (modalToClose.id === 'tasteModal') {
         const spinnerEl = document.getElementById('tasteRatingSpinner');
         const hiddenInputEl = document.getElementById('tasteRatingInput');
         if (spinnerEl) spinnerEl.value = '0.0';
         if (hiddenInputEl) hiddenInputEl.value = '0.0';
     }
-    // --- END NEW ---
+    
 
     modalToClose.classList.add('hidden');
 
@@ -202,6 +220,32 @@ function prepareNotesModal(wine) {
 
     fetchAndDisplayConsumptionHistory(wine, state.consumptionLogSortOrder);
 }
+
+// --- Notes Modal Submission Logic (Save on Close) ---
+// THIS IS WHERE THE API CALL IS LOCATED FOR NOTES
+async function handleNotesModalCloseAndSave(vivinoUrl, tastingNotes, focalPoint, zoomLevel) {
+    if (!vivinoUrl) return;
+
+    const payload = {
+        vivino_url: vivinoUrl,
+        tasting_notes: tastingNotes,
+        image_focal_point: focalPoint,
+        image_zoom: zoomLevel,
+    };
+
+    try {
+        // --- API CALL FOR NOTES/IMAGE METADATA ---
+        await apiCall('api/tasting-notes', { method: 'POST', body: JSON.stringify(payload) });
+        console.log(`Notes and image metadata saved for ${vivinoUrl}`);
+        // Refresh inventory to ensure list view (tasting notes icon) is updated
+        fetchInventory();
+    } catch (error) {
+        console.error('Failed to save notes on modal close:', error);
+        // Show a transient message to the user that save failed
+        showMessage('Failed to save notes/image settings.', 'error', 'mainMessage');
+    }
+}
+
 
 export function promptForVintage() {
     return new Promise((resolve, reject) => {
