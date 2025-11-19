@@ -347,7 +347,7 @@ sections:
       - type: markdown
         content: >-
           _Submitting the wine with a 0 star rating consumes the wine without
-          rating it. Any other value (0.5 - 5.0 stars) updates the wine's
+          rating it. Any other value (0.1 - 5.0 stars) updates the wine's
           rating._
     visibility:
       - condition: state
