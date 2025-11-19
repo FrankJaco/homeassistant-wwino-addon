@@ -363,7 +363,8 @@ def update_personal_rating(vivino_url, rating):
             conn.close()
 
 # --- UPDATED FUNCTION ---
-def update_wine_notes_and_image(vivino_url, notes, image_url, image_zoom, image_tilt):
+# Added =None to image_tilt to make it robust against partial updates
+def update_wine_notes_and_image(vivino_url, notes, image_url, image_zoom, image_tilt=None):
     """Updates tasting notes and image properties (URL, zoom, tilt)."""
     conn = None
     try:
