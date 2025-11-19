@@ -74,13 +74,22 @@
                 </div>
                 <div class="sm:col-span-2">
                     <label class="block text-sm font-medium">Taste Rating</label>
-                    <div id="editTasteRatingSelector"
-                        class="flex items-center gap-2 mt-1 text-2xl taste-rating-selector">
-                        <span data-value="1">☆</span><span data-value="2">☆</span><span data-value="3">☆</span><span
-                            data-value="4">☆</span><span data-value="5">☆</span>
+
+                    <!-- Flex container to align stars and spinner -->
+                    <div class="flex items-center gap-4 mt-1">
+                        <!-- Star Selector: Increased to text-4xl to match taste-modal -->
+                        <div id="editTasteRatingSelector"
+                            class="flex text-4xl taste-rating-selector cursor-pointer select-none">
+                            <span data-value="1">☆</span><span data-value="2">☆</span><span data-value="3">☆</span><span
+                                data-value="4">☆</span><span data-value="5">☆</span>
+                        </div>
+
+                        <!-- Precise Rating Spinner (0.1 increments) -->
+                        <input type="number" id="manualTasteRatingInput" step="0.1" min="0" max="5" placeholder="0.0"
+                            class="w-20 p-1 text-xl text-center border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-transparent">
                     </div>
-                    <p id="editTasteRatingFeedback" class="text-sm h-4 mt-1"></p>
-                    <input type="hidden" id="manualTasteRatingInput">
+
+                    <p id="editTasteRatingFeedback" class="text-sm text-gray-600 h-4 mt-1 pl-1"></p>
                 </div>
             </div>
             <div id="entryMessage" class="mt-4 text-center hidden"></div>

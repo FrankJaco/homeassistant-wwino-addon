@@ -74,6 +74,11 @@ function prepareEntryModal(mode = 'add', wine = {}) {
     const saveAsNewWineBtn = document.getElementById('entrySaveAsNewWineBtn');
     const vintageInput = document.getElementById('manualVintageInput');
     const nvCheckbox = document.getElementById('nvCheckbox');
+    
+    // Elements for the star rating system
+    const ratingInput = document.getElementById('manualTasteRatingInput');
+    const ratingSelector = document.getElementById('editTasteRatingSelector');
+    const ratingFeedback = document.getElementById('editTasteRatingFeedback');
 
     vintageInput.disabled = false;
     vintageInput.required = true;
@@ -103,10 +108,13 @@ function prepareEntryModal(mode = 'add', wine = {}) {
         document.getElementById('manualAlcoholInput').value = wine.alcohol_percent || '';
         document.getElementById('manualQuantityInput').value = wine.quantity;
         updateCostTierSelector(wine.cost_tier);
-        const rating = wine.personal_rating || 0;
-        document.getElementById('manualTasteRatingInput').value = rating;
-        updateStarVisuals(document.getElementById('editTasteRatingSelector'), rating, 'rated');
-        updateFeedbackText(document.getElementById('editTasteRatingFeedback'), rating);
+        
+        // --- UPDATED: Handle visible rating input ---
+        // Use explicit check so we show empty string (placeholder) instead of "0" if null
+        const rating = wine.personal_rating;
+        ratingInput.value = (rating !== null && rating !== undefined) ? rating : '';
+        updateStarVisuals(ratingSelector, rating || 0, 'rated');
+        updateFeedbackText(ratingFeedback, rating || 0);
 
         state.setInitialEntryFormData(getEntryFormData());
         saveAsNewWineBtn.disabled = true;
@@ -122,8 +130,11 @@ function prepareEntryModal(mode = 'add', wine = {}) {
         document.getElementById('manualImageUrlInput').value = '';
         document.getElementById('manualQuantityInput').value = 1;
         updateCostTierSelector(null);
-        updateStarVisuals(document.getElementById('editTasteRatingSelector'), 0, 'rated');
-        updateFeedbackText(document.getElementById('editTasteRatingFeedback'), 0);
+        
+        // --- UPDATED: Reset rating to clean state ---
+        ratingInput.value = ''; 
+        updateStarVisuals(ratingSelector, 0, 'rated');
+        updateFeedbackText(ratingFeedback, 0);
     }
 }
 
