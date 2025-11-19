@@ -184,11 +184,9 @@ export async function saveFocalPoint(vivinoUrl, focalPoint) {
 }
 
 // --- function to set the visual state of the image editor ---
-// --- MODIFIED: Now accepts tilt as well ---
-export function applyFocalPointAndZoom(focalPoint, zoom, tilt, imageUrl) {
+export function applyFocalPointAndZoom(focalPoint, zoom, imageUrl) {
     const draggableImage = document.getElementById('draggableImage');
     const zoomSlider = document.getElementById('zoomSlider');
-    const tiltSlider = document.getElementById('tiltSlider');
 
     if (!draggableImage) return;
 
@@ -200,15 +198,14 @@ export function applyFocalPointAndZoom(focalPoint, zoom, tilt, imageUrl) {
     // 2. Apply focal point (object-position)
     draggableImage.style.objectPosition = focalPoint || '50% 50%';
 
-    // 3. Apply zoom AND tilt (scale + rotate transform)
+    // 3. Apply zoom (scale transform)
     const newZoom = parseFloat(zoom) || 1.0;
-    const newTilt = parseInt(tilt) || 0;
+    draggableImage.style.transform = `scale(${newZoom})`;
     
-    draggableImage.style.transform = `scale(${newZoom}) rotate(${newTilt}deg)`;
-    
-    // 4. Set the slider values
-    if (zoomSlider) zoomSlider.value = newZoom;
-    if (tiltSlider) tiltSlider.value = newTilt;
+    // 4. Set the slider value
+    if (zoomSlider) {
+        zoomSlider.value = newZoom;
+    }
 }
 
 export function updateCollapseIcon() {
