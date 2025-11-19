@@ -110,8 +110,11 @@ function displayInventory(inventory) {
             focalPoint = `50% ${focalPoint}`;
         }
         const zoomLevel = item.image_zoom || 1;
+        const tiltLevel = item.image_tilt || 0;
+        
+        // --- FIX 2: Included rotate() in the transform string ---
         // Combine all styles into a single string
-        const imageStyle = `object-position: ${focalPoint}; transform: scale(${zoomLevel}); transform-origin: ${focalPoint};`;
+        const imageStyle = `object-position: ${focalPoint}; transform: scale(${zoomLevel}) rotate(${tiltLevel}deg); transform-origin: ${focalPoint};`;
 
         imageContainer.innerHTML = item.image_url
             ? `<img src="${item.image_url}" class="h-24 w-24 object-cover" alt="${escapeAttr(item.name)}" style="${imageStyle}">`

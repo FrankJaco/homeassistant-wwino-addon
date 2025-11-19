@@ -260,7 +260,7 @@ function setupEventListeners() {
         }
     });
 
-    // --- MODIFIED: Focal Point Drag Logic (Now supports X and Y) ---
+    // --- MODIFIED: Focal Point Drag Logic (Now supports X and Y with Rotation) ---
     let isDragging = false; 
     let startX = 0, startY = 0; 
     let startFocalXPercent = 50, startFocalYPercent = 50;
@@ -309,13 +309,20 @@ function setupEventListeners() {
             baseRenderedHeight = baseRenderedWidth / imgRatio;
         }
 
-        // 3. Apply zoom
-        // We extract zoom from the transform string manually to do the math for travel range
+        // 3. Apply zoom and get tilt
         const transform = img.style.transform || '';
         let zoom = 1;
+        let tilt = 0;
+        
         const zoomMatch = transform.match(/scale\(([\d.]+)\)/);
         if (zoomMatch) {
             zoom = parseFloat(zoomMatch[1]);
+        }
+
+        // --- FIX 1: Parse rotation to adjust drag direction ---
+        const rotateMatch = transform.match(/rotate\(([-\d.]+)deg\)/);
+        if (rotateMatch) {
+            tilt = parseFloat(rotateMatch[1]);
         }
 
         const renderedImageWidth = baseRenderedWidth * zoom;
@@ -326,8 +333,14 @@ function setupEventListeners() {
         const travelRangeY = Math.max(0, renderedImageHeight - containerHeight);
         
         // 5. Calculate deltas from start position
-        const deltaX = pointer.x - startX;
-        const deltaY = pointer.y - startY;
+        const deltaScreenX = pointer.x - startX;
+        const deltaScreenY = pointer.y - startY;
+
+        // --- FIX 1 Cont'd: Rotate screen delta vectors to match image's tilted coordinate system ---
+        // We rotate the delta vector by -tilt degrees to map screen movement to image axes.
+        const rad = -tilt * (Math.PI / 180);
+        const deltaX = deltaScreenX * Math.cos(rad) - deltaScreenY * Math.sin(rad);
+        const deltaY = deltaScreenX * Math.sin(rad) + deltaScreenY * Math.cos(rad);
 
         // 6. Calculate new focal points
         let newFocalXPercent = startFocalXPercent;
@@ -349,9 +362,8 @@ function setupEventListeners() {
 
         const newPos = `${newFocalXPercent.toFixed(2)}% ${newFocalYPercent.toFixed(2)}%`;
         img.style.objectPosition = newPos;
-        
-        // Note: transform-origin is default 50% 50%, which is fine because
-        // object-position moves the image within the box.
+        // Also update transform-origin so zoom stays centered on the focal point
+        img.style.transformOrigin = newPos;
     };
     
     const endDrag = () => {
