@@ -135,10 +135,24 @@ function prepareTasteModal(wine) {
     resetTasteStars();
 }
 
-const handleZoomChange = (event) => {
+// Unified handler for Zoom and Tilt changes
+const handleImageTransform = () => {
     const draggableImage = document.getElementById('draggableImage');
-    if (draggableImage) {
-        draggableImage.style.transform = `scale(${event.target.value})`;
+    const zoomSlider = document.getElementById('zoomSlider');
+    const tiltSlider = document.getElementById('tiltSlider');
+    const zoomDisplay = document.getElementById('zoomValueDisplay');
+    const tiltDisplay = document.getElementById('tiltValueDisplay');
+
+    if (draggableImage && zoomSlider && tiltSlider) {
+        const zoomVal = zoomSlider.value;
+        const tiltVal = tiltSlider.value;
+        
+        // Update displays
+        if (zoomDisplay) zoomDisplay.textContent = `${zoomVal}x`;
+        if (tiltDisplay) tiltDisplay.textContent = `${tiltVal}°`;
+
+        // Apply combined transform
+        draggableImage.style.transform = `scale(${zoomVal}) rotate(${tiltVal}deg)`;
     }
 };
 
@@ -147,8 +161,10 @@ function prepareNotesModal(wine) {
     const toggleBtn = document.getElementById('toggleImageUrlLock');
     const focalPointEditor = document.getElementById('focalPointEditor');
     const draggableImage = document.getElementById('draggableImage');
+    
     const zoomSlider = document.getElementById('zoomSlider');
-    const zoomSliderContainer = document.getElementById('zoomSliderContainer');
+    const tiltSlider = document.getElementById('tiltSlider'); // New slider
+    const controlsContainer = document.getElementById('imageControlsContainer'); // Renamed wrapper
 
     document.getElementById('notesVivinoUrl').value = wine.vivino_url;
     document.getElementById('notesModalWineName').textContent = `${wine.name} (${wine.vintage || 'NV'})`;
@@ -159,31 +175,54 @@ function prepareNotesModal(wine) {
     imageUrlInput.value = imageUrl;
     draggableImage.src = imageUrl;
 
-    // --- MODIFIED: Handle new "X% Y%" format and old "Y%" format ---
+    // Handle Focal Point
     let focalPoint = wine.image_focal_point || '50% 50%';
-    // Handle backward compatibility for old format (which was just Y-percentage string)
     if (focalPoint && !focalPoint.includes(' ')) {
         focalPoint = `50% ${focalPoint}`;
     }
-    // --- END MODIFICATION ---
 
+    // Initialize Values
     const zoomLevel = wine.image_zoom || 1;
+    const tiltDegree = wine.image_tilt || 0; // New Value
 
+    // Apply CSS
     draggableImage.style.objectPosition = focalPoint;
     draggableImage.style.transformOrigin = focalPoint;
-
+    
+    // Initialize Controls
     zoomSlider.value = zoomLevel;
-    draggableImage.style.transform = `scale(${zoomLevel})`;
+    tiltSlider.value = tiltDegree;
+
+    // Manually trigger transform application to set initial state
+    // Note: We can't call handleImageTransform directly because elements might be disabled,
+    // but the function reads the .value property which is now set.
+    draggableImage.style.transform = `scale(${zoomLevel}) rotate(${tiltDegree}deg)`;
 
     // Reset lock and disabled states on modal open
     imageUrlInput.setAttribute('readonly', true);
     toggleBtn.textContent = '🔒';
     focalPointEditor.classList.remove('is-unlocked');
-    zoomSlider.disabled = true;
-    zoomSliderContainer.classList.add('opacity-50');
     
-    zoomSlider.removeEventListener('input', handleZoomChange);
-    zoomSlider.addEventListener('input', handleZoomChange);
+    // Disable both sliders initially
+    zoomSlider.disabled = true;
+    tiltSlider.disabled = true;
+    
+    // The container holds both now, so we dim the whole container
+    if(controlsContainer) controlsContainer.classList.add('opacity-50');
+    // Or fallback to the old ID if the HTML isn't fully updated yet, but we updated HTML.
+    
+    // Remove old listeners and add new unified listener
+    zoomSlider.removeEventListener('input', handleImageTransform);
+    zoomSlider.addEventListener('input', handleImageTransform);
+    
+    tiltSlider.removeEventListener('input', handleImageTransform);
+    tiltSlider.addEventListener('input', handleImageTransform);
+    
+    // Update the small text displays immediately
+    const zoomDisplay = document.getElementById('zoomValueDisplay');
+    const tiltDisplay = document.getElementById('tiltValueDisplay');
+    if (zoomDisplay) zoomDisplay.textContent = `${zoomLevel}x`;
+    if (tiltDisplay) tiltDisplay.textContent = `${tiltDegree}°`;
 
     fetchAndDisplayConsumptionHistory(wine, state.consumptionLogSortOrder);
 }

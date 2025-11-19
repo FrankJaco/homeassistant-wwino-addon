@@ -11,6 +11,8 @@ export function getNotesFormData() {
     const imageUrl = document.getElementById('imageUrlInput').value;
     const tastingNotes = document.getElementById('tastingNotesInput').value;
     const imageZoom = parseFloat(document.getElementById('zoomSlider').value);
+    // --- ADDED: Capture tilt value ---
+    const imageTilt = parseInt(document.getElementById('tiltSlider').value, 10);
 
     // --- MODIFIED: Get the full "X% Y%" string ---
     const imageStyle = document.getElementById('draggableImage').style.objectPosition;
@@ -22,7 +24,8 @@ export function getNotesFormData() {
         image_url: imageUrl,
         tasting_notes: tastingNotes,
         image_focal_point: imageFocalPoint,
-        image_zoom: imageZoom
+        image_zoom: imageZoom,
+        image_tilt: imageTilt // Included in return
     };
 }
 
