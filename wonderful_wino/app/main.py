@@ -446,9 +446,11 @@ def save_tasting_notes_and_image():
     tasting_notes = data.get('tasting_notes')
     image_url = data.get('image_url')
     image_zoom = data.get('image_zoom')
-    if tasting_notes is None and image_url is None and image_zoom is None:
+    image_tilt = data.get('image_tilt')
+    
+    if tasting_notes is None and image_url is None and image_zoom is None and image_tilt is None:
         return jsonify({"status": "info", "message": "No data provided to update."}), 200
-    if db.update_wine_notes_and_image(vivino_url, tasting_notes, image_url, image_zoom):
+    if db.update_wine_notes_and_image(vivino_url, tasting_notes, image_url, image_zoom, image_tilt):
         return jsonify({"status": "success", "message": "Details saved."}), 200
     else:
         return jsonify({"status": "error", "message": "Wine not found or DB error."}), 404

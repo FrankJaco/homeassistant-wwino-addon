@@ -124,8 +124,13 @@ function setupEventListeners() {
         if (e.target.id === 'toggleImageUrlLock') {
              const imageUrlInput = document.getElementById('imageUrlInput');
              const focalPointEditor = document.getElementById('focalPointEditor');
+             
              const zoomSlider = document.getElementById('zoomSlider');
              const zoomSliderContainer = document.getElementById('zoomSliderContainer');
+             
+             const tiltSlider = document.getElementById('tiltSlider');
+             const tiltSliderContainer = document.getElementById('tiltSliderContainer');
+
              const isReadonly = imageUrlInput.hasAttribute('readonly');
 
              imageUrlInput.toggleAttribute('readonly', !isReadonly);
@@ -134,6 +139,9 @@ function setupEventListeners() {
              
              zoomSlider.disabled = !isReadonly;
              zoomSliderContainer.classList.toggle('opacity-50', !isReadonly);
+             
+             tiltSlider.disabled = !isReadonly;
+             tiltSliderContainer.classList.toggle('opacity-50', !isReadonly);
 
              if (isReadonly) { imageUrlInput.focus(); }
         }
@@ -302,7 +310,14 @@ function setupEventListeners() {
         }
 
         // 3. Apply zoom
-        const zoom = parseFloat(img.style.transform.replace('scale(', '').replace(')', '')) || 1;
+        // We extract zoom from the transform string manually to do the math for travel range
+        const transform = img.style.transform || '';
+        let zoom = 1;
+        const zoomMatch = transform.match(/scale\(([\d.]+)\)/);
+        if (zoomMatch) {
+            zoom = parseFloat(zoomMatch[1]);
+        }
+
         const renderedImageWidth = baseRenderedWidth * zoom;
         const renderedImageHeight = baseRenderedHeight * zoom;
 
@@ -335,8 +350,8 @@ function setupEventListeners() {
         const newPos = `${newFocalXPercent.toFixed(2)}% ${newFocalYPercent.toFixed(2)}%`;
         img.style.objectPosition = newPos;
         
-        // Also update transform-origin so zoom stays centered on the focal point
-        img.style.transformOrigin = newPos;
+        // Note: transform-origin is default 50% 50%, which is fine because
+        // object-position moves the image within the box.
     };
     
     const endDrag = () => {

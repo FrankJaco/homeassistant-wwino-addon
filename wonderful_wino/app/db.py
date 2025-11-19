@@ -39,7 +39,8 @@ def init_db():
                 added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 needs_review BOOLEAN DEFAULT FALSE,
                 image_focal_point TEXT DEFAULT '50%',
-                image_zoom REAL DEFAULT 1
+                image_zoom REAL DEFAULT 1,
+                image_tilt REAL DEFAULT 0
             )
         ''')
         cursor.execute('''
@@ -75,6 +76,9 @@ def init_db():
         if 'image_zoom' not in wines_columns:
             cursor.execute("ALTER TABLE wines ADD COLUMN image_zoom REAL DEFAULT 1")
             logger.info("Added 'image_zoom' column to wines table.")
+        if 'image_tilt' not in wines_columns:
+            cursor.execute("ALTER TABLE wines ADD COLUMN image_tilt REAL DEFAULT 0")
+            logger.info("Added 'image_tilt' column to wines table.")
         if 'region_full' not in wines_columns:
             cursor.execute("ALTER TABLE wines ADD COLUMN region_full TEXT")
             logger.info("Added 'region_full' column to wines table.")
@@ -358,7 +362,7 @@ def update_personal_rating(vivino_url, rating):
         if conn:
             conn.close()
 
-def update_wine_notes_and_image(vivino_url, notes, image_url, image_zoom):
+def update_wine_notes_and_image(vivino_url, notes, image_url, image_zoom, image_tilt):
     conn = None
     try:
         conn = get_db_connection()
@@ -374,6 +378,9 @@ def update_wine_notes_and_image(vivino_url, notes, image_url, image_zoom):
         if image_zoom is not None:
             updates.append("image_zoom = ?")
             params.append(image_zoom)
+        if image_tilt is not None:
+            updates.append("image_tilt = ?")
+            params.append(image_tilt)
 
         if updates:
             # This query is still safe as the *structure* is built from
