@@ -39,7 +39,8 @@ def init_db():
                 added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 needs_review BOOLEAN DEFAULT FALSE,
                 image_focal_point TEXT DEFAULT '50%',
-                image_zoom REAL DEFAULT 1
+                image_zoom REAL DEFAULT 1,
+                image_tilt REAL DEFAULT 0
             )
         ''')
         cursor.execute('''
@@ -75,6 +76,10 @@ def init_db():
         if 'image_zoom' not in wines_columns:
             cursor.execute("ALTER TABLE wines ADD COLUMN image_zoom REAL DEFAULT 1")
             logger.info("Added 'image_zoom' column to wines table.")
+        # --- NEW MIGRATION FOR TILT ---
+        if 'image_tilt' not in wines_columns:
+            cursor.execute("ALTER TABLE wines ADD COLUMN image_tilt REAL DEFAULT 0")
+            logger.info("Added 'image_tilt' column to wines table.")
         if 'region_full' not in wines_columns:
             cursor.execute("ALTER TABLE wines ADD COLUMN region_full TEXT")
             logger.info("Added 'region_full' column to wines table.")
@@ -97,7 +102,6 @@ def init_db():
         if conn:
             conn.close()
 
-# --- NEW FUNCTION ---
 def update_consumption_date(log_id, new_consumed_at):
     """Updates the consumed_at timestamp for a specific log entry."""
     conn = None
@@ -358,7 +362,9 @@ def update_personal_rating(vivino_url, rating):
         if conn:
             conn.close()
 
-def update_wine_notes_and_image(vivino_url, notes, image_url, image_zoom):
+# --- UPDATED FUNCTION ---
+def update_wine_notes_and_image(vivino_url, notes, image_url, image_zoom, image_tilt):
+    """Updates tasting notes and image properties (URL, zoom, tilt)."""
     conn = None
     try:
         conn = get_db_connection()
@@ -374,11 +380,12 @@ def update_wine_notes_and_image(vivino_url, notes, image_url, image_zoom):
         if image_zoom is not None:
             updates.append("image_zoom = ?")
             params.append(image_zoom)
+        # --- ADDED TILT ---
+        if image_tilt is not None:
+            updates.append("image_tilt = ?")
+            params.append(image_tilt)
 
         if updates:
-            # This query is still safe as the *structure* is built from
-            # fixed strings, not user input. The user input is only
-            # in the params list.
             query = f"UPDATE wines SET {', '.join(updates)} WHERE vivino_url = ?"
             params.append(vivino_url)
             cursor.execute(query, tuple(params))
