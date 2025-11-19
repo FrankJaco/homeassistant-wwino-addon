@@ -11,7 +11,6 @@ import {
     updateSortIcons, setupVintageControls, setupCostTierSelector, setupStarRating, 
     updateCostTierTooltips, updateCollapseIcon, collapseAddWinePanel, 
     startPanelCollapseTimer, resetVivinoPanel, saveFocalPoint, 
-    // --- EDITED: ADDED showScanMessage for Vivino submission feedback ---
     showScanMessage 
 } from './ui.js';
 
@@ -121,22 +120,34 @@ function setupEventListeners() {
                 .catch(err => console.error(err));
         }
 
+        // --- UPDATED: Lock Toggle Logic to include Tilt Slider ---
         if (e.target.id === 'toggleImageUrlLock') {
              const imageUrlInput = document.getElementById('imageUrlInput');
              const focalPointEditor = document.getElementById('focalPointEditor');
              const zoomSlider = document.getElementById('zoomSlider');
-             const zoomSliderContainer = document.getElementById('zoomSliderContainer');
+             // NEW: Select tilt slider
+             const tiltSlider = document.getElementById('tiltSlider'); 
+             // NEW: Select container for both controls
+             const controlsContainer = document.getElementById('imageControlsContainer'); 
+             
              const isReadonly = imageUrlInput.hasAttribute('readonly');
 
              imageUrlInput.toggleAttribute('readonly', !isReadonly);
              e.target.textContent = isReadonly ? '🔓' : '🔒';
              focalPointEditor.classList.toggle('is-unlocked', isReadonly);
              
-             zoomSlider.disabled = !isReadonly;
-             zoomSliderContainer.classList.toggle('opacity-50', !isReadonly);
+             // Toggle both sliders
+             if (zoomSlider) zoomSlider.disabled = !isReadonly;
+             if (tiltSlider) tiltSlider.disabled = !isReadonly;
+             
+             // Toggle container opacity
+             if (controlsContainer) {
+                 controlsContainer.classList.toggle('opacity-50', !isReadonly);
+             }
 
              if (isReadonly) { imageUrlInput.focus(); }
         }
+        // --- END UPDATED LOCK LOGIC ---
 
         if (e.target.id === 'logSortToggleBtn') {
             state.setConsumptionLogSortOrder(state.consumptionLogSortOrder === 'desc' ? 'asc' : 'desc');
@@ -166,17 +177,14 @@ function setupEventListeners() {
                 e.target.reset();
                 break;
             case 'scanWineForm':
-                // --- CHANGE 2: Show loading message immediately ---
                 showScanMessage("Data acquisition in progress...", 'info', 15000); 
 
                 let vivinoUrl = document.getElementById('vivinoUrlInput').value;
                 if (!/https:\/\/www\.vivino\.com\/.*\/w\/\d+/.test(vivinoUrl)) {
-                    // Use showScanMessage for the dedicated message element
                     showScanMessage("Invalid URL. Please use a specific Vivino wine page.", 'error'); 
                     return;
                 }
                 
-                // Vintage Prompting Logic
                 if (!/year=\d{4}/.test(vivinoUrl)) {
                     try {
                         const result = await promptForVintage();
@@ -185,12 +193,10 @@ function setupEventListeners() {
                             url.searchParams.set('year', result.vintage);
                             vivinoUrl = url.toString();
                         } else {
-                            // If the user cancels the vintage prompt
                             showScanMessage('Action cancelled.', 'info');
                             return;
                         }
                     } catch (error) {
-                        // Catch error during prompt, which might be 'cancelled' rejection
                         if(error !== 'cancelled') console.error("Vintage prompt error:", error);
                         showScanMessage('Action cancelled.', 'info');
                         return;
@@ -204,19 +210,14 @@ function setupEventListeners() {
                 };
                 
                 try {
-                    // Pass null for the message container ID, as we handle success/error messages manually via showScanMessage
                     await apiCall('scan-wine', { method: 'POST', body: JSON.stringify(payload) }, null, e.target.querySelector('button[type="submit"]'));
-                    
-                    // --- CHANGE 1: Update user-friendly success message ---
                     showScanMessage("Wine facts obtained and stored/updated", 'success');
-                    
                     resetVivinoPanel();
                     fetchInventory();
                     startPanelCollapseTimer();
 
                 } catch (error) {
                     console.error('Vivino URL submission error:', error);
-                    // Show a robust error message to the user
                     showScanMessage(`Error acquiring wine facts. Please check the URL and try again.`, 'error');
                 }
                 break;
@@ -286,23 +287,26 @@ function setupEventListeners() {
 
         const pointer = getPointer(e);
         const containerWidth = editor.clientWidth;
-        const containerHeight = editor.clientHeight; // containerWidth === containerHeight due to aspect-ratio: 1/1
+        const containerHeight = editor.clientHeight; 
 
         // 1. Get image's natural aspect ratio
         const imgRatio = img.naturalWidth / img.naturalHeight;
 
-        // 2. Determine base rendered dimensions based on object-fit: cover in a 1:1 container
         let baseRenderedWidth, baseRenderedHeight;
-        if (imgRatio >= 1) { // Image is wide or square, scales to fit container height
+        if (imgRatio >= 1) { 
             baseRenderedHeight = containerHeight;
             baseRenderedWidth = baseRenderedHeight * imgRatio;
-        } else { // Image is tall, scales to fit container width
+        } else { 
             baseRenderedWidth = containerWidth;
             baseRenderedHeight = baseRenderedWidth / imgRatio;
         }
 
-        // 3. Apply zoom
-        const zoom = parseFloat(img.style.transform.replace('scale(', '').replace(')', '')) || 1;
+        // 3. Apply zoom - UPDATED PARSING
+        // Use Regex to find 'scale(VALUE)' inside the transform string which now includes 'rotate(...)'
+        const transformString = img.style.transform || '';
+        const scaleMatch = transformString.match(/scale\(([\d.]+)\)/);
+        const zoom = scaleMatch ? parseFloat(scaleMatch[1]) : 1;
+
         const renderedImageWidth = baseRenderedWidth * zoom;
         const renderedImageHeight = baseRenderedHeight * zoom;
 
@@ -317,7 +321,6 @@ function setupEventListeners() {
         // 6. Calculate new focal points
         let newFocalXPercent = startFocalXPercent;
         if (travelRangeX > 0) {
-            // Convert pixel delta to percentage delta based on travel range
             const pxToPercentX = 100 / travelRangeX;
             newFocalXPercent = startFocalXPercent - (deltaX * pxToPercentX);
         }
@@ -328,14 +331,12 @@ function setupEventListeners() {
             newFocalYPercent = startFocalYPercent - (deltaY * pxToPercentY);
         }
 
-        // 7. Clamp values between 0% and 100%
         newFocalXPercent = Math.max(0, Math.min(100, newFocalXPercent));
         newFocalYPercent = Math.max(0, Math.min(100, newFocalYPercent));
 
         const newPos = `${newFocalXPercent.toFixed(2)}% ${newFocalYPercent.toFixed(2)}%`;
         img.style.objectPosition = newPos;
         
-        // Also update transform-origin so zoom stays centered on the focal point
         img.style.transformOrigin = newPos;
     };
     
@@ -348,12 +349,10 @@ function setupEventListeners() {
         const vivinoUrl = document.getElementById('notesVivinoUrl')?.value;
         const focalPoint = document.getElementById('draggableImage')?.style.objectPosition;
         
-        // Save the full "X% Y%" string
         if (vivinoUrl && focalPoint) {
             saveFocalPoint(vivinoUrl, focalPoint);
         }
     };
-    // --- END MODIFIED DRAG LOGIC ---
 
     document.body.addEventListener('mousedown', startDrag); 
     document.body.addEventListener('touchstart', startDrag, { passive: false });
@@ -374,9 +373,7 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// --- App Initialization ---
 document.addEventListener('DOMContentLoaded', async () => {
-    // Load all HTML components
     await Promise.all([
         loadHTML('components/add-wine.html', document.getElementById('addWineSection')),
         loadHTML('components/inventory.html', document.getElementById('inventorySection')),
@@ -389,19 +386,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         loadHTML('components/nv-prompt-modal.html', document.getElementById('modalContainer'), true)
     ]);
 
-    // Initial Setup
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'dark') document.body.classList.add('dark-theme');
     document.getElementById('themeIcon').textContent = savedTheme === 'dark' ? '🌙' : '☀️';
 
-    localStorage.removeItem('addWinePanelState'); // Ensure panel is closed on startup
+    localStorage.removeItem('addWinePanelState'); 
     updateCollapseIcon();
     updateSortIcons();
 
     await fetchSettings();
     fetchInventory();
 
-    // Wire up UI components and event listeners
     setupEventListeners();
     setupVintageControls();
     setupCostTierSelector('mainCostTierSelector', 'mainCostTierInput');

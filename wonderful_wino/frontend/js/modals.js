@@ -163,8 +163,8 @@ function prepareNotesModal(wine) {
     const draggableImage = document.getElementById('draggableImage');
     
     const zoomSlider = document.getElementById('zoomSlider');
-    const tiltSlider = document.getElementById('tiltSlider'); // New slider
-    const controlsContainer = document.getElementById('imageControlsContainer'); // Renamed wrapper
+    const tiltSlider = document.getElementById('tiltSlider'); 
+    const controlsContainer = document.getElementById('imageControlsContainer'); 
 
     document.getElementById('notesVivinoUrl').value = wine.vivino_url;
     document.getElementById('notesModalWineName').textContent = `${wine.name} (${wine.vintage || 'NV'})`;
@@ -194,8 +194,6 @@ function prepareNotesModal(wine) {
     tiltSlider.value = tiltDegree;
 
     // Manually trigger transform application to set initial state
-    // Note: We can't call handleImageTransform directly because elements might be disabled,
-    // but the function reads the .value property which is now set.
     draggableImage.style.transform = `scale(${zoomLevel}) rotate(${tiltDegree}deg)`;
 
     // Reset lock and disabled states on modal open
@@ -209,7 +207,6 @@ function prepareNotesModal(wine) {
     
     // The container holds both now, so we dim the whole container
     if(controlsContainer) controlsContainer.classList.add('opacity-50');
-    // Or fallback to the old ID if the HTML isn't fully updated yet, but we updated HTML.
     
     // Remove old listeners and add new unified listener
     zoomSlider.removeEventListener('input', handleImageTransform);
