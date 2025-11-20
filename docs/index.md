@@ -595,8 +595,8 @@ That completes the dashboard modifications. You now should have a button/tile on
     sensor.wwino_dessert_bottles
     sensor.wwino_unique_dessert_wines
 
-BOTTLE Entities represent the total number of bottles of wine.
-WINE Entities represent the total number of UNIQUE wines meaning wines of the same name and exact vintage.
+**BOTTLE** Entities represent the total number of bottles of wine.
+**WINE** Entities represent the total number of UNIQUE wines meaning wines of the same name and exact vintage.
 
 During setup, there was an optional MQTT section. If MQTT Discovery was DISABLED, Wonderful Wino creates entities via REST API, otherwise MQTT is used to create the entities.
 
