@@ -577,14 +577,31 @@ That completes the dashboard modifications. You now should have a button/tile on
     sensor.wwino_dessert_bottles
     sensor.wwino_unique_dessert_wines
 
+    sensor.wwino_total_bottles
+    sensor.wwino_unique_wines
+
+    sensor.wwino_red_bottles
+    sensor.wwino_unique_red_wines
+
+    sensor.wwino_rose_bottles
+    sensor.wwino_unique_rose_wines
+
+    sensor.wwino_white_bottles
+    sensor.wwino_unique_white_wines
+
+    sensor.wwino_sparkling_bottles
+    sensor.wwino_unique_sparkling_wines
+
+    sensor.wwino_dessert_bottles
+    sensor.wwino_unique_dessert_wines
+
 BOTTLE Entities represent the total number of bottles of wine.
 WINE Entities represent the total number of UNIQUE wines meaning wines of the same name and exact vintage.
 
-
-During setup, there was an optional MQTT section. If MQTT Discovery was DISABLED, Wonderful Wino creates entities via REST API, otherwise MQTT is used to create the entities.
 During setup, there was an optional MQTT section. If MQTT Discovery was DISABLED, Wonderful Wino creates entities via REST API, otherwise MQTT is used to create the entities.
 
 **MQTT (Message Queuing Telemetry Transport)** is an efficient, event-driven protocol where Wonderful Wino establishes a persistent, low-overhead connection with Home Assistant's MQTT Broker. When a bottle count changes, the add-on instantly _publishes_ a small message to the broker, which Home Assistant _subscribes_ to, resulting in near real-time updates and better resource usage.
+
 **REST (Representational State Transfer)** It requires the add-on to manually _call_ Home Assistant's HTTP API and send a long-lived token with every request. This is slightly less efficient and requires the add-on to _poll_ (check) for updates, increases network traffic compared to the instantaneous nature of MQTT.
 
 Wonderful Wino's network traffic load is quite small in either case. If you are already running MQTT, take advantage of it. If you are not, REST will work just fine. If you want to learn more or potentially install a [MQTT Addon, follow this link.](https://www.home-assistant.io/integrations/mqtt/)
