@@ -101,6 +101,16 @@ Beyond the Wonderful Wino Add-on and its GUI, there are currently two additional
 4.  Name it  **WWino**  (or anything else you want) and click  **OK**
 5.  **Copy and paste**  it to the Configuration tab’s  `HA_LONG_LIVED_TOKEN`  textbox.
 
+**MQTT vs REST - Which one should I use?**
+
+On the configuration panel, there is an optional MQTT section. If MQTT Discovery is DISABLED, Wonderful Wino creates entities via REST API, otherwise MQTT is used to create the entities.
+
+**MQTT (Message Queuing Telemetry Transport)** is an efficient, event-driven protocol where a persistent, low-overhead connection with Home Assistant's MQTT Broker is established. When a bottle count changes, the add-on instantly _publishes_ a small message to the broker, which Home Assistant _subscribes_ to, resulting in near real-time updates and better resource usage.
+
+**REST (Representational State Transfer)** Requires the add-on to manually _call_ Home Assistant's HTTP API and send a long-lived token with each request. This is less efficient and requires the add-on to _poll_ (check) for updates, which increases network traffic compared to the instantaneous nature of MQTT.
+
+Wonderful Wino's network traffic load is small in either case. If you are already running MQTT, take advantage of it. If you are not, REST will work just fine. If you want to learn more or potentially install a [MQTT Addon, follow this link.](https://www.home-assistant.io/integrations/mqtt/)
+
 _Once you have all your configuration info all set, don't forget to Click  **Save**._
 
 ### Starting Wonderful Wino for the First Time
