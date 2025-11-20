@@ -772,6 +772,7 @@ On the left side of the window the image of your wine bottle’s label is displa
 -   To view the  **Consumption log**
 -   To adjust the  **thumbnail position**  in the window
 -   To adjust the **zoom level** of the thumbnail window
+-   To adjust the **vertical tilt** of the thumbnail
 -   Swap the image URL for another from the web or a local one you provide.
 
 ![TNM1](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/tnm1.png)
