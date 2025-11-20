@@ -560,9 +560,8 @@ If you prefer you could use one of the entities that Wonderful Wino creates in H
 That completes the dashboard modifications. You now should have a button/tile on your dashboard that displays the number of unique wines and tapping it will take you to the custom ToDo list Subview.
 
 ### Entities Wonderful Wino creates in Home Assistant
-```
-    sensor.wwino_total_bottles
-    sensor.wwino_unique_wines
+`sensor.wwino_total_bottles
+sensor.wwino_unique_wines`
 ```
     sensor.wwino_red_bottles
     sensor.wwino_unique_red_wines
