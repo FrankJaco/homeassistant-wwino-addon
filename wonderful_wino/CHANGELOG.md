@@ -1,7 +1,8 @@
 ### 1.0.4
-- Optional 0.1 increment wine rating
-- General Modal GUI improvements
+- wine rating now supports 0.1 increment via fine control spinners
+- +/- 15 degree image tilt feature for thumbnails
 - 2-axis focal point adjustment for thumbnails
+- General Modal GUI improvements
 - MQTT Support for Entities
 ### 1.0.3
 - Added 13 Home Assistant Entities (via REST)
