@@ -17,6 +17,7 @@ A personal wine inventory system that can be exposed to the AI/Voice assistant f
         - [Script](https://frankjaco.github.io/homeassistant-wwino-addon/#home-assistant-script)
         -   [Vino Subview Dashboard](https://frankjaco.github.io/homeassistant-wwino-addon/#home-assistant-vino-subview-dashboard)
             -   [Wonderful Wino URL using Ingress](https://frankjaco.github.io/homeassistant-wwino-addon/#determining-wonderful-wino-ingress-url)
+            -   [Entities Wonderful Wino creates in Home Assistant](https://frankjaco.github.io/homeassistant-wwino-addon/#entities-wonderful-wino-creates-in-home-assistant)
     -   [Voice Assistant AI Prompts](https://frankjaco.github.io/homeassistant-wwino-addon/#voice-assistant-ai-prompts)
     -   [Samba Share for offline DB backup and Custom Thumbnails](https://frankjaco.github.io/homeassistant-wwino-addon/#samba-share-home-assistant-add-on)
 -   [Quick Visual Guide to using Wonderful Wino](https://frankjaco.github.io/homeassistant-wwino-addon/#quick-visual-guide-to-using-wonderful-wino)
@@ -598,13 +599,13 @@ That completes the dashboard modifications. You now should have a button/tile on
 **BOTTLE** Entities represent the total number of bottles of wine.
 **WINE** Entities represent the total number of UNIQUE wines meaning wines of the same name and exact vintage.
 
-During setup, there was an optional MQTT section. If MQTT Discovery was DISABLED, Wonderful Wino creates entities via REST API, otherwise MQTT is used to create the entities.
+During Wonderful Wino installation configuration, there is an optional MQTT section. If MQTT Discovery is DISABLED, Wonderful Wino creates entities via REST API, otherwise MQTT is used to create the entities.
 
-**MQTT (Message Queuing Telemetry Transport)** is an efficient, event-driven protocol where Wonderful Wino establishes a persistent, low-overhead connection with Home Assistant's MQTT Broker. When a bottle count changes, the add-on instantly _publishes_ a small message to the broker, which Home Assistant _subscribes_ to, resulting in near real-time updates and better resource usage.
+**MQTT (Message Queuing Telemetry Transport)** is an efficient, event-driven protocol where a persistent, low-overhead connection with Home Assistant's MQTT Broker is established. When a bottle count changes, the add-on instantly _publishes_ a small message to the broker, which Home Assistant _subscribes_ to, resulting in near real-time updates and better resource usage.
 
-**REST (Representational State Transfer)** It requires the add-on to manually _call_ Home Assistant's HTTP API and send a long-lived token with every request. This is slightly less efficient and requires the add-on to _poll_ (check) for updates, increases network traffic compared to the instantaneous nature of MQTT.
+**REST (Representational State Transfer)** Requires the add-on to manually _call_ Home Assistant's HTTP API and send a long-lived token with each request. This is less efficient and requires the add-on to _poll_ (check) for updates, which increases network traffic compared to the instantaneous nature of MQTT.
 
-Wonderful Wino's network traffic load is quite small in either case. If you are already running MQTT, take advantage of it. If you are not, REST will work just fine. If you want to learn more or potentially install a [MQTT Addon, follow this link.](https://www.home-assistant.io/integrations/mqtt/)
+Wonderful Wino's network traffic load is small in either case. If you are already running MQTT, take advantage of it. If you are not, REST will work just fine. If you want to learn more or potentially install a [MQTT Addon, follow this link.](https://www.home-assistant.io/integrations/mqtt/)
 
 
 ## Voice Assistant AI Prompts:
