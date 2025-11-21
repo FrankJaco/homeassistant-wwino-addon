@@ -9,7 +9,7 @@ A personal wine inventory system that can be exposed to the AI/Voice assistant f
 -   [Installation of the Add-on](https://frankjaco.github.io/homeassistant-wwino-addon/#installing-the-wonderful-wino-add-on)
 -   [Wonderful Wino Add-on Configuration](https://frankjaco.github.io/homeassistant-wwino-addon/#wonderful-wino-add-on-configuration)
     -   [Creating a Home Assistant Long Lived Token for Wonderful Wino](https://frankjaco.github.io/homeassistant-wwino-addon/#creating-a-home-assistant-long-lived-token-for-wonderful-wino)
-    -   [MQTT vs REST](#mqtt-vs-rest---which-one-should-i-use)
+    -   [MQTT vs REST - Which should I use?](#mqtt-vs-rest---which-one-should-i-use)
     -   [Starting the Addon the First Time](https://frankjaco.github.io/homeassistant-wwino-addon/#starting-wonderful-wino-for-the-first-time)
 -   [Home Assistant Configuration for Wonderful Wino](https://frankjaco.github.io/homeassistant-wwino-addon/#home-assistant-configuration-for-wonderful-wino)
     -   [Local To Do list](https://frankjaco.github.io/homeassistant-wwino-addon/#local-todo-list)
