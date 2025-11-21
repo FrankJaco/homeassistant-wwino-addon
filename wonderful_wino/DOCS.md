@@ -720,7 +720,7 @@ On the left side of the window the image of your wine bottle’s label is displa
 
 ![SM1](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/sm1.png)
 
-On the Top far right:
+On the Top far right of the main Wonderful Wino screen:
 
 ### Help
 
