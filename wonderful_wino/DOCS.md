@@ -702,6 +702,8 @@ In the center of the screen are the Wine Details. Most of what is displayed is o
 
 On the left side of the window the image of your wine bottle’s label is displayed. However that is not all it does…
 
+![ANM1](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/anm1.png)
+
 **Hover over**  the image to see its tasting notes (if you added any).
 
 **Click**  the image:
