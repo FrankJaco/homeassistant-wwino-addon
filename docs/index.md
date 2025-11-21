@@ -569,7 +569,7 @@ Once you determine your URL, you can use this anywhere you want; save it as a bo
 
 I like having a button on my main screen that gives me one-click access to the Vino Subview. You can handle this in many ways. For the purpose of this document, I will use a Tile card to provide navigation and display the number of unique wines in the collection on the Tile card. "Unique wines" are the number of different wines, not the number of bottles. For example if you have 3 bottles of Bogle Phantom 2021 and that is all you have, you have 1 unique wine. How did the Tile card "know" how many unique wines I have? The My Wine (todo.my_wine) entity contains a count of the number of entries in the ToDo list. When you have more than 1 bottle of the same wine/vintage, the quantity of bottles will be displayed in each ToDo list entry, not each bottle on its own line.
 
-If you prefer you could use one of the entities that Wonderful Wino creates in Home Assistant (sensor.wwino_unique_wines) instead of todo.my_wine. Comparing the two numbers reported by these two entities give you a good read if there are any issues in your ToDo list. These numbers should always match.
+If you prefer you could use the sensor.wwino_unique_wines entity that Wonderful Wino creates instead of todo.my_wine. The numbers reported by both these entities should always match. The number of entries in the ToDo tells you the number of unique wines in your ToDo list; the sensor.wwino_unique_wines entity tells you the number of unique wines in your database. Comparing these numbers provides a quick visual confirmation that all is well.
 
 
 ![Tile1](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/tile2.png)
