@@ -524,10 +524,16 @@ badges:
     show_name: true
     show_state: true
     show_icon: true
-    entity: todo.my_wine
-    icon: mdi:bottle-wine-outline
+    entity: sensor.wwino_total_bottles
+    name: Total Bottles
     color: deep-purple
-    name: Unique Wine Count
+  - type: entity
+    show_name: true
+    show_state: true
+    show_icon: true
+    entity: sensor.wwino_unique_wines
+    color: purple
+    name: Total Unique Wines
 cards: []
 ```
 
