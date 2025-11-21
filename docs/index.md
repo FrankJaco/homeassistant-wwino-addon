@@ -742,7 +742,7 @@ It is also possible to change the direct of the Sort Order,  **ascending- descen
 
 On the right side are the “Actions”….
 
--   Clicking the  **Inverted Bottle**  indicates that you have finished/drank/consumed one bottle of this wine. The quantity on hand will decrement and you will be given an opportunity to Rate the wine. (What better time to rate a wine then right after you finished it?)
+-   Clicking the  **Inverted Bottle**  indicates that you have finished/drank/consumed one bottle of this wine. The quantity on hand will decrement and you will be given an opportunity to Rate the wine. (What better time to rate a wine then right after you finished it?) To rate, select the number of stars by sliding over them. Fine adjust (0.1) is possible via the input number "spinner". 
 
 ![A2](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/a2.png)
 ![WDA2](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/wda2.png)
