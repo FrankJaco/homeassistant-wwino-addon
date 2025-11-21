@@ -32,7 +32,7 @@ Beyond the Wonderful Wino Add-on and its GUI, there are currently two additional
 
 ![conf](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/conf.png)
 
-**Creating a Home Assistant Long Lived Token for Wonderful Wino**
+### Creating a Home Assistant Long Lived Token for Wonderful Wino
 
 1. Click on your  **User Account**  (bottom of the Home Assistant sidebar on the left).
 2.  Select the  **Security tab**  at the top of the screen and scroll to its bottom.
@@ -40,7 +40,7 @@ Beyond the Wonderful Wino Add-on and its GUI, there are currently two additional
 4.  Name it  **WWino**  (or anything else you want) and click  **OK**
 5.  **Copy and paste**  it to the Configuration tab’s  `HA_LONG_LIVED_TOKEN`  textbox.
 
-**MQTT vs REST - Which one should I use?**
+### MQTT or REST - Which one should I use?
 
 On the configuration panel, there is an optional MQTT section. If MQTT Discovery is DISABLED, Wonderful Wino creates entities via REST API, otherwise MQTT is used to create the entities.
 
