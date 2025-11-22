@@ -351,6 +351,8 @@ Once you determine your URL, you can use this anywhere you want; save it as a bo
 
 
 ### Vino SubView Dashboard
+![TODO](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/todo.png)
+
 The Vino Subview provides these functions:
 
 1. Sortable Wine List in a ToDo list card
@@ -358,7 +360,6 @@ The Vino Subview provides these functions:
 3. Wine Rating interface for wines consumed via the ToDo List method
 4. Badges with the total number of bottles in your inventory And the number of “Unique Wines” on hand.
 5. One click access to the full Wonderful Wino GUI
-
 
 **Creating Vino SubView**
 
