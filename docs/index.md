@@ -17,7 +17,7 @@ A personal wine inventory system that can be exposed to the AI/Voice assistant f
         -   [Helpers](https://frankjaco.github.io/homeassistant-wwino-addon/#create-four-home-assistant-helpers)
         -   [Automation](https://frankjaco.github.io/homeassistant-wwino-addon/#home-assistant-automation)
         - [Script](https://frankjaco.github.io/homeassistant-wwino-addon/#home-assistant-script)
-        -   [Vino Subview Dashboard](https://frankjaco.github.io/homeassistant-wwino-addon/#home-assistant-vino-subview-dashboard)
+        -   [Dashboard Additions](https://frankjaco.github.io/homeassistant-wwino-addon/#dashboard-additions)
             -   [Wonderful Wino URL using Ingress](https://frankjaco.github.io/homeassistant-wwino-addon/#determining-wonderful-wino-ingress-url)
             -   [Entities Wonderful Wino creates in Home Assistant](https://frankjaco.github.io/homeassistant-wwino-addon/#entities-wonderful-wino-creates-in-home-assistant)
     -   [Voice Assistant AI Prompts](https://frankjaco.github.io/homeassistant-wwino-addon/#voice-assistant-ai-prompts)
@@ -319,9 +319,39 @@ As you may have noticed, the automation above calls a script. This script submit
 ```
 {% endraw %}
 
-### Home Assistant Vino Subview Dashboard
+### Dashboard Additions
+**Quick Summary of Tasks ahead:**
+-   Determine URL for the Wonderful Wino GUI and its "Ingress Slug"
+-   Create "Vino" Sub-View Dashboard
+-   Create Tile card to access the Vino Sub-View Dashboard
 
-The Vino subview dashboard provides these functions:
+### Determining Wonderful Wino Ingress URL:
+Home Assistant Ingress allows add-ons to be securely accessed through the Home Assistant UI without exposing additional ports to the network, routing traffic through Home Assistant’s own reverse proxy. The URL includes a unique identifier, or “slug,” for the add-on. This slug, which contains an 8 random hex character portion (e.g.,  `a0d7b954_wonderful_wino`), is automatically assigned based on the add-on’s repository and is not user-configurable.
+
+While the default method for Add-on access is the  **Open Web UI**  button (or by enabling it on the Home Assistant Sidebar), the direct Ingress URL can be used in custom dashboards and accessing it via a "navigation action". We will be using this later in the "Vino Sub-View".
+
+**To determine the exact URL for your installation:**
+
+1. Click on Wonderful Wino in the Home Assistant Sidebar.
+(If it is not there then: Goto  **Settings**  >  **Add-ons**  and select  **Wonderful Wino**. Then click the  **Open Web UI**  button.)
+2.  Once the add-on’s interface has loaded, copy the URL from your browser’s address bar.
+    
+    The URL will follow this format:
+    
+    `http://[YOUR_HOME_ASSISTANT_IP_OR_HOSTNAME]:8123/hassio/ingress/[ADDON_SLUG]`
+    
+    ***for example:***
+    
+      `http://192.168.0.222:8123/hassio/ingress/a1b2c487_wonderful_wino`
+    
+Once you determine your URL, you can use this anywhere you want; save it as a bookmark/favorite directly in a browser, or via a dashboard card using the navigate action, to access the Wonderful Wino GUI. You could then eliminate the Sidebar if you wish.
+
+
+**Take note of the 8 random hex characters fro *your* slug as they will be needed in the next step!**
+
+
+### Vino Sub-View Dashboard
+Vino provides these functions:
 
 1. Sortable Wine List in a ToDo list card
 2. The ability to "consume" a wine by clicking it on the list 
@@ -548,29 +578,7 @@ cards: []
 
 Take particular note of the 3 lines commented with **INGRESS SLUG**. You will need to edit them with _your_ **INGRESS SLUG**. It is what provides one-click access to the main Wonderful Wino GUI by tapping the "My Wine" Header of the ToDo list. You will need to replace the 8 X’s in **all 3** Ingress Slug lines with your specific 8 hex characters to make the “navigate to GUI” feature work. Instruction on how to determine your **INGRESS SLUG URL** along with your unique 8 hex characters is below.
 
-### Determining Wonderful Wino Ingress URL:
 
-While the default method for access is the  **Open Web UI**  button (or by enabling it on the Home Assistant Sidebar), the direct Ingress URL may be required for advanced configurations, such as embedding in custom dashboards and accessing it via a "navigation action".
-
-The URL includes a unique identifier, or “slug,” for the add-on. This slug, which contains an 8 random hex character portion (e.g.,  `a0d7b954_wonderful_wino`), is automatically assigned based on the add-on’s repository and is not user-configurable.
-
-**To determine the exact URL for your installation:**
-
-1. Click on Wonderful Wino in the Home Assistant Sidebar.
-(If it is not there then: Goto  **Settings**  >  **Add-ons**  and select  **Wonderful Wino**. Then click the  **Open Web UI**  button.)
-2.  Once the add-on’s interface has loaded, copy the URL from your browser’s address bar.
-    
-    The URL will follow this format:
-    
-    `http://[YOUR_HOME_ASSISTANT_IP_OR_HOSTNAME]:8123/hassio/ingress/[ADDON_SLUG]`
-    
-    ***for example:***
-    
-      `http://192.168.0.222:8123/hassio/ingress/a1b2c487_wonderful_wino`
-    
-**Copy the 8 random hex characters from *your* slug and replace the 8-X’s in each of the three ingress lines of the Subview Dashboard yaml above then Click Save.**
-
-Once you determine your URL, you can use this anywhere you want; save it as a bookmark/favorite directly in a browser, or via a dashboard card using the navigate action, to access the Wonderful Wino GUI. You could then eliminate the Sidebar if you wish.
 
 ### Accessing the Vino Subview (ToDo Wine List) from your Main Dashboard.
 
