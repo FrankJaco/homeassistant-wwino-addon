@@ -19,6 +19,7 @@ A personal wine inventory system that can be exposed to the AI/Voice assistant f
         - [Script](https://frankjaco.github.io/homeassistant-wwino-addon/#home-assistant-script)
         -   [Dashboard Additions](https://frankjaco.github.io/homeassistant-wwino-addon/#dashboard-additions)
             -   [Wonderful Wino URL using Ingress](https://frankjaco.github.io/homeassistant-wwino-addon/#determining-wonderful-wino-ingress-url)
+            -   [Vino SubView Dashboard](https://frankjaco.github.io/homeassistant-wwino-addon/#vino-subview-dashboard)
             -   [Entities Wonderful Wino creates in Home Assistant](https://frankjaco.github.io/homeassistant-wwino-addon/#entities-wonderful-wino-creates-in-home-assistant)
     -   [Voice Assistant AI Prompts](https://frankjaco.github.io/homeassistant-wwino-addon/#voice-assistant-ai-prompts)
     -   [Samba Share for offline DB backup and Custom Thumbnails](https://frankjaco.github.io/homeassistant-wwino-addon/#samba-share-home-assistant-add-on)
@@ -344,13 +345,12 @@ While the default method for Add-on access is the  **Open Web UI**  button (or b
     
       `http://192.168.0.222:8123/hassio/ingress/a1b2c487_wonderful_wino`
     
-Once you determine your URL, you can use this anywhere you want; save it as a bookmark/favorite directly in a browser, or via a dashboard card using the navigate action, to access the Wonderful Wino GUI. You could then eliminate the Sidebar if you wish.
+Once you determine your URL, you can use this anywhere you want; save it as a bookmark/favorite directly in a browser, or via a dashboard card using the "navigate" action, to access the Wonderful Wino GUI (as we will do in the next section).
+
+**Take note of the 8 random hex characters from *your* slug as they will be needed in the next step!**
 
 
-**Take note of the 8 random hex characters fro *your* slug as they will be needed in the next step!**
-
-
-### Vino Sub-View Dashboard
+### Vino SubView Dashboard
 Vino provides these functions:
 
 1. Sortable Wine List in a ToDo list card
@@ -359,7 +359,7 @@ Vino provides these functions:
 4. Badges with the total number of bottles in your inventory And the number of “Unique Wines” on hand.
 5. One click access to the full Wonderful Wino GUI
 
-**Create an empty Subview Dashboard called "Vino" on your favorite dashboard:** (I personally have it on the dash I use for my phone)
+**Create an empty Subview Dashboard called "Vino" on your favorite dashboard:**
 
 ![ad](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/ad.png)
 ![Subview](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/subview.png)
@@ -580,11 +580,11 @@ Take particular note of the 3 lines commented with **INGRESS SLUG**. You will ne
 
 
 
-### Accessing the Vino Subview (ToDo Wine List) from your Main Dashboard.
+### Accessing the Vino SubView (ToDo Wine List) from your Main Dashboard.
 
 ![Tile1](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/tile1.png)
 
-I like having a button on my main screen that gives me one-click access to the Vino Subview. You can handle this in many ways. For the purpose of this document, I will use a Tile card to provide navigation and display the number of unique wines in the collection on the Tile card. "Unique wines" are the number of different wines, not the number of bottles. For example if you have 3 bottles of Bogle Phantom 2021 and that is all you have, you have 1 unique wine. How did the Tile card "know" how many unique wines I have? The My Wine (todo.my_wine) entity contains a count of the number of entries in the ToDo list. When you have more than 1 bottle of the same wine/vintage, the quantity of bottles will be displayed in each ToDo list entry, not each bottle on its own line.
+I like having a button on my main screen that gives me one-click access to the Vino SubView. You can handle this in many ways. For the purpose of this document, I will use a Tile card to provide navigation and display the number of unique wines in the collection on the Tile card. "Unique wines" are the number of different wines, not the number of bottles. For example if you have 3 bottles of Bogle Phantom 2021 and that is all you have, you have 1 unique wine. How did the Tile card "know" how many unique wines I have? The My Wine (todo.my_wine) entity contains a count of the number of entries in the ToDo list. When you have more than 1 bottle of the same wine/vintage, the quantity of bottles will be displayed in each ToDo list entry, not each bottle on its own line.
 
 If you prefer you could use the sensor.wwino_unique_wines entity that Wonderful Wino creates instead of todo.my_wine. The numbers reported by both these entities should always match. The number of entries in the ToDo tells you the number of unique wines in your ToDo list; the sensor.wwino_unique_wines entity tells you the number of unique wines in your database. Comparing these numbers provides a quick visual confirmation that all is well.
 
