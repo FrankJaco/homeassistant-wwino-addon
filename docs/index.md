@@ -149,7 +149,14 @@ Starting Wonderful Wino backend...
 
 # Home Assistant Configuration for Wonderful Wino
 
-To get the most out of Wonderful Wino, the  [Local ToDo list integration](https://www.home-assistant.io/integrations/local_todo/), and a functioning  [Home Assistant Voice Assistant](https://www.home-assistant.io/voice_control/)  enhanced with Ai are required. (fyi, I personally use the  [Google Gemini](https://www.home-assistant.io/integrations/google_generative_ai_conversation/)  integration and it does a nice job.) 
+To get the most out of Wonderful Wino, the  [Local ToDo list integration](https://www.home-assistant.io/integrations/local_todo/), and a functioning  [Home Assistant Voice Assistant](https://www.home-assistant.io/voice_control/)  enhanced with Ai are required. (fyi, I personally use the  [Google Gemini](https://www.home-assistant.io/integrations/google_generative_ai_conversation/)  integration and it does a nice job.)
+
+**Quick Summary of Tasks ahead:**
+-   Local ToDo list
+-   Configuration.yaml edited for communication
+-   Helpers, Automation, and script created
+-   Dashboard
+-   Prompts for AI/Voice Assistant
 
 ### Local ToDo list:
 It is the ToDo list that gets your wine data inside Home Assistant so that you can expose it to your AI. To make this happen, a small addition to your configuration.yaml, as well as an Automation, a Script and 4 Helpers are required.  To utilize the ToDo list interface in Home Assistant some dashboard work will also be required.
@@ -215,6 +222,8 @@ _Now with the 4 Helpers created, we can create our automation._
 
 The purpose of the automation is for the ToDo list functionality in where the user can “complete / consume” a wine via the ToDo list. The automation will trap that event, provide the user the option of rating the consumed wine, then send the data to the back end to decrement inventory and rate the wine.
 
+**Create a new empty Automation, then click the 3-dots menu and select "Edit in yaml". Copy/Paste the automation in the codebox below and save the automation.** 
+
 {% raw %}
 ```
 alias: "Wonderful-Wino: Prep for Wine Rating, then consume via ToDo"
@@ -278,6 +287,8 @@ variables:
 
 As you may have noticed, the automation above calls a script. This script submits your wine rating back to the automation and onto Wonderful Wino. It also thanks you if you set a rating with a notification. It then re-hides the wine rating card from view.
 
+**Create a new empty Script, then click the 3-dots menu and select "Edit in yaml". Copy/Paste the Script in the codebox below and save the Script.** 
+
 {% raw %}
 ```
     alias: "Wonderful-Wino: Submit Taste Rating"
@@ -317,7 +328,7 @@ The Vino subview dashboard provides these functions:
 1. Sortable Wine List in a ToDo list card
 2. The ability to "consume" a wine by clicking it on the list 
 3. Wine Rating interface for wines consumed via the ToDo List method
-4. Badge with the total of “Unique Wines” on hand.
+4. Badges with the total number of bottles in your inventory And the number of “Unique Wines” on hand.
 5. One click access to the full Wonderful Wino GUI
 
 **Create an empty Subview Dashboard called "Vino" on your favorite dashboard:** (I personally have it on the dash I use for my phone)
