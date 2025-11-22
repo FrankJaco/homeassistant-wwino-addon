@@ -159,8 +159,6 @@ To get the most out of Wonderful Wino, the  [Local ToDo list integration](https:
 -   Prompts for AI/Voice Assistant
 
 ### Local ToDo list:
-It is the ToDo list that gets your wine data inside Home Assistant so that you can expose it to your AI. To make this happen, a small addition to your configuration.yaml, as well as an Automation, a Script and 4 Helpers are required.  To utilize the ToDo list interface in Home Assistant some dashboard work will also be required.
-
 If you have not done so already, install the  [Local ToDo list integration](https://www.home-assistant.io/integrations/local_todo/)  now.
 
 Make a ToDo list called  **My Wine**  `todo.my_wine`
