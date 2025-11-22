@@ -606,7 +606,7 @@ If you prefer, you could use the `sensor.wwino_unique_wines` entity that Wonderf
 
 When would these two entities not match?  Ideally never. In the Vino Subview, I have put protections in it to prevent the end user from modifying the ToDo list directly instead of via the Wonderful Wino GUI. But if you were to create and use a different ToDo card and used it to edit the FIRST LINE of a Wonderful Wino ToDo list entry it is possible for the Database and the ToDo list to get out of sync. The good news is you really have to try hard to screw it up, and even if you do, there are tools built into the Wonderful Wino GUI that can assist you getting things back in order.
 
-***That completes the dashboard modifications. You now should have a button/tile on your dashboard that displays the number of unique wines and tapping it will take you to the custom ToDo list Subview.***
+***That completes the dashboard modifications. You now should have a button/tile on your dashboard that displays the number of unique wines and tapping it will take you to the customized ToDo list, the Vino SubView.***
 
 ### Entities Wonderful Wino creates in Home Assistant
 ```
