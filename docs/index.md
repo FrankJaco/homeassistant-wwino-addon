@@ -784,18 +784,21 @@ On the right side are the “Actions”….
 
 ![A2](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/a2.png)
 ![WDA2](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/wda2.png)
-.
-.
+
+<br><br>
+
 -   The  **Quantity field**  gives you a quick read of the number of bottles on hand you have of this wine. Alternately you can edit the number you have here. For example you scanned a wine but forgot to tell the system that you actually bought 3. You can edit the count directly via this field.
 
 ![A3](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/a3.png)
-.
-.
+
+<br><br>
+
 -   Clicking the 🗑️**Waste Basket**  deletes this wine completely from your inventory both on hand and in your history. You will have the opportunity to cancel the action.
 
 ![A5](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/a5.png)
-.
-.
+
+<br><br>
+
 Clicking ✏️**Pencil**  provides a window to edit all details of the wine as well it can be used to do a “Save As” of your wine, say you bought 5 bottles and didn’t realize a few of them were another vintage.
 
 ![A4](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/a4.png)
