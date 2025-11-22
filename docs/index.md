@@ -351,7 +351,7 @@ Once you determine your URL, you can use this anywhere you want; save it as a bo
 
 
 ### Vino SubView Dashboard
-Vino provides these functions:
+The Vino Subview provides these functions:
 
 1. Sortable Wine List in a ToDo list card
 2. The ability to "consume" a wine by clicking it on the list 
@@ -359,12 +359,16 @@ Vino provides these functions:
 4. Badges with the total number of bottles in your inventory And the number of “Unique Wines” on hand.
 5. One click access to the full Wonderful Wino GUI
 
-**Create an empty Subview Dashboard called "Vino" on your favorite dashboard:**
+
+**Creating Vino SubView**
+
+**Create an empty Subview on your favorite dashboard:**
 
 ![ad](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/ad.png)
-![Subview](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/subview.png)
+.
+![SV1](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/sv1.png)
 
-**Paste the dashboard yaml from the code box below into the yaml window of the Vino subview that you just created. But do not save it just yet as 3 minor edits unique to your installation are required.**
+***Paste the dashboard yaml from the code box below into the yaml window of the Vino subview that you just created. But do not save it just yet as 3 minor edits unique to your installation are required.***
 
 
 
