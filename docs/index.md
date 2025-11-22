@@ -20,7 +20,7 @@ A personal wine inventory system that can be exposed to the AI/Voice assistant f
         -   [Dashboard Additions](https://frankjaco.github.io/homeassistant-wwino-addon/#dashboard-additions)
             -   [Wonderful Wino URL using Ingress](https://frankjaco.github.io/homeassistant-wwino-addon/#determining-wonderful-wino-ingress-url)
             -   [Vino SubView Dashboard](https://frankjaco.github.io/homeassistant-wwino-addon/#vino-subview-dashboard)
-                -[Accessing the Vino SubView from your Dashboard](https://frankjaco.github.io/homeassistant-wwino-addon/#accessing-the-vino-subview-from-your-dashboard)
+                -    [Accessing the Vino SubView from your Dashboard](https://frankjaco.github.io/homeassistant-wwino-addon/#accessing-the-vino-subview-from-your-dashboard)
             -   [Entities Wonderful Wino creates in Home Assistant](https://frankjaco.github.io/homeassistant-wwino-addon/#entities-wonderful-wino-creates-in-home-assistant)
     -   [Voice Assistant AI Prompts](https://frankjaco.github.io/homeassistant-wwino-addon/#voice-assistant-ai-prompts)
     -   [Samba Share for offline DB backup and Custom Thumbnails](https://frankjaco.github.io/homeassistant-wwino-addon/#samba-share-home-assistant-add-on)
