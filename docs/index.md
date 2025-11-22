@@ -590,7 +590,7 @@ Take note of the 3 lines commented with **INGRESS SLUG**. You will need to edit 
 
 
 ### Accessing the Vino SubView from your Dashboard
-You will need a way to the Vino SubView. You can handle this in many ways, but for the purpose of this document, I will use a Tile card.
+You will need a way to access the Vino SubView. You can handle this in many ways. For the purpose of this document, I will use a Tile card.
 
 ![Tile1](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/tile1.png)
 
@@ -600,12 +600,11 @@ Beyond navigation, I like to display the number of unique wines. "Unique wines" 
 
 ![Tile2](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/tile2.png)
 
-How did the Tile card "know" how many unique wines I have? The My Wine (todo.my_wine) entity contains a count of the number of entries in the ToDo list. When you have more than 1 bottle of the same wine/vintage, the quantity of bottles will be displayed in each ToDo list entry, not each bottle on its own line.
+How did the Tile card "know" how many unique wines I have? The My Wine ( `todo.my_wine` ) entity contains a count of the number of entries in the ToDo list. When you have more than 1 bottle of the same wine/vintage, the quantity of bottles will be displayed in each ToDo list entry, not each bottle on its own line.
 
-If you prefer you could use the sensor.wwino_unique_wines entity that Wonderful Wino creates instead of todo.my_wine. The numbers reported by both these entities should always match. The number of entries in the ToDo tells you the number of unique wines in your ToDo list; the sensor.wwino_unique_wines entity tells you the number of unique wines in your database. Comparing these numbers provides a quick visual confirmation that all is well.
+If you prefer, you could use the `sensor.wwino_unique_wines` entity that Wonderful Wino creates instead of `todo.my_wine`. The numbers reported by both these entities should always match. The number of entries in `todo.my_wine` tells you the number of unique wines in your ToDo list; the `sensor.wwino_unique_wines` entity tells you the number of unique wines in your database. Comparing these numbers provides a quick visual confirmation that all is well.
 
-
-
+When would these two entities not match?  Ideally never. In the Vino Subview, I have put protections in it to prevent the end user from modifying the ToDo list directly instead of the GUI. But if you were to create and use a different ToDo card and used it to edit the FIRST LINE of a Wonderful Wino ToDo list entry it is possible for the Database and the ToDo list to get out of sync. The good news is you really have to try hard to screw it up, and even if you do, there are tools built into the Wonderful Wino GUI that can assist you getting things back in order.
 
 That completes the dashboard modifications. You now should have a button/tile on your dashboard that displays the number of unique wines and tapping it will take you to the custom ToDo list Subview.
 
