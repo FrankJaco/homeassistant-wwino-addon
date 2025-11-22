@@ -579,8 +579,11 @@ badges:
     name: Total Unique Wines
 cards: []
 ```
+![SV2](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/sv2.png)
 
-Take particular note of the 3 lines commented with **INGRESS SLUG**. You will need to edit them with _your_ **INGRESS SLUG**. It is what provides one-click access to the main Wonderful Wino GUI by tapping the "My Wine" Header of the ToDo list. You will need to replace the 8 X’s in **all 3** Ingress Slug lines with your specific 8 hex characters to make the “navigate to GUI” feature work. Instruction on how to determine your **INGRESS SLUG URL** along with your unique 8 hex characters is below.
+Take note of the 3 lines commented with **INGRESS SLUG**. You will need to edit them with _your_ 8 Hex characters. It is what provides one-click access to the main Wonderful Wino GUI by tapping the "My Wine" Header of the ToDo list. You will need to replace the 8 X’s in **all 3** locations.
+
+***Click SAVE after making all 3 Edits***
 
 
 
