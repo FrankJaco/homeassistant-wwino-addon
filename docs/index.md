@@ -884,10 +884,11 @@ In the image above:
 
 -    Clicking **A-Z** or **Z-A** will toggle the list’s alphabetical sort order. Selecting **Edit** switches the list to manual mode, allowing you to reorder items to your liking by **drag-and-drop** using the **three-dot menu**.
 
--    Clicking Wine List opens the full Wonderful Wino main GUI.
+-    Clicking **Wine List** opens the full Wonderful Wino main GUI.
 
--    The Unique Wine Count shows the total number of individual wines and comes directly from the todo.my_wine entity. Each line in the ToDo list represents a wine of a specific vintage, with the quantity of each wine tracked within its entry.
+-    The Total Bottles Count shows the total number of bottles in your collection. It's entity is `sensor.wwino_total_bottles`.
 
+-    The Total Unique Wine Count shows the total number of individual wines/vintages and comes from the `sensor.wwino_unique_wines`.
 
 ### ToDo List Entry Details
 
