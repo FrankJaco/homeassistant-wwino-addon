@@ -347,7 +347,7 @@ While the default method for Add-on access is the  **Open Web UI**  button (or b
     
 Once you determine your URL, you can use this anywhere you want; save it as a bookmark/favorite directly in a browser, or via a dashboard card using the "navigate" action, to access the Wonderful Wino GUI (as we will do in the next section).
 
-**Take note of the 8 random hex characters from *your* slug as they will be needed in the next step!**
+**IMPORTANT:  Take note of the 8 random hex characters from *your* slug as they will be needed in the next step!**
 
 
 ### Vino SubView Dashboard
