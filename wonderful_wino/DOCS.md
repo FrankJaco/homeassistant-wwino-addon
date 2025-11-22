@@ -5,7 +5,7 @@ A personal wine inventory system that can be exposed to the AI/Voice assistant f
 ***For the best experience, please view the full documentation our dedicated site:***
 **[Click Here](https://frankjaco.github.io/homeassistant-wwino-addon/) to Open the Wonderful Wino Documentation**
 
-.
+
 ## About
 
 The Wonderful Wino add-on provides a user-friendly interface to manage your wine collection within Home Assistant. It can utilize the Local ToDo list integration to maintain a copy of your wine collection making it accessible to your Home Assistant’s AI/Voice assistant.
@@ -75,7 +75,6 @@ On the configuration panel, there is an optional MQTT section. If MQTT Discovery
 Wonderful Wino's network traffic load is small in either case. If you are already running MQTT, take advantage of it. If you are not, REST will work just fine. If you want to learn more or potentially install a [MQTT Addon, follow this link.](https://www.home-assistant.io/integrations/mqtt/)
 
 Once you have all your configuration info all set, don't forget to Click  **Save**
-
 ### Starting Wonderful Wino for the First Time
 
 Now that the configuration is complete and saved, we are ready to start the add-on.
@@ -111,11 +110,16 @@ Starting Wonderful Wino backend...
 
 # Home Assistant Configuration for Wonderful Wino
 
-To get the most out of Wonderful Wino, the  [Local ToDo list integration](https://www.home-assistant.io/integrations/local_todo/), and a functioning  [Home Assistant Voice Assistant](https://www.home-assistant.io/voice_control/)  enhanced with Ai are required. (fyi, I personally use the  [Google Gemini](https://www.home-assistant.io/integrations/google_generative_ai_conversation/)  integration and it does a nice job.) 
+To get the most out of Wonderful Wino, the  [Local ToDo list integration](https://www.home-assistant.io/integrations/local_todo/), and a functioning  [Home Assistant Voice Assistant](https://www.home-assistant.io/voice_control/)  enhanced with Ai are required. (fyi, I personally use the  [Google Gemini](https://www.home-assistant.io/integrations/google_generative_ai_conversation/)  integration and it does a nice job.)
+
+**Quick Summary of Tasks ahead:**
+-   Local ToDo list
+-   Configuration.yaml edited for communication
+-   Helpers, Automation, and script created
+-   Dashboard
+-   Prompts for AI/Voice Assistant
 
 ### Local ToDo list:
-It is the ToDo list that gets your wine data inside Home Assistant so that you can expose it to your AI. To make this happen, a small addition to your configuration.yaml, as well as an Automation, a Script and 4 Helpers are required.  To utilize the ToDo list interface in Home Assistant some dashboard work will also be required.
-
 If you have not done so already, install the  [Local ToDo list integration](https://www.home-assistant.io/integrations/local_todo/)  now.
 
 Make a ToDo list called  **My Wine**  `todo.my_wine`
@@ -125,7 +129,6 @@ Make a ToDo list called  **My Wine**  `todo.my_wine`
 ### Home Assistant configuration.yaml:
 
 For connectivity between Wonderful Wino and Home Assistant / Local ToDo list a small addition to the configuration.yaml file is required. You can use the  [FileEditor or VSCode add-ons](https://www.home-assistant.io/common-tasks/os/)  for this task.
-
 
 ```
 # Wonderful-Wino Stuff
@@ -144,7 +147,6 @@ rest_command:
       }
 
 ```
-
 
 **Don’t forget**  to put in your  **Home Assistant’s IP address**  where indicated!
  _Practice safe “yamling” by checking the configuration in  **Developer Tools**, then  **restart Home Assistant**_.
@@ -176,6 +178,8 @@ Note that each helper is of a different type: **Text** (input_text)  -  **Number
 _Now with the 4 Helpers created, we can create our automation._
 
 The purpose of the automation is for the ToDo list functionality in where the user can “complete / consume” a wine via the ToDo list. The automation will trap that event, provide the user the option of rating the consumed wine, then send the data to the back end to decrement inventory and rate the wine.
+
+**Create a new empty Automation, then click the 3-dots menu and select "Edit in yaml". Copy/Paste the automation in the codebox below and save the automation.** 
 
 
 ```
@@ -235,10 +239,11 @@ variables:
 
 ```
 
-
 ### Home Assistant Script:
 
 As you may have noticed, the automation above calls a script. This script submits your wine rating back to the automation and onto Wonderful Wino. It also thanks you if you set a rating with a notification. It then re-hides the wine rating card from view.
+
+**Create a new empty Script, then click the 3-dots menu and select "Edit in yaml". Copy/Paste the Script in the codebox below and save the Script.** 
 
 
 ```
@@ -271,23 +276,56 @@ As you may have noticed, the automation above calls a script. This script submit
     description: ""
 ```
 
+### Dashboard Additions
+**Quick Summary of Tasks ahead:**
+-   Determine URL for the Wonderful Wino GUI and its "Ingress Slug"
+-   Create "Vino" SubView Dashboard
+-   Create Tile card to access the Vino SubView Dashboard
 
-### Home Assistant Vino Subview Dashboard
+### Determining Wonderful Wino Ingress URL:
+Home Assistant Ingress allows add-ons to be securely accessed through the Home Assistant UI without exposing additional ports to the network, routing traffic through Home Assistant’s own reverse proxy. The URL includes a unique identifier, or “slug,” for the add-on. This slug, which contains an 8 random hex character portion (e.g.,  `a0d7b954_wonderful_wino`), is automatically assigned based on the add-on’s repository and is not user-configurable.
 
-The Vino subview dashboard provides these functions:
+While the default method for Add-on access is the  **Open Web UI**  button (or by enabling it on the Home Assistant Sidebar), the direct Ingress URL can be used in custom dashboards and accessing it via a "navigation action". We will be using this later in the "Vino SubView".
+
+**To determine the exact URL for your installation:**
+
+1. Click on Wonderful Wino in the Home Assistant Sidebar.
+(If it is not there then: Goto  **Settings**  >  **Add-ons**  and select  **Wonderful Wino**. Then click the  **Open Web UI**  button.)
+2.  Once the add-on’s interface has loaded, copy the URL from your browser’s address bar.
+    
+    The URL will follow this format:
+    
+    `http://[YOUR_HOME_ASSISTANT_IP_OR_HOSTNAME]:8123/hassio/ingress/[ADDON_SLUG]`
+    
+    ***for example:***
+    
+      `http://192.168.0.222:8123/hassio/ingress/a1b2c487_wonderful_wino`
+    
+Once you determine your URL, you can use this anywhere you want; save it as a bookmark/favorite directly in a browser, or via a dashboard card using the "navigate" action, to access the Wonderful Wino GUI (as we will do in the next section).
+
+**IMPORTANT:  Take note of the 8 random hex characters from *your* slug as they will be needed in the next step!**
+
+
+### Vino SubView Dashboard
+![TODO](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/todo.png)
+
+The Vino Subview provides these functions:
 
 1. Sortable Wine List in a ToDo list card
 2. The ability to "consume" a wine by clicking it on the list 
 3. Wine Rating interface for wines consumed via the ToDo List method
-4. Badge with the total of “Unique Wines” on hand.
+4. Badges with the total number of bottles in your inventory And the number of “Unique Wines” on hand.
 5. One click access to the full Wonderful Wino GUI
 
-**Create an empty Subview Dashboard called "Vino" on your favorite dashboard:** (I personally have it on the dash I use for my phone)
+**Creating Vino SubView**
+
+**Create an empty Subview on your favorite dashboard:**
 
 ![ad](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/ad.png)
-![Subview](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/subview.png)
+.
+![SV1](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/sv1.png)
 
-**Paste the dashboard yaml from the code box below into the yaml window of the Vino subview that you just created. But do not save it just yet as 3 minor edits unique to your installation are required.**
+***Paste the dashboard yaml from the code box below into the yaml window of the Vino subview that you just created. But do not save it just yet as 3 minor edits unique to your installation are required.***
 
 
 
@@ -321,7 +359,7 @@ sections:
       - type: markdown
         content: >-
           _Submitting the wine with a 0 star rating consumes the wine without
-          rating it. Any other value (0.5 - 5.0 stars) updates the wine's
+          rating it. Any other value (0.1 - 5.0 stars) updates the wine's
           rating._
     visibility:
       - condition: state
@@ -486,48 +524,67 @@ badges:
     show_name: true
     show_state: true
     show_icon: true
-    entity: todo.my_wine
-    icon: mdi:bottle-wine-outline
+    entity: sensor.wwino_total_bottles
+    name: Total Bottles
     color: deep-purple
-    name: Unique Wine Count
+  - type: entity
+    show_name: true
+    show_state: true
+    show_icon: true
+    entity: sensor.wwino_unique_wines
+    color: purple
+    name: Total Unique Wines
 cards: []
 ```
+![SV2](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/sv2.png)
 
-Take particular note of the 3 lines commented with **INGRESS SLUG**. You will need to edit them with _your_ **INGRESS SLUG**. It is what provides one-click access to the main Wonderful Wino GUI by tapping the "My Wine" Header of the ToDo list. You will need to replace the 8 X’s in **all 3** Ingress Slug lines with your specific 8 hex characters to make the “navigate to GUI” feature work. Instruction on how to determine your **INGRESS SLUG URL** along with your unique 8 hex characters is below.
+Take note of the 3 lines commented with **INGRESS SLUG**. You will need to edit them with _your_ 8 Hex characters. It is what provides one-click access to the main Wonderful Wino GUI by tapping the "My Wine" Header of the ToDo list. You will need to replace the 8 X’s in **all 3** locations.
 
-### Determining Wonderful Wino Ingress URL:
+***Click SAVE after making all 3 Edits***
 
-While the default method for access is the  **Open Web UI**  button (or by enabling it on the Home Assistant Sidebar), the direct Ingress URL may be required for advanced configurations, such as embedding in custom dashboards and accessing it via a "navigation action".
 
-The URL includes a unique identifier, or “slug,” for the add-on. This slug, which contains an 8 random hex character portion (e.g.,  `a0d7b954_wonderful_wino`), is automatically assigned based on the add-on’s repository and is not user-configurable.
 
-**To determine the exact URL for your installation:**
-
-1. Click on Wonderful Wino in the Home Assistant Sidebar.
-(If it is not there then: Goto  **Settings**  >  **Add-ons**  and select  **Wonderful Wino**. Then click the  **Open Web UI**  button.)
-2.  Once the add-on’s interface has loaded, copy the URL from your browser’s address bar.
-    
-    The URL will follow this format:
-    
-    `http://[YOUR_HOME_ASSISTANT_IP_OR_HOSTNAME]:8123/hassio/ingress/[ADDON_SLUG]`
-    
-    ***for example:***
-    
-      `http://192.168.0.222:8123/hassio/ingress/a1b2c487_wonderful_wino`
-    
-**Copy the 8 random hex characters from *your* slug and replace the 8-X’s in each of the three ingress lines of the Subview Dashboard yaml above then Click Save.**
-
-Once you determine your URL, you can use this anywhere you want; save it as a bookmark/favorite directly in a browser, or via a dashboard card using the navigate action, to access the Wonderful Wino GUI. You could then eliminate the Sidebar if you wish.
-
-### Accessing the Vino Subview (ToDo Wine List) from your Main Dashboard.
+### Accessing the Vino SubView from your Dashboard
+You will need a way to access the Vino SubView. You can handle this in many ways. For the purpose of this document, I will use a Tile card.
 
 ![Tile1](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/tile1.png)
 
-I like having a button on my main screen that gives me one-click access to the Vino Subview. You can handle this in many ways. For the purpose of this document, I will use a Tile card to provide navigation and display the number of unique wines in the collection on the Tile card. "Unique wines" are the number of different wines, not the number of bottles. For example if you have 3 bottles of Bogle Phantom 2021 and that is all you have, you have 1 unique wine. How did the Tile card "know" how many unique wines I have? The My Wine (todo.my_wine) entity contains a count of the number of entries in the ToDo list. When you have more than 1 bottle of the same wine/vintage, the quantity of bottles will be displayed in each ToDo list entry, not each bottle on its own line.
+Beyond navigation, I like to display the number of unique wines. "Unique wines" are the number of different wines, not the number of bottles. For example if you have 3 bottles of Bogle Phantom 2021 and that is all you have, you have 1 unique wine.
 
-![Tile1](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/tile2.png)
+**Add a Tile Card to your desired Dashboard:**
 
-That completes the dashboard modifications. You now should have a button/tile on your dashboard that displays the number of unique wines and tapping it will take you to the custom ToDo list Subview.
+![Tile2](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/tile2.png)
+
+How did the Tile card "know" how many unique wines I have? The My Wine ( `todo.my_wine` ) entity contains a count of the number of entries in the ToDo list. When you have more than 1 bottle of the same wine/vintage, the quantity of bottles will be displayed in each ToDo list entry, not each bottle on its own line.
+
+If you prefer, you could use the `sensor.wwino_unique_wines` entity that Wonderful Wino creates instead of `todo.my_wine`. The numbers reported by both these entities should always match. The number of entries in `todo.my_wine` tells you the number of unique wines in your ToDo list; the `sensor.wwino_unique_wines` entity tells you the number of unique wines in your database. Comparing these numbers provides a quick visual confirmation that all is well.
+
+When would these two entities not match?  Ideally never. In the Vino Subview, I have put protections in it to prevent the end user from modifying the ToDo list directly instead of via the Wonderful Wino GUI. But if you were to create and use a different ToDo card and used it to edit the FIRST LINE of a Wonderful Wino ToDo list entry it is possible for the Database and the ToDo list to get out of sync. The good news is you really have to try hard to screw it up, and even if you do, there are tools built into the Wonderful Wino GUI that can assist you getting things back in order.
+
+***That completes the dashboard modifications. You now should have a button/tile on your dashboard that displays the number of unique wines and tapping it will take you to the customized ToDo list, the Vino SubView.***
+
+### Entities Wonderful Wino creates in Home Assistant
+```
+sensor.wwino_total_bottles
+sensor.wwino_unique_wines
+
+sensor.wwino_red_bottles
+sensor.wwino_unique_red_wines
+
+sensor.wwino_rose_bottles
+sensor.wwino_unique_rose_wines
+
+sensor.wwino_white_bottles
+sensor.wwino_unique_white_wines
+
+sensor.wwino_sparkling_bottles
+sensor.wwino_unique_sparkling_wines
+
+sensor.wwino_dessert_bottles
+sensor.wwino_unique_dessert_wines
+```
+**BOTTLE** Entities represent the total number of bottles of wine.
+**WINE** Entities represent the total number of UNIQUE wines meaning wines of the same name and exact vintage.
 
 ## Voice Assistant AI Prompts:
 
@@ -674,17 +731,32 @@ It is also possible to change the direct of the Sort Order,  **ascending- descen
 
 ### Actions
 
+![A1](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/a1.png)
+
 On the right side are the “Actions”….
 
--   Clicking the  **Inverted Bottle**  indicates that you have finished/drank/consumed one bottle of this wine. The quantity on hand will decrement and you will be given an opportunity to Rate the wine. (What better time to rate a wine then right after you finished it?)
+-   Clicking the  **Inverted Bottle**  indicates that you have finished/drank/consumed one bottle of this wine. The quantity on hand will decrement and you will be given an opportunity to Rate the wine. (What better time to rate a wine then right after you finished it?) To rate, select the number of stars by sliding over them. Fine adjust (0.1) is possible via the input number "spinner". 
 
+![A2](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/a2.png)
 ![WDA2](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/wda2.png)
 
+<br><br>
+
 -   The  **Quantity field**  gives you a quick read of the number of bottles on hand you have of this wine. Alternately you can edit the number you have here. For example you scanned a wine but forgot to tell the system that you actually bought 3. You can edit the count directly via this field.
+
+![A3](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/a3.png)
+
+<br><br>
+
 -   Clicking the 🗑️**Waste Basket**  deletes this wine completely from your inventory both on hand and in your history. You will have the opportunity to cancel the action.
+
+![A5](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/a5.png)
+
+<br><br>
 
 Clicking ✏️**Pencil**  provides a window to edit all details of the wine as well it can be used to do a “Save As” of your wine, say you bought 5 bottles and didn’t realize a few of them were another vintage.
 
+![A4](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/a4.png)
 ![WDA3](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/wda3.png)
 
 ### Wine Details and Metrics
@@ -712,6 +784,7 @@ On the left side of the window the image of your wine bottle’s label is displa
 -   To view the  **Consumption log**
 -   To adjust the  **thumbnail position**  in the window
 -   To adjust the **zoom level** of the thumbnail window
+-   To adjust the **vertical tilt** of the thumbnail
 -   Swap the image URL for another from the web or a local one you provide.
 
 ![TNM1](https://raw.githubusercontent.com/FrankJaco/homeassistant-wwino-addon/main/resources/tnm1.png)
@@ -759,7 +832,7 @@ One additional comment regarding the  **Sync DB to ToDo**  button. Wonderful Win
 
 As you learned above, the full Wonderful Wino GUI is available via the Sidebar (if desired) and any place you want it via the ingress slug URL both inside and outside of Home Assistant.
 
-In Home Assistant, the **My Wine** ToDo list serves as the data foundation for Wonderful Wino which enables AI and voice assistant features. The **Vino Subview** dashboard builds on that list to provide a simpler, mobile-friendly way to interact with your wine collection. It’s designed for quick access on smaller screens, letting you view your wines in a compact layout, sort them, mark bottles as consumed when you drink one, and record a taste rating for them, all with your Wonderful Wino database updating automatically. For deeper management and a richer experience, you can jump straight from the Vino Subview to the full Wonderful Wino GUI with a single click. The Vino Subview is a convenient way to work with your **My Wine** list directly inside Home Assistant while keeping everything else just a tap away.
+In Home Assistant, the **My Wine** ToDo list serves as the data foundation for Wonderful Wino which enables AI and voice assistant features. The **Vino SubView** dashboard builds on that list to provide a simpler, mobile-friendly way to interact with your wine collection. It’s designed for quick access on smaller screens, letting you view your wines in a compact layout, sort them, mark bottles as consumed when you drink one, and record a taste rating for them, all with your Wonderful Wino database updating automatically. For deeper management and a richer experience, you can jump straight from the Vino SubView to the full Wonderful Wino GUI with a single click. The Vino SubView is a convenient way to work with your **My Wine** list directly inside Home Assistant while keeping everything else just a tap away.
 
 ### ToDo List Controls
 
@@ -769,10 +842,11 @@ In the image above:
 
 -    Clicking **A-Z** or **Z-A** will toggle the list’s alphabetical sort order. Selecting **Edit** switches the list to manual mode, allowing you to reorder items to your liking by **drag-and-drop** using the **three-dot menu**.
 
--    Clicking Wine List opens the full Wonderful Wino main GUI.
+-    Clicking **Wine List** opens the full Wonderful Wino main GUI.
 
--    The Unique Wine Count shows the total number of individual wines and comes directly from the todo.my_wine entity. Each line in the ToDo list represents a wine of a specific vintage, with the quantity of each wine tracked within its entry.
+-    The Total Bottles Count shows the total number of bottles in your collection. It's entity is `sensor.wwino_total_bottles`.
 
+-    The Total Unique Wine Count shows the total number of individual wines/vintages and comes from the `sensor.wwino_unique_wines`.
 
 ### ToDo List Entry Details
 
@@ -795,15 +869,3 @@ This project started as I enjoy wine and especially with food. Typically I have 
 A glimmer of hope from an old favorite of mine…. Vivino - a popular wine website (and app) that helps users discover, buy, and enjoy wine.  Vivino's free website enables people to access their vast database, community-based ratings, reviews, and other general wine information. Vivino doesn’t have a publicly available API but it does have an incredibly complete database and their website seems to be consistent and well laid out. Their mobile App provides the ability to snap a picture of a label and provide info about the wine. So with AI as my partner  Wonderful Wino was born. If the name Wonderful Wino is familiar to you, you are probably showing you age. The comedian [George Carlin](https://www.youtube.com/watch?v=5ubpw63lKOg) had a bit around a dysfunctional radio station called “Wonderful Wino”, and at about the same time in history,  [Frank Zappa](https://www.youtube.com/watch?v=CVEvGMQ2tEI)  had a song by the same name. To my knowledge there is no connection between the two.
 
 fj
-**MQTT vs REST - Which one should I use?**
-
-On the configuration panel, there is an optional MQTT section. If MQTT Discovery is DISABLED, Wonderful Wino creates entities via REST API, otherwise MQTT is used to create the entities.
-
-**MQTT (Message Queuing Telemetry Transport)** is an efficient, event-driven protocol where a persistent, low-overhead connection with Home Assistant's MQTT Broker is established. When a bottle count changes, the add-on instantly _publishes_ a small message to the broker, which Home Assistant _subscribes_ to, resulting in near real-time updates and better resource usage.
-
-**REST (Representational State Transfer)** Requires the add-on to manually _call_ Home Assistant's HTTP API and send a long-lived token with each request. This is less efficient and requires the add-on to _poll_ (check) for updates, which increases network traffic compared to the instantaneous nature of MQTT.
-
-Wonderful Wino's network traffic load is small in either case. If you are already running MQTT, take advantage of it. If you are not, REST will work just fine. If you want to learn more or potentially install a [MQTT Addon, follow this link.](https://www.home-assistant.io/integrations/mqtt/)
-
-Once you have all your configuration info all set, don't forget to Click  **Save**
-### Starting Wonderful Wino for the First Time
