@@ -323,13 +323,13 @@ As you may have noticed, the automation above calls a script. This script submit
 ### Dashboard Additions
 **Quick Summary of Tasks ahead:**
 -   Determine URL for the Wonderful Wino GUI and its "Ingress Slug"
--   Create "Vino" Sub-View Dashboard
--   Create Tile card to access the Vino Sub-View Dashboard
+-   Create "Vino" SubView Dashboard
+-   Create Tile card to access the Vino SubView Dashboard
 
 ### Determining Wonderful Wino Ingress URL:
 Home Assistant Ingress allows add-ons to be securely accessed through the Home Assistant UI without exposing additional ports to the network, routing traffic through Home Assistant’s own reverse proxy. The URL includes a unique identifier, or “slug,” for the add-on. This slug, which contains an 8 random hex character portion (e.g.,  `a0d7b954_wonderful_wino`), is automatically assigned based on the add-on’s repository and is not user-configurable.
 
-While the default method for Add-on access is the  **Open Web UI**  button (or by enabling it on the Home Assistant Sidebar), the direct Ingress URL can be used in custom dashboards and accessing it via a "navigation action". We will be using this later in the "Vino Sub-View".
+While the default method for Add-on access is the  **Open Web UI**  button (or by enabling it on the Home Assistant Sidebar), the direct Ingress URL can be used in custom dashboards and accessing it via a "navigation action". We will be using this later in the "Vino SubView".
 
 **To determine the exact URL for your installation:**
 
