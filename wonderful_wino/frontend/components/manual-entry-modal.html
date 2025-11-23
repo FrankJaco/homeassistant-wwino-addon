@@ -1,0 +1,109 @@
+<div id="entryModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="entryModalTitle">
+    <div class="modal-content">
+        <button class="modal-close-button" onclick="closeModal()">&times;</button>
+        <h3 id="entryModalTitle" class="text-xl font-semibold mb-4">Add Wine Manually</h3>
+        <form id="entryForm" novalidate>
+            <input type="hidden" id="entryVivinoUrl">
+            <input type="hidden" id="manualTastingNotesInput">
+            <input type="hidden" id="manualImageUrlInput">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="sm:col-span-2">
+                    <label for="manualNameInput" class="block text-sm font-medium">Wine Name *</label>
+                    <input type="text" id="manualNameInput" class="mt-1 block w-full border rounded-md p-2" required>
+                </div>
+                <div>
+                    <label for="manualVintageInput" class="block text-sm font-medium">Vintage *</label>
+                    <div class="flex items-center gap-4 mt-1">
+                        <input type="number" id="manualVintageInput" class="block w-28 border rounded-md p-2" required
+                            min="1900">
+                        <div class="flex items-center whitespace-nowrap">
+                            <input type="checkbox" id="nvCheckbox"
+                                class="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500">
+                            <label for="nvCheckbox" class="ml-2 block text-sm">No-Vintage</label>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label for="manualVarietalInput" class="block text-sm font-medium">Varietal</label>
+                    <input type="text" id="manualVarietalInput" class="mt-1 block w-full border rounded-md p-2">
+                </div>
+                <div>
+                    <label for="manualRegionInput" class="block text-sm font-medium">Region</label>
+                    <input type="text" id="manualRegionInput" class="mt-1 block w-full border rounded-md p-2">
+                </div>
+                <div>
+                    <label for="manualCountryInput" class="block text-sm font-medium">Country</label>
+                    <input type="text" id="manualCountryInput" class="mt-1 block w-full border rounded-md p-2">
+                </div>
+                <div>
+                    <label for="manualWineTypeInput" class="block text-sm font-medium">Wine Type</label>
+                    <select id="manualWineTypeInput" class="mt-1 block w-full border rounded-md p-2">
+                        <option value="">Select type...</option>
+                        <option value="Red">🍷 Red</option>
+                        <option value="White">🥂 White</option>
+                        <option value="Rosé">🌸 Rosé</option>
+                        <option value="Sparkling">🍾 Sparkling</option>
+                        <option value="Dessert">🍰 Dessert</option>
+                        <option value="Fortified">🍰 Fortified</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="manualAlcoholInput" class="block text-sm font-medium">Alcohol %</label>
+                    <input type="number" id="manualAlcoholInput" placeholder="e.g., 13.5" step="0.1" min="0" max="100"
+                        class="mt-1 block w-full border rounded-md p-2">
+                </div>
+                <div class="sm:col-span-2">
+                    <div class="flex flex-col sm:flex-row sm:items-start sm:gap-6">
+                        <div>
+                            <label for="manualQuantityInput" class="block text-sm font-medium">Quantity *</label>
+                            <input type="number" id="manualQuantityInput" min="0" value="1"
+                                class="mt-1 block w-24 border rounded-md p-2" required>
+                        </div>
+                        <div class="mt-4 sm:mt-0">
+                            <label class="block text-sm font-medium">Cost Tier</label>
+                            <div id="costTierSelector" class="flex items-center gap-2 mt-1 cost-tier-selector">
+                                <span data-value="1" title="e.g., Under $8">$</span>
+                                <span data-value="2" title="e.g., $8 - $15">$$</span>
+                                <span data-value="3" title="e.g., $15 - $25">$$$</span>
+                                <span data-value="4" title="e.g., $25 - $40">$$$$</span>
+                                <span data-value="5" title="e.g., Over $40">$$$$$</span>
+                            </div>
+                            <input type="hidden" id="manualCostTierInput">
+                        </div>
+                    </div>
+                </div>
+                <div class="sm:col-span-2">
+                    <label class="block text-sm font-medium">Taste Rating</label>
+
+                    <!-- Flex container to align stars and spinner -->
+                    <div class="flex items-center gap-4 mt-1">
+                        <!-- Star Selector: Increased to text-4xl to match taste-modal -->
+                        <div id="editTasteRatingSelector"
+                            class="flex text-4xl taste-rating-selector cursor-pointer select-none">
+                            <span data-value="1">☆</span><span data-value="2">☆</span><span data-value="3">☆</span><span
+                                data-value="4">☆</span><span data-value="5">☆</span>
+                        </div>
+
+                        <!-- Precise Rating Spinner (0.1 increments) -->
+                        <input type="number" id="manualTasteRatingInput" step="0.1" min="0" max="5" placeholder="0.0"
+                            class="w-20 p-1 text-xl text-center border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    </div>
+
+                    <p id="editTasteRatingFeedback" class="text-sm text-gray-600 h-4 mt-1 pl-1"></p>
+                </div>
+            </div>
+            <div id="entryMessage" class="mt-4 text-center hidden"></div>
+            <!-- MODIFIED: Button layout and labels updated -->
+            <div class="mt-6 flex justify-end items-center gap-4">
+                <button type="button" id="entrySaveAsNewWineBtn"
+                    class="bg-cyan-600 text-white px-4 py-2 rounded-md hover:bg-cyan-700 hidden whitespace-nowrap">Save
+                    as New Wine</button>
+                <div class="flex-grow"></div>
+                <button type="button" onclick="closeModal()"
+                    class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Cancel</button>
+                <button type="submit" id="entrySubmitBtn"
+                    class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Add Wine</button>
+            </div>
+        </form>
+    </div>
+</div>

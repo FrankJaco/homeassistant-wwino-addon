@@ -1,0 +1,113 @@
+<div id="notesModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="notesModalTitle">
+    <div class="modal-content">
+        <button class="modal-close-button" onclick="closeModal()">&times;</button>
+        <!-- EDITED 1: Main heading changed to Notes, Log & Thumbnail -->
+        <h3 id="notesModalTitle" class="text-xl font-semibold mb-2">Notes, Log & Thumbnail</h3>
+        <!-- COSMETIC CHANGE: Increased font size, weight, and contrast for the wine name -->
+        <!-- SUBTLE BACKGROUND CHANGE ADDED: bg-purple-100/dark:bg-purple-900, padding, and rounded corners -->
+        <p id="notesModalWineName"
+            class="mb-4 text-xl font-bold text-gray-900 dark:text-white bg-purple-100 dark:bg-purple-900/50 p-2 rounded-md inline-block">
+        </p>
+        <form id="notesForm">
+            <input type="hidden" id="notesVivinoUrl">
+
+            <!-- TASTING NOTES (MOVED TO TOP) -->
+            <div class="mb-4">
+                <!-- EDITED 2: Heading structure updated to match Consumption Log size (text-lg) -->
+                <h4 class="text-lg font-medium text-gray-800 mb-2">Tasting Notes</h4>
+                <textarea id="tastingNotesInput" rows="5" placeholder="Enter your notes here..."
+                    class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"></textarea>
+            </div>
+
+            <!-- BUTTONS (Top) -->
+            <div class="mt-6 flex justify-end gap-4">
+                <button type="button" onclick="closeModal()"
+                    class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Cancel</button>
+                <button type="submit" id="notesSubmitBtn"
+                    class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Save</button>
+            </div>
+
+            <!-- STATUS INDICATOR (MOVED BELOW BUTTONS) -->
+            <div id="notesMessage" class="mt-4 text-center hidden"></div>
+
+            <!-- NEW POSITION: CONSUMPTION LOG (MOVED UP) -->
+            <hr class="my-6 border-gray-300">
+            <div>
+                <div class="flex justify-between items-center mb-3">
+                    <!-- EDITED 3: Consumption Log heading size is confirmed as text-lg (matches new Tasting Notes size) -->
+                    <h4 class="text-lg font-medium text-gray-800">Consumption Log</h4>
+                    <!-- FIX: Added type="button" to prevent form submission -->
+                    <button type="button" id="logSortToggleBtn" title="Reverse Sort Order"
+                        class="icon-button text-xl">↕️</button>
+                </div>
+                <div id="consumptionLogContainer"
+                    class="text-sm text-gray-700 space-y-2 max-h-48 overflow-y-auto p-3 border rounded-md bg-gray-50 dark:bg-gray-700">
+                </div>
+            </div>
+            <!-- END NEW POSITION: CONSUMPTION LOG -->
+
+            <!-- ORIGINAL POSITION: NEW WRAPPER FOR IMAGE CONTROLS (MOVED DOWN) -->
+            <!-- Added a top margin (mt-6) to separate it from the buttons -->
+            <div class="mt-6 p-4 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700/20">
+
+                <!-- ADDED 4: Thumbnail Editing Heading -->
+                <h4 class="text-lg font-medium text-gray-800 mb-4">Thumbnail Editing</h4>
+
+                <!-- IMAGE URL SECTION -->
+                <div class="mb-4">
+                    <div class="flex justify-between items-center">
+                        <label for="imageUrlInput" class="block text-sm font-medium mb-1">Image URL</label>
+                        <button type="button" id="toggleImageUrlLock"
+                            class="text-gray-500 hover:text-gray-700 focus:outline-none">🔒</button>
+                    </div>
+                    <input type="text" id="imageUrlInput" placeholder="Paste new image URL here"
+                        class="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        readonly>
+                </div>
+
+                <!-- IMAGE PREVIEW SECTION -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-1">Image Preview & Focal Point</label>
+                    <!-- This div is now controlled by the updated style.css file -->
+                    <div id="focalPointEditor" class="overflow-hidden border rounded-md">
+                        <img id="draggableImage" src="" alt="Wine bottle image" draggable="false"
+                            class="w-full transition-transform duration-100 ease-linear">
+                    </div>
+                </div>
+
+                <!-- ZOOM SLIDER SECTION -->
+                <!-- Removed mb-4 from this container, as the parent wrapper has margin -->
+                <div id="zoomSliderContainer" class="transition-opacity duration-300 mb-3">
+                    <label for="zoomSlider" class="block text-sm font-medium mb-1">Zoom</label>
+                    <input type="range" id="zoomSlider" min="1" max="3" step="0.1" value="1"
+                        class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+                        disabled>
+                </div>
+
+                <!-- TILT SLIDER SECTION -->
+                <div id="tiltSliderContainer" class="transition-opacity duration-300">
+                    <label for="tiltSlider" class="block text-sm font-medium mb-1">Tilt</label>
+                    <input type="range" id="tiltSlider" min="-15" max="15" step="1" value="0"
+                        class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+                        disabled>
+                </div>
+
+                <!-- UPDATED: SECONDARY SAVE BUTTON (Under Zoom Slider, right-aligned) -->
+                <!-- Changed to flex justify-end and used specific px/py classes instead of w-full -->
+                <div class="mt-4 flex justify-end gap-4">
+                    <!-- ADDED: Cancel button for the lower group -->
+                    <button type="button" onclick="closeModal()"
+                        class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Cancel</button>
+                    <!-- EDITED: Label changed from "Save Changes" to "Save" -->
+                    <button type="submit" id="notesSubmitBtnBottom"
+                        class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Save</button>
+                </div>
+                <!-- END UPDATED SAVE BUTTON -->
+
+            </div>
+            <!-- END ORIGINAL POSITION: NEW WRAPPER -->
+
+        </form>
+        <!-- NOTE: The consumption log and HR were moved inside the form above -->
+    </div>
+</div>

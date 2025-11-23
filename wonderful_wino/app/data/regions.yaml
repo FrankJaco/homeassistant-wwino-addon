@@ -1,0 +1,505 @@
+United States:
+  code: US
+  regions:
+    California:
+      subregions:
+        Napa |Valley:
+          subsubregions:
+            - Stags Leap
+            - Rutherford
+            - Oakville
+            - Yountville
+            - Carneros
+            - Atlas Peak
+            - Howell Mountain
+            - Calistoga
+        Sonoma County:
+          subsubregions:
+            - Russian River |Valley
+            - Alexander |Valley
+            - Dry Creek |Valley
+            - Sonoma Coast
+            - Bennett |Valley
+            - Sonoma |Valley
+        Central Coast:
+          subsubregions:
+            - Paso Robles
+            - Santa Barbara
+            - Happy Canyon of Santa Barbara
+            - Santa Maria |Valley
+            - Santa Ynez |Valley
+            - Monterey
+            - Arroyo Seco
+            - Edna |Valley
+            - San Luis Obispo
+        Central Valley:
+          subsubregions:
+            - Lodi
+            - San Joaquin |Valley
+        Sierra Foothills:
+          subsubregions:
+            - El Dorado
+            - Shenandoah |Valley
+    Oregon:
+      subregions:
+        Willamette |Valley:
+          subsubregions:
+            - Dundee Hills
+            - Eola-Amity Hills
+            - Yamhill-Carlton
+            - McMinnville
+            - Chehalem Mountains
+        Rogue |Valley:
+          subsubregions:
+            - Applegate |Valley
+    Washington:
+      subregions:
+        Columbia |Valley:
+          subsubregions:
+            - Yakima |Valley
+            - Walla Walla |Valley
+            - Red Mountain
+    New York:
+      subregions:
+        Finger Lakes:
+          subsubregions:
+            - Seneca |Lake
+            - Cayuga |Lake
+    Virginia:
+      subregions:
+        Virginia:
+          subsubregions:
+            - Monticello |AVA
+    Oregon-Coast:
+      subregions:
+        Umpqua |Valley: 
+          subsubregions: []
+France:
+  code: FR
+  regions:
+    Bordeaux:
+      subregions:
+        Médoc:
+          hints:
+            bank_type: Left Bank
+          subsubregions:
+            - Pauillac
+            - Margaux
+            - Saint-Julien
+            - Saint-Estèphe
+            - Haut-Médoc
+            - Moulis-en-Médoc
+        Graves:
+          hints:
+            bank_type: Left Bank
+          subsubregions:
+            - Pessac-Léognan
+        Saint-Émilion:
+          hints:
+            bank_type: Right Bank
+          subsubregions:
+            - Saint-Émilion Grand Cru
+            - Lussac-Saint-Émilion
+            - Puisseguin-Saint-Émilion
+        Pomerol:
+          hints:
+            bank_type: Right Bank
+          subsubregions: []
+        Entre-Deux-Mers:
+          subsubregions: []
+    Burgundy:
+      subregions:
+        Côte de Nuits:
+          subsubregions:
+            - Gevrey-Chambertin
+            - Morey-Saint-Denis
+            - Vougeot
+            - Clos de Vougeot
+        Côte de Beaune:
+          subsubregions:
+            - Pommard
+            - Meursault
+            - Puligny-Montrachet
+            - Chassagne-Montrachet
+        Chablis:
+          subsubregions:
+            - Petit Chablis
+            - Chablis Premier Cru
+        Mâconnais:
+          subsubregions:
+            - Pouilly-Fuissé
+    Rhône:
+      subregions:
+        Northern Rhône:
+          hints:
+            rhone_style: North
+          subsubregions:
+            - Côte-Rôtie
+            - Hermitage
+            - Condrieu
+            - Saint-Joseph
+        Southern Rhône:
+          hints:
+            rhone_style: South
+          subsubregions:
+            - Châteauneuf du Pape
+            - Gigondas
+            - Vacqueyras
+            - Côtes du Rhône
+            - Côtes du Rhône Villages
+    Loire:
+      subregions:
+        Muscadet:
+          subsubregions: []
+        Sancerre:
+          subsubregions: []
+        Pouilly-Fumé:
+          subsubregions: []
+        Anjou:
+          subsubregions: []
+    Champagne:
+      subregions:
+        Champagne:
+          subsubregions:
+            - Montagne de Reims
+            - Vallée de la Marne
+            - Côte des Blancs
+            - Aube
+    Alsace:
+      subregions:
+        Alsace:
+          subsubregions:
+            - Grand Cru
+    Languedoc:
+      subregions:
+        Languedoc:
+          subsubregions:
+            - Corbières
+            - Minervois
+            - Fitou
+Italy:
+  code: IT
+  regions:
+    Tuscany:
+      subregions:
+        Chianti:
+          subsubregions:
+            - Chianti Classico
+        Montalcino:
+          subsubregions:
+            - Brunello di Montalcino
+        Bolgheri:
+          subsubregions: []
+        Val d'Orcia:
+          subsubregions: []
+    Piedmont:
+      subregions:
+        Barolo:
+          subsubregions:
+            - La Morra
+            - Serralunga d'Alba
+            - Monforte d'Alba
+        Barbaresco:
+          subsubregions:
+            - Treiso
+            - Neive
+    Veneto:
+      subregions:
+        Valpolicella:
+          hints:
+            blend_style: Valpolicella
+          subsubregions:
+            - Valpolicella Classico
+            - Amarone della Valpolicella
+            - Recioto
+        Prosecco:
+          subsubregions:
+            - Conegliano Valdobbiadene
+        Soave:
+          subsubregions: []
+    Sicily:
+      subregions:
+        Sicily:
+          subsubregions:
+            - Etna
+            - Marsala
+    Trentino-Alto Adige:
+      subregions:
+        Alto Adige:
+          subsubregions: []
+    Friuli-Venezia Giulia:
+      subregions:
+        Friuli:
+          subsubregions: []
+    Puglia:
+      subregions:
+        Puglia:
+          subsubregions:
+            - Salento
+Spain:
+  code: ES
+  regions:
+    Rioja:
+      hints:
+        blend_style: Rioja Red
+      subregions:
+        Rioja Alta:
+          subsubregions: []
+        Rioja Alavesa:
+          subsubregions: []
+        Rioja Oriental:
+          subsubregions: []
+    Ribera del Duero:
+      subregions:
+        Ribera del Duero:
+          subsubregions: []
+    Priorat:
+      subregions:
+        Priorat:
+          subsubregions: []
+    Rías Baixas:
+      subregions:
+        Rías Baixas:
+          subsubregions: []
+    Rueda:
+      subregions:
+        Rueda:
+          subsubregions: []
+    Jerez:
+      subregions:
+        Jerez-Xérès-Sherry:
+          subsubregions:
+            - Jerez de la Frontera
+            - Sanlúcar de Barrameda
+            - El Puerto de Santa María
+    Catalonia:
+      subregions:
+        Penedès:
+          subsubregions:
+            - Cava
+    Murcia:
+      subregions:
+        Jumilla:
+          subsubregions: []
+    Valencia:
+      subregions:
+        Alicante:
+          subsubregions: []
+        Utiel-Requena:
+          subsubregions: [] 
+Portugal:
+  code: PT
+  regions:
+    Douro:
+      subregions:
+        Douro Superior:
+          subsubregions: []
+        Baixo Corgo:
+          subsubregions: []
+        Cima Corgo:
+          subsubregions: []
+    Vinho |Verde:
+      subregions:
+        Vinho Verde:
+          subsubregions: []
+    Alentejo:
+      subregions:
+        Alentejo:
+          subsubregions: []
+    Dão:
+      subregions:
+        Dão:
+          subsubregions: []
+    Madeira:
+      subregions:
+        Madeida:
+          subsubregions: []
+    Setúbal:
+      subregions:
+        Setúbal:
+          subsubregions: []
+Argentina:
+  code: AR
+  regions:
+    Mendoza:
+      subregions:
+        Luján de Cuyo:
+          subsubregions: []
+        Maipú:
+          subsubregions: []
+        Valle de Uco |Uco:
+          subsubregions:
+            - Tunuyán
+            - Tupungato
+            - San Carlos
+    San Juan:
+      subregions:
+        San Juan:
+          subsubregions: []
+    Salta:
+      subregions:
+        Salta:
+          subsubregions:
+            - Cafayate
+    Patagonia:
+      subregions:
+        Patagonia:
+          subsubregions:
+            - Neuquén
+Chile:
+  code: CL
+  regions:
+    Maipo |Region:
+      subregions:
+        Maipo |Valley:
+          subsubregions:
+            - Alto Maipo
+    Colchagua |Region:
+      subregions:
+        Colchagua |Valley:
+          subsubregions: []
+    Casablanca |Region:
+      subregions:
+        Casablanca |Valley:
+          subsubregions: []
+    Aconcagua |Region:
+      subregions:
+        Aconcagua |Valley:
+          subsubregions: []
+    Maule |Region:
+      subregions:
+        Maule |Valley:
+          subsubregions: []
+    Itata:
+      subregions:
+        Itata |Region:
+          subsubregions: []
+South Africa:
+  code: ZA
+  hints:
+    varietal_name_override:
+      Syrah: Shiraz
+  regions:
+    Western Cape:
+      subregions:
+        Stellenbosch:
+          subsubregions: []
+        Paarl:
+          subsubregions: []
+        Swartland:
+          subsubregions: []
+        Constantia:
+          subsubregions: []
+        Franschhoek:
+          subsubregions: []
+        Walker Bay:
+          subsubregions: []
+        Elgin:
+          subsubregions: []
+    Northern Cape:
+      subregions:
+        Orange River:
+          subsubregions: []
+Australia:
+  code: AU
+  hints:
+    varietal_name_override:
+      Syrah: Shiraz
+  regions:
+    South Australia:
+      subregions:
+        Barossa |Valley:
+          subsubregions: []
+        McLaren Vale:
+          subsubregions: []
+        Clare |Valley:
+          subsubregions: []
+        Eden |Valley:
+          subsubregions: []
+    Victoria:
+      subregions:
+        Yarra |Valley:
+          subsubregions: []
+        Mornington |Peninsula:
+          subsubregions: []
+    Western Australia:
+      subregions:
+        Margaret River:
+          subsubregions: []
+    New South Wales:
+      subregions:
+        Hunter |Valley:
+          subsubregions: []
+    Tasmania:
+      subregions:
+        Tasmania:
+          subsubregions: []
+New Zealand:
+  code: NZ
+  regions:
+    Marlborough:
+      subregions:
+        Wairau |Valley:
+          subsubregions: []
+        Awatere |Valley:
+          subsubregions: []
+    Central Otago:
+      subregions:
+        Cromwell:
+          subsubregions: []
+        Bannockburn:
+          subsubregions: []
+    Hawke's Bay:
+      subregions:
+        Hawke's Bay:
+          subsubregions: []
+    Nelson:
+      subregions:
+        Nelson:
+          subsubregions: []
+Germany:
+  code: DE
+  regions:
+    Mosel:
+      subregions:
+        Bernkastel:
+          subsubregions: []
+        Piesport:
+          subsubregions: []
+    Rheingau:
+      subregions:
+        Rheingau:
+          subsubregions:
+            - Rüdesheim
+    Pfalz:
+      subregions:
+        Pfalz:
+          subsubregions: []
+    Nahe:
+      subregions:
+        Nahe:
+          subsubregions: []
+    Baden:
+      subregions:
+        Baden:
+          subsubregions:
+            - Kaiserstuhl
+Austria:
+  code: AT
+  regions:
+    Niederösterreich:
+      subregions:
+        Wachau:
+          subsubregions: []
+        Kamptal:
+          subsubregions: []
+        Kremstal:
+          subsubregions: []
+    Burgenland:
+      subregions:
+        Burgenland:
+          subsubregions: []
+    Steiermark:
+      subregions:
+        Styria:
+          subsubregions: []

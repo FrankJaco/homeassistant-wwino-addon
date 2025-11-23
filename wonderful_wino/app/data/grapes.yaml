@@ -1,0 +1,247 @@
+grapes:
+  # --- Major International Reds ---
+  - Cabernet Sauvignon
+  - Merlot
+  - Pinot Noir
+  - Syrah
+  - Shiraz
+  - Malbec
+  - Zinfandel
+  - Grenache
+  - Garnacha
+  - Sangiovese
+  - Nebbiolo
+  - Tempranillo
+  - Barbera
+  - Cabernet Franc
+  - Petit Verdot
+  - Mourvèdre
+  - Mataro
+  - Carignan
+  - Cinsault
+  - Montepulciano
+  - Nero d'Avola
+  - Aglianico
+  - Dolcetto
+  - Primitivo
+  - Tannat
+  - Touriga Nacional
+  - Blaufränkisch
+  - Lemberger
+  - Pinotage
+  - Zweigelt
+  - Bobal
+  - Corvina
+  - Rondinella
+  - Molinara
+  - Refosco
+  - Teroldego
+  - Schiava
+  - Lagrein
+  - Alicante Bouschet
+  - Counoise
+  - Cinsaut
+  - Bonarda
+  - Gamay
+  - Mencia
+  - Saperavi
+  - Dornfelder
+  - Mondeuse
+  - Cannonau
+  - Negroamaro
+  - Graciano
+  - Xinomavro
+  - Agiorgitiko
+  - Ciliegiolo
+  - Pelaverga
+  - Freisa
+  - Perricone
+  - Nerello Mascalese
+  - Nerello Cappuccio
+  - Lambrusco
+  - Pinot Meunier
+  - Chambourcin
+  - Marechal Foch
+  - Frontenac
+  - Regent
+  - Leon Millot
+  - De Chaunac
+  - Marquette
+  - Concord
+  - Catawba
+  - Isabella
+
+  # --- Major International Whites ---
+  - Chardonnay
+  - Sauvignon Blanc
+  - Riesling
+  - Pinot Grigio
+  - Pinot Gris
+  - Chenin Blanc
+  - Gewürztraminer
+  - Viognier
+  - Semillon
+  - Muscat
+  - Moscato
+  - Trebbiano
+  - Ugni Blanc
+  - Albarino
+  - Albariño
+  - Verdejo
+  - Vermentino
+  - Vernaccia
+  - Soave
+  - Garganega
+  - Fiano
+  - Falanghina
+  - Greco
+  - Gavi
+  - Cortese
+  - Torrontés
+  - Gruner Veltliner
+  - Grüner Veltliner
+  - Silvaner
+  - Müller-Thurgau
+  - Muscadet
+  - Melon de Bourgogne
+  - Roussanne
+  - Marsanne
+  - Clairette
+  - Grenache Blanc
+  - Viura
+  - Macabeo
+  - Airén
+  - Pedro Ximénez
+  - Palomino
+  - Assyrtiko
+  - Roditis
+  - Moschofilero
+  - Furmint
+  - Hárslevelű
+  - Rieslaner
+  - Kerner
+  - Bacchus
+  - Scheurebe
+  - Auxerrois
+  - Pinot Blanc
+  - Weissburgunder
+  - Colombard
+  - Marsanne
+  - Roussanne
+  - Sauvignon Gris
+  - Picpoul
+  - Piquepoul
+  - Loureiro
+  - Arinto
+  - Fernão Pires
+  - Antão Vaz
+  - Rabigato
+  - Godello
+  - Viura
+  - Maccabeu
+  - Parellada
+  - Malvasia
+  - Treixadura
+  - Aligoté
+  - Jacquère
+  - Savagnin
+  - Romorantin
+  - Petit Manseng
+  - Gros Manseng
+  - Rolle
+  - Rkatsiteli
+  - Madeleine Angevine
+  - Seyval Blanc
+  - Vidal
+  - Niagara
+  - Traminette
+  - Cayuga White
+  - Edelweiss
+  - La Crescent
+  - Brianna
+
+  # --- Sparkling & Blending Grapes ---
+  - Pinot Meunier
+  - Pinot Noir
+  - Chardonnay
+  - Pinot Blanc
+  - Arbane
+  - Petit Meslier
+  - Mauzac
+  - Chenin Blanc
+  - Colombard
+
+  # --- Fortified & Dessert Grapes ---
+  - Muscat Blanc à Petits Grains
+  - Muscat of Alexandria
+  - Pedro Ximénez
+  - Palomino Fino
+  - Grenache Noir
+  - Touriga Franca
+  - Tinta Roriz
+  - Tinta Barroca
+  - Bastardo
+  - Boal
+  - Malmsey
+  - Sercial
+  - Verdelho
+
+  # --- Hybrid & Cold-Climate Varietals ---
+  - Frontenac Gris
+  - Frontenac Blanc
+  - La Crescent
+  - Maréchal Foch
+  - Léon Millot
+  - St. Pepin
+  - Prairie Star
+  - Sabrevois
+  - Petite Pearl
+  - Crimson Pearl
+  - Itasca
+  - Brianna
+  - Louise Swenson
+
+  # --- Rosé & Specialty Grapes ---
+  - Cinsault
+  - Grenache
+  - Mourvèdre
+  - Syrah
+  - Pinot Noir
+  - Tempranillo
+  - Sangiovese
+  - Zweigelt
+  - Cabernet Franc
+
+  # --- Synonyms / Alternate Names ---
+  - Shiraz (Syrah)
+  - Pinot Grigio (Pinot Gris)
+  - Grenache (Garnacha)
+  - Mataro (Mourvèdre)
+  - Primitivo (Zinfandel)
+  - Muscadet (Melon de Bourgogne)
+  - Ugni Blanc (Trebbiano)
+  - Cannonau (Grenache)
+  - Garnatxa (Grenache)
+  - Blaufränkisch (Lemberger)
+  - Vernaccia (Vermentino)
+  - Weissburgunder (Pinot Blanc)
+  - Baga
+  - Negroamaro
+  - Grolleau
+  - Tibouren
+  - Callet
+  - Listán Negro
+  - Hondarrabi Zuri
+  - Hondarrabi Beltza
+  - Plavac Mali
+  - Tribidrag
+  - Babic
+  - Vranac
+  - Feteasca Neagra
+  - Kadarka
+  - Saperavi
+  - Rara Neagra
+  - Koshu
+  - Yamanashi
+  - Duras
+  - Manseng Noir

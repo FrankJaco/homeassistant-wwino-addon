@@ -1,0 +1,8 @@
+Flask             # lightweight web server
+requests          # For making HTTP requests
+beautifulsoup4    # For parsing HTML
+lxml              # For faster parsing with BeautifulSoup
+Flask-Cors        # Added for CORS support
+selenium          # For driving a real browser
+pyyaml            # For reading configuration files
+paho-mqtt         # MQTT support

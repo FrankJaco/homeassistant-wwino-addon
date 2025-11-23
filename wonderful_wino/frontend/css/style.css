@@ -1,0 +1,614 @@
+/* Define CSS Variables for themes */
+:root {
+    --bg-color: #f8f5ed;
+    --text-color: #333;
+    --header-color: #4a0e4e;
+    --accent-color: #6b21a8;
+    --card-bg: white;
+    --border-color: #e5e7eb;
+    --button-primary-bg: #8b5cf6;
+    --button-primary-hover-bg: #7c3aed;
+    --button-secondary-bg: #e5e7eb;
+    --button-secondary-text: #4b5563;
+    --button-secondary-hover-bg: #d1d5db;
+    --table-header-bg: #f9fafb;
+    --table-border-color: #e5e7eb;
+    --input-bg: var(--card-bg);
+    --input-text: var(--text-color);
+    --input-border: var(--border-color);
+    --wine-red-text: #b91c1c;
+    --wine-red-bg: #fee2e2;
+    --wine-tag-bg: #333;
+    --cost-tier-selected-bg: #16a34a;
+    --cost-tier-selected-border: #15803d;
+}
+
+/* Dark Theme Variables */
+.dark-theme {
+    --bg-color: #2d3748;
+    --text-color: #e2e8f0;
+    --header-color: #b794f4;
+    --accent-color: #9f7aea;
+    --card-bg: #4a5568;
+    --border-color: #6b7280;
+    --button-primary-bg: #9f7aea;
+    --button-primary-hover-bg: #b794f4;
+    --button-secondary-bg: #6b7280;
+    --button-secondary-text: #e2e8f0;
+    --button-secondary-hover-bg: #718096;
+    --table-header-bg: #4a5568;
+    --table-border-color: #6b7280;
+    --input-bg: #2d3748;
+    --input-text: #e2e8f0;
+    --input-border: #6b7280;
+    --wine-tag-bg: #6b7280;
+    --cost-tier-selected-bg: #22c55e;
+    --cost-tier-selected-border: #16a34a;
+}
+
+.dark-theme .icon-button img[alt="Consume 1 Bottle"] {
+    filter: invert(1) hue-rotate(180deg);
+}
+
+/* --- MODIFIED: Styles for Draggable Image Focal Point Selector --- */
+#focalPointEditor {
+    position: relative;
+    width: 100%;
+    /* Replaced fixed height with aspect-ratio to make it a square */
+    aspect-ratio: 1 / 1;
+    border-radius: 0.375rem;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    background-color: #f3f4f6;
+    margin-bottom: 1rem;
+}
+
+.dark-theme #focalPointEditor {
+    background-color: #374151;
+}
+
+#draggableImage {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    cursor: not-allowed;
+    /* Locked by default */
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+}
+
+/* Only allow grabbing when unlocked */
+#focalPointEditor.is-unlocked #draggableImage {
+    cursor: grab;
+}
+
+#focalPointEditor.is-unlocked.is-dragging #draggableImage {
+    cursor: grabbing;
+}
+
+#focalPointEditor::before {
+    content: 'Unlock to set focal point';
+    /* Default text */
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: var(--text-color);
+    background-color: rgba(0, 0, 0, 0.4);
+    padding: 0.5rem 1rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+    pointer-events: none;
+    z-index: 10;
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+    color: white;
+    text-align: center;
+}
+
+/* Show overlay on hover, but only if it's NOT unlocked */
+#focalPointEditor:not(.is-unlocked):hover::before {
+    opacity: 1;
+}
+
+/* Change text and show on hover when it IS unlocked */
+#focalPointEditor.is-unlocked:hover::before {
+    content: 'Click and drag to set focal point';
+    opacity: 1;
+}
+
+/* Hide overlay while dragging */
+#focalPointEditor.is-dragging::before {
+    opacity: 0;
+}
+
+/* --- END MODIFIED STYLES --- */
+
+.type-filter-button {
+    padding: 0.25rem 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 9999px;
+    background-color: var(--button-secondary-bg);
+    color: var(--button-secondary-text);
+    font-weight: 500;
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s, transform 0.2s ease;
+    cursor: pointer;
+    font-size: 0.875rem;
+}
+
+.type-filter-button:hover {
+    transform: scale(1.05);
+}
+
+.type-filter-button.active {
+    background-color: var(--accent-color);
+    color: white;
+    border-color: var(--accent-color);
+}
+
+.type-filter-button[data-type-filter]:not([data-type-filter="all"]) {
+    font-size: 1.1rem;
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+}
+
+.collapsible-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.5s ease-in-out, padding-top 0.5s ease-in-out;
+}
+
+.is-expanded .collapsible-content {
+    max-height: 1000px;
+    padding-top: 1.5rem;
+}
+
+.is-expanded #collapseIcon {
+    transform: rotate(90deg);
+}
+
+/* --- ADDED: Hover effect for the collapse icon --- */
+#addWineHeader:hover #collapseIcon {
+    transform: scale(1.2);
+}
+
+.is-expanded #addWineHeader:hover #collapseIcon {
+    transform: rotate(90deg) scale(1.2);
+}
+
+/* --- END ADDED --- */
+
+.filter-button {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.375rem;
+    background-color: var(--button-secondary-bg);
+    color: var(--button-secondary-text);
+    font-weight: 500;
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s, transform 0.2s ease;
+    cursor: pointer;
+}
+
+/* --- ADDED: Hover effect for filter buttons --- */
+.filter-button:hover {
+    transform: scale(1.05);
+}
+
+/* --- END ADDED --- */
+
+.filter-button.active {
+    background-color: var(--accent-color);
+    color: white;
+    border-color: var(--accent-color);
+}
+
+.cost-tier-selector span {
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    border: 1px solid var(--border-color);
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s, transform 0.2s ease;
+}
+
+.cost-tier-selector span:hover {
+    transform: scale(1.2);
+}
+
+.cost-tier-selector span.selected {
+    background-color: var(--cost-tier-selected-bg);
+    color: white;
+    border-color: var(--cost-tier-selected-border);
+}
+
+.taste-rating-selector {
+    --star-color-empty: #d1d5db;
+    --star-color-filled: #f59e0b;
+}
+
+.taste-rating-selector span {
+    position: relative;
+    color: var(--star-color-empty);
+    transition: color 0.2s;
+    cursor: pointer;
+}
+
+.taste-rating-selector span::before {
+    position: absolute;
+    content: "⭐";
+    top: 0;
+    left: 0;
+    color: var(--star-color-filled);
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.taste-rating-selector span.hover-half::before,
+.taste-rating-selector span.rated-half::before {
+    opacity: 1;
+    width: 50%;
+    overflow: hidden;
+}
+
+.taste-rating-selector span.hover::before,
+.taste-rating-selector span.rated::before {
+    opacity: 1;
+    width: 100%;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.wine-details-cell h4 {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    color: var(--header-color);
+}
+
+.wine-details-cell p {
+    margin-top: 0.25rem;
+    margin-bottom: 0.25rem;
+    line-height: 1.3;
+    color: var(--text-color);
+}
+
+.wine-details-cell strong {
+    font-weight: 700;
+    color: var(--accent-color);
+}
+
+.wine-image-container {
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.wine-image-container:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.bg-white {
+    background-color: var(--card-bg) !important;
+    transition: background-color 0.3s ease;
+}
+
+.text-purple-800 {
+    color: var(--header-color) !important;
+}
+
+.text-gray-800,
+.text-gray-700,
+.text-gray-500 {
+    color: var(--text-color) !important;
+}
+
+.border-gray-300 {
+    border-color: var(--border-color) !important;
+}
+
+.focus\:ring-purple-500:focus {
+    --tw-ring-color: var(--accent-color) !important;
+}
+
+.bg-purple-600 {
+    background-color: var(--button-primary-bg) !important;
+}
+
+.hover\:bg-purple-700:hover {
+    background-color: var(--button-primary-hover-bg) !important;
+}
+
+.bg-gray-200 {
+    background-color: var(--button-secondary-bg) !important;
+}
+
+.hover\:bg-gray-300:hover {
+    background-color: var(--button-secondary-hover-bg) !important;
+}
+
+.text-gray-600 {
+    color: var(--button-secondary-text) !important;
+}
+
+.bg-gray-50 {
+    background-color: var(--table-header-bg) !important;
+}
+
+.divide-gray-200> :not([hidden])~ :not([hidden]) {
+    border-color: var(--table-border-color) !important;
+}
+
+.border-gray-200 {
+    border-color: var(--table-border-color) !important;
+}
+
+.modal-content {
+    background-color: var(--card-bg);
+    color: var(--text-color);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    max-width: 500px;
+    width: 90%;
+    position: relative;
+    /* max-height: 90vh; */
+    /* overflow-y: auto; */
+    transition: background-color 0.3s ease, color 0.3s ease;
+    padding: 1.5rem;
+    border-radius: 0.5rem;
+}
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: center;
+    /* align-items: center; */
+    align-items: flex-start;
+    /* Align to top */
+    z-index: 1000;
+    overflow-y: auto;
+    /* Make the overlay scrollable */
+    padding: 5vh 0;
+    /* Add vertical padding */
+}
+
+.modal-close-button {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--text-color);
+}
+
+.modal-close-button:hover {
+    color: var(--accent-color);
+}
+
+.sort-icon {
+    display: inline-block;
+    vertical-align: middle;
+    fill: currentColor;
+}
+
+.bg-red-600 {
+    background-color: #dc2626 !important;
+}
+
+.hover\:bg-red-700:hover {
+    background-color: #b91c1c !important;
+}
+
+.bg-green-600 {
+    background-color: #16a34a !important;
+}
+
+.hover\:bg-green-700:hover {
+    background-color: #15803d !important;
+}
+
+.text-green-600 {
+    color: #16a34a !important;
+}
+
+.hover\:text-green-900:hover {
+    color: #14532d !important;
+}
+
+.text-red-600 {
+    color: #dc2626 !important;
+}
+
+.hover\:text-red-900:hover {
+    color: #7f1d1d !important;
+}
+
+.bg-blue-600 {
+    background-color: #2563eb !important;
+}
+
+.hover\:bg-blue-700:hover {
+    background-color: #1d4ed8 !important;
+}
+
+.text-yellow-600 {
+    color: #ca8a04 !important;
+}
+
+.hover\:text-yellow-900:hover {
+    color: #713f12 !important;
+}
+
+.text-cyan-600 {
+    color: #0891b2 !important;
+}
+
+.hover\:text-cyan-900:hover {
+    color: #164e63 !important;
+}
+
+.icon-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+    font-size: 1.25rem;
+}
+
+.icon-button:hover {
+    transform: scale(1.2);
+}
+
+input[type="text"],
+input[type="number"],
+select,
+textarea {
+    background-color: var(--input-bg) !important;
+    color: var(--input-text) !important;
+    border-color: var(--input-border) !important;
+    transition: all 0.3s ease;
+}
+
+#sortDirectionToggle {
+    background-color: var(--button-secondary-bg) !important;
+    color: var(--button-secondary-text) !important;
+    border-color: var(--border-color) !important;
+    transition: all 0.3s ease, transform 0.2s ease;
+}
+
+#sortDirectionToggle:hover {
+    background-color: var(--button-secondary-hover-bg) !important;
+    transform: scale(1.2);
+}
+
+button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+input[readonly] {
+    background-color: #f3f4f6 !important;
+    color: #6b7280 !important;
+    cursor: not-allowed;
+}
+
+.dark-theme input[readonly] {
+    background-color: #374151 !important;
+    color: #9ca3af !important;
+}
+
+.help-icon {
+    position: absolute;
+    top: 50%;
+    right: 6px;
+    transform: translateY(-50%);
+    width: 20px;
+    height: 20px;
+    background-color: rgba(255, 255, 255, 0.3);
+    color: #4a0e4e;
+    font-weight: bold;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 14px;
+    transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.help-icon:hover {
+    transform: translateY(-50%) scale(1.2);
+    background-color: rgba(255, 255, 255, 0.5);
+}
+
+/* --- Additions for Editable Consumption Log --- */
+
+.log-entry {
+    display: flex;
+    flex-wrap: wrap;
+    /* Allow wrapping on small screens */
+    align-items: center;
+    gap: 4px 8px;
+    /* 4px vertical, 8px horizontal gap */
+    padding: 4px 0;
+}
+
+.log-date-input {
+    background-color: var(--input-bg);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 2px 4px;
+    font-family: inherit;
+    font-size: 0.875rem;
+    /* 14px */
+    line-height: 1.25rem;
+    /* 20px */
+    flex-grow: 1;
+    /* Allow it to grow */
+    min-width: 220px;
+    /* Ensure it's wide enough for date and time */
+}
+
+.dark-theme .log-date-input::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+}
+
+.log-details {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.875rem;
+}
+
+.log-type-consumed {
+    font-weight: 500;
+    color: var(--wine-red-text);
+}
+
+.log-type-acquired {
+    font-weight: 500;
+    color: #15803d;
+    /* Green */
+}
+
+.dark-theme .log-type-acquired {
+    color: #22c55e;
+    /* Lighter Green */
+}
+
+.date-saved-check {
+    font-size: 0.8rem;
+    line-height: 1;
+    animation: fadeOut 1.5s ease-out forwards;
+}
+
+@keyframes fadeOut {
+    0% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    70% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0;
+        transform: scale(0.5);
+    }
+}

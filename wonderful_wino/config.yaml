@@ -1,0 +1,54 @@
+name: Wonderful Wino
+version: "1.0.4"
+slug: wonderful_wino
+description: Access your wines from within Home Assistant and its AI/Voice assistant
+url: https://github.com/FrankJaco/homeassistant-wwino-addon
+documentation: https://github.com/FrankJaco/homeassistant-wwino-addon/blob/main/wonderful_wino/README.md
+arch:
+  - aarch64
+  - amd64
+  - armhf
+  - armv7
+startup: application
+init: false
+boot: auto
+host_network: false
+ingress: true
+ingress_port: 5000
+panel_icon: mdi:glass-wine
+panel_title: Wonderful Wino
+panel_admin: false
+map:
+  - share:rw
+options:
+  HOME_ASSISTANT_URL: "http://homeassistant.local:8123"
+  HA_LONG_LIVED_TOKEN: ""
+  TODO_LIST_ENTITY_ID: "todo.my_wine"
+  LOG_LEVEL: "info"
+  
+  # --- MQTT Discovery Settings (Optional) ---
+  USE_MQTT_DISCOVERY: false
+  MQTT_HOST: ""
+  MQTT_PORT: 1883
+  MQTT_USER: ""
+  MQTT_PASSWORD: ""
+
+schema:
+  HOME_ASSISTANT_URL: str
+  HA_LONG_LIVED_TOKEN: password
+  TODO_LIST_ENTITY_ID: str
+  
+  # --- MQTT Discovery Settings (Optional) ---
+  USE_MQTT_DISCOVERY: bool
+  MQTT_HOST: str
+  MQTT_PORT: int
+  MQTT_USER: str
+  MQTT_PASSWORD: password
+  
+  LOG_LEVEL: list(debug|info|warning|error|critical)
+
+ports:
+  5000/tcp: 5000
+ports_description:
+  5000/tcp: Flask application HTTP port
+webui: "http://[HOST]:[PORT:5000]"

@@ -1,0 +1,33 @@
+<div id="tasteModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="tasteModalTitle">
+    <div class="modal-content">
+        <button class="modal-close-button" onclick="closeModal()">&times;</button>
+        <h3 id="tasteModalTitle" class="text-xl font-semibold mb-2">Consume Wine</h3>
+        <p id="tasteModalWineName" class="mb-4 text-gray-700"></p>
+        <form id="tasteForm">
+            <input type="hidden" id="tasteVivinoUrl">
+            <label class="block text-sm font-medium mb-2">How did it taste? (Optional)</label>
+
+            <!-- Flex container to align stars and spinner -->
+            <div class="flex items-center space-x-4 mb-2">
+                <!-- Star Selector -->
+                <div id="tasteRatingSelector" class="flex text-4xl taste-rating-selector cursor-pointer select-none">
+                    <span data-value="1">☆</span><span data-value="2">☆</span><span data-value="3">☆</span><span
+                        data-value="4">☆</span><span data-value="5">☆</span>
+                </div>
+
+                <!-- Precise Rating Spinner (0.1 increments) -->
+                <input type="number" id="tasteRatingInput" step="0.1" min="0" max="5" placeholder="0.0"
+                    class="w-20 p-1 text-xl text-center border border-gray-300 rounded-md focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+            </div>
+
+            <p id="tasteRatingFeedback" class="text-sm text-gray-600 h-6 mb-4 pl-1"></p>
+
+            <div class="mt-6 flex justify-end gap-4">
+                <button type="button" onclick="closeModal()"
+                    class="bg-gray-200 text-gray-600 px-6 py-2 rounded-md hover:bg-gray-300">Cancel</button>
+                <button type="submit" id="tasteSubmitBtn"
+                    class="bg-purple-600 text-white px-6 py-2 rounded-md hover:bg-purple-700">Consume</button>
+            </div>
+        </form>
+    </div>
+</div>

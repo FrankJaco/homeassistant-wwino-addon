@@ -1,0 +1,35 @@
+---
+---
+// Import the remote theme's styles by its file name
+@import "jekyll-theme-slate";
+
+/* * 1. Ensure containers are full-width so .inner can control the layout.
+ */
+.wrapper, .container {
+    max-width: 100% !important; 
+    width: 100% !important;
+}
+
+/* * 2. The .inner container defines the content layout.
+ * Set content to 75% width, pushed over by 20% on the left, 
+ * which leaves the desired 5% gap on the right.
+ */
+.inner {
+    max-width: 1800px !important; 
+    
+    // Content width is 75% (100% - 20% left margin - 5% right margin)
+    width: 75% !important;        
+    
+    // Margins: 0 (top) 5% (right) 0 (bottom) 20% (left)
+    margin: 0 5% 0 20% !important; 
+    padding: 40px 10px 20px 10px !important;
+}
+
+/* * 3. Override any media queries for large screens.
+ */
+@media (min-width: 64em) {
+    .inner {
+        width: 75% !important;
+        margin: 0 5% 0 20% !important; 
+    }
+}
